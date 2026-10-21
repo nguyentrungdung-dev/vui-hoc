@@ -1,0 +1,14 @@
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+.env*
+!.env.example
+.DS_Store
+._*
+*.log
+
+# Local uploads, AI results and session ownership
+.data/
+.test-data/
