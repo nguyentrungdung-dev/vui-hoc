@@ -1,3 +1,4 @@
+import { databaseEnabled, databaseLock, query } from "./database";
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -26,7 +27,17 @@ export async function readJob(
   id: string,
   owner?: string,
 ): Promise<DocumentJob> {
+  jobDir(id);
   let job: DocumentJob;
+  if (databaseEnabled()) {
+    const result = await query<{ data: DocumentJob }>(
+      "SELECT data FROM vuihoc_documents WHERE id = $1 AND ($2::text IS NULL OR owner = $2)",
+      [id, owner ?? null],
+    );
+    if (!result.rows[0])
+      throw new AppError("Không tìm thấy tài liệu trong trình duyệt này.", 404);
+    return result.rows[0].data;
+  }
   try {
     job = JSON.parse(
       await fs.readFile(path.join(jobDir(id), "job.json"), "utf8"),
@@ -39,6 +50,16 @@ export async function readJob(
   return job;
 }
 export async function writeJob(job: DocumentJob) {
+  jobDir(job.id);
+  if (databaseEnabled()) {
+    job.updatedAt = new Date().toISOString();
+    await query(
+      `INSERT INTO vuihoc_documents (id, owner, data) VALUES ($1, $2, $3::jsonb)
+      ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = now() WHERE vuihoc_documents.owner = EXCLUDED.owner`,
+      [job.id, job.owner, JSON.stringify(job)],
+    );
+    return;
+  }
   const dir = jobDir(job.id);
   await fs.mkdir(dir, { recursive: true, mode: 0o700 });
   const temp = path.join(dir, `${randomUUID()}.tmp`);
@@ -50,7 +71,9 @@ export async function lock<T>(
   target: string,
   fn: () => Promise<T>,
 ): Promise<T> {
-  const lockPath = `${target}.lock`;
+  if (databaseEnabled()) return databaseLock(target, fn);
+  const lockPath = `${path.isAbsolute(target) ? target : path.join(dataRoot(), target.replace(/:/g, "-"))}.lock`;
+  await fs.mkdir(path.dirname(lockPath), { recursive: true, mode: 0o700 });
   let handle;
   for (let attempt = 0; attempt < 100; attempt++) {
     try {
@@ -91,7 +114,7 @@ export async function updateJob(
   fn: (job: DocumentJob) => void,
   owner?: string,
 ) {
-  return lock(path.join(jobDir(id), "job"), async () => {
+  return lock(`document:${id}`, async () => {
     const job = await readJob(id, owner);
     fn(job);
     await writeJob(job);
@@ -99,6 +122,13 @@ export async function updateJob(
   });
 }
 export async function listJobs(owner?: string) {
+  if (databaseEnabled()) {
+    const result = await query<{ data: DocumentJob }>(
+      "SELECT data FROM vuihoc_documents WHERE ($1::text IS NULL OR owner = $1) ORDER BY data->>'createdAt' DESC",
+      [owner ?? null],
+    );
+    return result.rows.map((row) => row.data);
+  }
   const entries = await fs
     .readdir(path.join(dataRoot(), "documents"))
     .catch(() => []);
@@ -108,12 +138,4 @@ export async function listJobs(owner?: string) {
   return jobs
     .filter((j): j is DocumentJob => !!j)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-}
-export async function workerAlive() {
-  try {
-    const heartbeat = await fs.stat(path.join(dataRoot(), "worker-heartbeat"));
-    return Date.now() - heartbeat.mtimeMs < 15000;
-  } catch {
-    return false;
-  }
 }

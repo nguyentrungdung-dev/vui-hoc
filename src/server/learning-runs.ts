@@ -1,3 +1,4 @@
+import { databaseEnabled, query } from "./database";
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -14,11 +15,24 @@ import { jobDir, lock, readJob } from "./store";
 import { AppError } from "./validation";
 import { runActionSchema, startRunRequest } from "./learning-validation";
 function runPath(docId: string, id: string) {
-  if (!/^[0-9a-f-]{36}$/.test(id) || id.includes(".."))
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
+      id,
+    )
+  )
     throw new AppError("Không tìm thấy bài làm.", 404);
   return path.join(jobDir(docId), "runs", `${id}.json`);
 }
 async function saveRun(run: LearningRun) {
+  if (databaseEnabled()) {
+    run.updatedAt = new Date().toISOString();
+    await query(
+      `INSERT INTO vuihoc_runs (id, document_id, data) VALUES ($1, $2, $3::jsonb)
+      ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = now() WHERE vuihoc_runs.document_id = EXCLUDED.document_id`,
+      [run.id, run.documentId, JSON.stringify(run)],
+    );
+    return;
+  }
   const target = runPath(run.documentId, run.id);
   await fs.mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
   const temp = target + "." + randomUUID() + ".tmp";
@@ -28,6 +42,15 @@ async function saveRun(run: LearningRun) {
 }
 export async function readRun(docId: string, id: string, owner: string) {
   await readJob(docId, owner);
+  runPath(docId, id);
+  if (databaseEnabled()) {
+    const result = await query<{ data: LearningRun }>(
+      "SELECT data FROM vuihoc_runs WHERE id=$1 AND document_id=$2",
+      [id, docId],
+    );
+    if (!result.rows[0]) throw new AppError("Không tìm thấy bài làm.", 404);
+    return result.rows[0].data;
+  }
   try {
     return JSON.parse(
       await fs.readFile(runPath(docId, id), "utf8"),
@@ -38,6 +61,13 @@ export async function readRun(docId: string, id: string, owner: string) {
 }
 export async function listRuns(docId: string, owner: string) {
   await readJob(docId, owner);
+  if (databaseEnabled()) {
+    const result = await query<{ data: LearningRun }>(
+      "SELECT data FROM vuihoc_runs WHERE document_id=$1 ORDER BY updated_at DESC",
+      [docId],
+    );
+    return result.rows.map((row) => row.data);
+  }
   const files = await fs
     .readdir(path.join(jobDir(docId), "runs"))
     .catch(() => []);
@@ -97,7 +127,7 @@ export async function startLearningRun(
   const parsed = startRunRequest.safeParse(input);
   if (!parsed.success) throw new AppError("Lựa chọn bài làm chưa hợp lệ.");
   const request = parsed.data;
-  return lock(path.join(jobDir(docId), "create-run"), async () => {
+  return lock(`create-run:${docId}`, async () => {
     const job = await readJob(docId, owner);
     const pack = job.learning;
     if (!pack) throw new AppError("Hãy tạo bài học trước.");
@@ -238,7 +268,7 @@ export async function changeRun(
   input: unknown,
 ) {
   await readRun(docId, id, owner);
-  return lock(runPath(docId, id), async () => {
+  return lock(`run:${docId}:${id}`, async () => {
     const run = await readRun(docId, id, owner);
     applyRunAction(run, input);
     await saveRun(run);

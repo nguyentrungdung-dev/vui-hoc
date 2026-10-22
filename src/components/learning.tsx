@@ -236,7 +236,7 @@ export function LearningPanel({ document: doc }: { document: PublicDocument }) {
           {working && (
             <p className="micro">
               Em có thể về thư viện rồi quay lại. Các phần đã xong được lưu; bộ
-              tạo bài tiếp tục khi máy chủ đang chạy.
+              tạo bài được tiếp tục và lưu lại theo từng phần.
             </p>
           )}
           {pack.errors.length > 0 && (

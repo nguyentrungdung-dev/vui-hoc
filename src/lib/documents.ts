@@ -93,10 +93,13 @@ export type DocumentJob = {
   model: string;
   owner: string;
   learning?: LearningPack;
+  storage?: "local" | "blob";
+  analysisExecution?: string;
+  learningExecution?: string;
 };
 export type PublicDocument = Omit<
   DocumentJob,
-  "owner" | "batches" | "learning"
+  "owner" | "batches" | "learning" | "analysisExecution" | "learningExecution"
 > & {
   summaries: string[];
   pages: AnalysisPage[];
@@ -114,7 +117,14 @@ export const statusNames: Record<DocumentStatus, string> = {
   failed: "Cần thử lại",
 };
 export function publicDocument(job: DocumentJob): PublicDocument {
-  const { owner: _owner, learning: _learning, batches, ...rest } = job;
+  const {
+    owner: _owner,
+    learning: _learning,
+    analysisExecution: _analysis,
+    learningExecution: _generation,
+    batches,
+    ...rest
+  } = job;
   return {
     ...rest,
     summaries: batches.flatMap((b) =>

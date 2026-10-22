@@ -3,28 +3,29 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently --kill-others -n web,worker \"next dev --hostname 127.0.0.1\" \"npm run worker\"",
+    "dev": "next dev --hostname 127.0.0.1",
     "build": "next build",
-    "start": "concurrently --kill-others -n web,worker \"next start --hostname 127.0.0.1\" \"npm run worker\"",
+    "start": "next start --hostname 127.0.0.1",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test src/lib/*.test.ts src/server/*.test.ts",
     "format": "prettier --write src next.config.ts package.json tsconfig.json README.md docs/*.md",
-    "format:check": "prettier --check src next.config.ts package.json tsconfig.json README.md docs/*.md",
-    "worker": "tsx src/server/worker.ts"
+    "format:check": "prettier --check src next.config.ts package.json tsconfig.json README.md docs/*.md"
   },
   "dependencies": {
-    "concurrently": "^10.0.6",
-    "dotenv": "^18.0.8",
+    "@vercel/blob": "^2.8.2",
     "lucide-react": "^0.468.0",
     "next": "^16.4.2",
     "pdf-lib": "^1.17.1",
+    "pg": "^8.23.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "sharp": "^0.35.5",
+    "workflow": "^5.2.3",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "prettier": "^3.9.10",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { upload } from "@vercel/blob/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -28,7 +29,12 @@ import { ButtonLink, Character, PageTitle } from "./ui";
 
 import { LearningPanel } from "./learning";
 
-type Config = { configured: boolean; workerAlive: boolean; model: string };
+type Config = {
+  configured: boolean;
+  storage: "local" | "blob";
+  storageConfigured: boolean;
+  model: string;
+};
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`/api/documents${path}`, {
     ...options,
@@ -66,10 +72,10 @@ function ConfigNotice({ config }: { config: Config | null }) {
           nhận diện sau khi người lớn kết nối OpenRouter.
         </div>
       )}
-      {!config.workerAlive && (
+      {!config.storageConfigured && (
         <div className="notice" role="status">
-          Bộ xử lý tài liệu chưa chạy. Người lớn hãy khởi động lại dự án bằng{" "}
-          <code>npm run dev</code> để tài liệu trong hàng chờ được xử lý.
+          Kho tài liệu đang chờ kết nối. Người lớn cần hoàn tất cấu hình trước
+          khi gửi tài liệu.
         </div>
       )}
     </>
@@ -239,12 +245,35 @@ function mimeFor(file: File) {
     )[extension || ""] || file.type
   );
 }
-function uploadFile(
+async function uploadFile(
+  storage: PublicDocument["storage"],
   id: string,
   index: number,
   file: File,
   onProgress: (n: number) => void,
 ) {
+  if (storage === "blob") {
+    const endpoint = `/${id}/files/${index}`;
+    try {
+      await upload(`documents/${id}/source-${index}`, file, {
+        access: "private",
+        handleUploadUrl: `/api/documents${endpoint}/token`,
+        contentType: mimeFor(file),
+        multipart: true,
+        onUploadProgress: ({ loaded }) => onProgress(loaded),
+      });
+    } catch (error) {
+      // Recover an upload that finished in Blob but lost its browser acknowledgement.
+      try {
+        await api(`${endpoint}/complete`, { method: "POST" });
+        return;
+      } catch {
+        throw error;
+      }
+    }
+    await api(`${endpoint}/complete`, { method: "POST" });
+    return;
+  }
   return new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", `/api/documents/${id}/files/${index}`);
@@ -389,7 +418,7 @@ export function UploadPage({
         setStatus(`Đang tải ${files[i].name} (${i + 1}/${files.length})…`);
         const before = done;
         if (!job.files[i].uploaded)
-          await uploadFile(job.id, i, files[i], (n) =>
+          await uploadFile(job.storage, job.id, i, files[i], (n) =>
             setProgress(Math.round(((before + n) / total) * 100)),
           );
         done += files[i].size;

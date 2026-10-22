@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { promises as fs } from "node:fs";
 import {
   publicDocument,
   subjects,
@@ -14,7 +13,8 @@ import {
   type LearningQuestion,
 } from "../lib/learning";
 import { AppError } from "./validation";
-import { filePath, readJob, updateJob } from "./store";
+import { readJob, updateJob } from "./store";
+import { readSourceFile } from "./source-files";
 import {
   loadPdf,
   splitPdf,
@@ -139,9 +139,13 @@ async function setPack(
   id: string,
   packId: string,
   fn: (p: LearningPack) => void,
+  execution?: string,
 ) {
   return updateJob(id, (j) => {
-    if (j.learning?.id !== packId)
+    if (
+      j.learning?.id !== packId ||
+      (execution && j.learningExecution !== execution)
+    )
       throw new AppError("Bộ học đã thay đổi.", 409);
     fn(j.learning);
     j.learning.updatedAt = new Date().toISOString();
@@ -153,7 +157,7 @@ async function attachments(
 ): Promise<AIContent[]> {
   if (!pages.length) return [];
   if (job.files[0].mime === "application/pdf") {
-    const pdf = await loadPdf(await fs.readFile(filePath(job.id, 0)));
+    const pdf = await loadPdf(await readSourceFile(job, 0));
     return [
       {
         type: "text",
@@ -175,7 +179,7 @@ async function attachments(
       {
         type: "image_url",
         image_url: {
-          url: `data:image/jpeg;base64,${(await normalizeImage(await fs.readFile(filePath(job.id, p - 1)))).toString("base64")}`,
+          url: `data:image/jpeg;base64,${(await normalizeImage(await readSourceFile(job, p - 1))).toString("base64")}`,
         },
       },
     );
@@ -501,65 +505,100 @@ export async function buildPart(
   }
   throw new AppError("Chưa tạo được phần bài học.");
 }
-export async function processLearning(id: string, signal?: AbortSignal) {
-  let job = await readJob(id);
-  const packId = job.learning?.id;
-  if (!packId) return;
-  try {
-    signal?.throwIfAborted();
-    await setPack(id, packId, (p) => {
+export async function prepareLearning(id: string, execution?: string) {
+  const job = await readJob(id);
+  if (!job.learning || (execution && job.learningExecution !== execution))
+    return [];
+  await setPack(
+    id,
+    job.learning.id,
+    (p) => {
       p.status = "generating";
       p.model = modelName();
       p.message = "Đang soạn và kiểm tra lời giải…";
-    });
-    for (const planned of job.learning!.parts) {
-      signal?.throwIfAborted();
-      if (planned.done) continue;
-      job = await readJob(id);
-      const pack = job.learning!;
-      await setPack(id, packId, (p) => {
-        p.message =
-          planned.kind === "original"
-            ? `Đang giải và kiểm tra ${planned.count} câu nguồn…`
-            : `Đang tạo và kiểm tra bộ luyện (${p.parts.filter((x) => x.kind === "practice").flatMap((x) => x.questions).length}/${p.count} câu)…`;
-      });
-      try {
-        const result = await buildPart(job, pack, planned, signal);
-        await setPack(id, packId, (p) => {
-          const part = p.parts.find((x) => x.key === planned.key)!;
-          part.questions = result.questions;
-          part.skipped = result.skipped;
-          part.done = true;
-          delete part.error;
-        });
-      } catch (e) {
-        signal?.throwIfAborted();
-        await setPack(id, packId, (p) => {
-          p.parts.find((x) => x.key === planned.key)!.error = safeError(e);
-        });
+    },
+    execution,
+  );
+  return job.learning.parts.filter((p) => !p.done).map((p) => p.key);
+}
+export async function generatePart(
+  id: string,
+  key: string,
+  execution?: string,
+  signal = AbortSignal.timeout(240000),
+) {
+  const job = await readJob(id);
+  const pack = job.learning;
+  if (
+    !pack ||
+    (execution && job.learningExecution !== execution) ||
+    pack.status === "waiting_config"
+  )
+    return;
+  const planned = pack.parts.find((p) => p.key === key);
+  if (!planned || planned.done) return;
+  await setPack(
+    id,
+    pack.id,
+    (p) => {
+      p.message =
+        planned.kind === "original"
+          ? `Đang giải và kiểm tra ${planned.count} câu nguồn…`
+          : `Đang tạo và kiểm tra bộ luyện (${p.parts.filter((x) => x.kind === "practice").flatMap((x) => x.questions).length}/${p.count} câu)…`;
+    },
+    execution,
+  );
+  try {
+    const result = await buildPart(job, pack, planned, signal);
+    await setPack(
+      id,
+      pack.id,
+      (p) => {
+        const part = p.parts.find((x) => x.key === key)!;
+        part.questions = result.questions;
+        part.skipped = result.skipped;
+        part.done = true;
+        delete part.error;
+      },
+      execution,
+    );
+  } catch (e) {
+    await setPack(
+      id,
+      pack.id,
+      (p) => {
+        p.parts.find((x) => x.key === key)!.error = signal.aborted
+          ? "Phần này xử lý quá lâu. Hãy thử lại phần chưa xong."
+          : safeError(e);
         if (e instanceof AppError && e.status === 503) {
-          await setPack(id, packId, (p) => {
-            p.status = "waiting_config";
-            p.message = e.message;
-          });
-          return;
+          p.status = "waiting_config";
+          p.message = e.message;
         }
-      }
-    }
-    await setPack(id, packId, (p) => {
+      },
+      execution,
+    );
+  }
+}
+export async function finishLearning(id: string, execution?: string) {
+  const job = await readJob(id);
+  if (!job.learning) return;
+  await setPack(
+    id,
+    job.learning.id,
+    (p) => {
+      if (p.status === "waiting_config") return;
       const failed = p.parts.some((x) => !x.done);
       const ready = p.parts.some((x) => x.questions.length);
       p.status = failed ? (ready ? "partial" : "failed") : "ready";
       p.message = failed
         ? "Một số phần chưa đạt kiểm tra. Em có thể học phần đã xong và thử lại phần còn lại."
         : `Đã tạo và kiểm tra ${p.count} câu luyện cùng lời giải cho các câu nguồn đủ dữ kiện.`;
-    });
-  } catch (e) {
-    await setPack(id, packId, (p) => {
-      p.status = signal?.aborted ? "queued" : "failed";
-      p.message = signal?.aborted
-        ? "Sẽ tiếp tục khi bộ xử lý khởi động lại."
-        : safeError(e);
-    });
-  }
+    },
+    execution,
+  );
+}
+export async function processLearning(id: string, signal?: AbortSignal) {
+  for (const key of await prepareLearning(id))
+    await generatePart(id, key, undefined, signal);
+  await finishLearning(id);
 }

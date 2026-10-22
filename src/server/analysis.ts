@@ -1,10 +1,10 @@
-import { promises as fs } from "node:fs";
 import { PDFDocument } from "pdf-lib";
 import sharp from "sharp";
 import { z } from "zod";
 import { subjects, type DocumentJob } from "../lib/documents";
 import { AppError, batchSchema, parsePages, validateBatch } from "./validation";
-import { filePath, readJob, updateJob } from "./store";
+import { readJob, updateJob } from "./store";
+import { readSourceFile } from "./source-files";
 
 export const modelName = () =>
   process.env.OPENROUTER_MODEL || "anthropic/claude-haiku-4.5";
@@ -179,110 +179,136 @@ export async function analyzeContent(
   return validateBatch(value, pages);
 }
 
+function updateAnalysis(
+  id: string,
+  execution: string | undefined,
+  fn: (job: DocumentJob) => void,
+) {
+  return updateJob(id, (j) => {
+    if (execution && j.analysisExecution !== execution)
+      throw new AppError("Lượt xử lý đã thay đổi.", 409);
+    fn(j);
+  });
+}
+export async function prepareAnalysis(id: string, execution?: string) {
+  let job = await updateAnalysis(id, execution, (j) => {
+    j.status = "preparing";
+    j.message = "Đang kiểm tra trang và nội dung tệp…";
+  });
+  const isPdf = job.files[0].mime === "application/pdf";
+  const pdf = isPdf ? await loadPdf(await readSourceFile(job, 0)) : null;
+  const selected = parsePages(
+    job.pageRange,
+    pdf?.getPageCount() ?? job.files.length,
+  );
+  job = await updateAnalysis(id, execution, (j) => {
+    j.totalPages = pdf?.getPageCount() ?? j.files.length;
+    j.selectedPages = selected;
+    if (!j.batches.length)
+      for (let i = 0; i < selected.length; i += isPdf ? 2 : 1) {
+        const pages = selected.slice(i, i + (isPdf ? 2 : 1));
+        j.batches.push({ key: `pages-${pages.join("-")}`, pages });
+      }
+    j.model = modelName();
+    j.status = process.env.OPENROUTER_API_KEY?.trim()
+      ? "analyzing"
+      : "waiting_config";
+    j.message =
+      j.status === "waiting_config"
+        ? "Tài liệu đã lưu. Chờ cấu hình OpenRouter để nhận diện nội dung."
+        : "Đang đọc câu hỏi và phân loại dạng bài…";
+  });
+  return job.status === "waiting_config"
+    ? []
+    : job.batches.filter((b) => !b.result).map((b) => b.key);
+}
+export async function analyzeBatch(
+  id: string,
+  key: string,
+  execution?: string,
+  signal = AbortSignal.timeout(240000),
+) {
+  const job = await readJob(id);
+  if (
+    (execution && job.analysisExecution !== execution) ||
+    job.status === "waiting_config"
+  )
+    return;
+  const batch = job.batches.find((b) => b.key === key);
+  if (!batch || batch.result) return;
+  await updateAnalysis(id, execution, (j) => {
+    j.message = `Đang nhận diện trang ${batch.pages.join(", ")}…`;
+  });
+  try {
+    const pdf =
+      job.files[0].mime === "application/pdf"
+        ? await loadPdf(await readSourceFile(job, 0))
+        : null;
+    const content: Content[] = pdf
+      ? [
+          {
+            type: "file",
+            file: {
+              filename: `pages-${batch.pages.join("-")}.pdf`,
+              file_data: `data:application/pdf;base64,${(await splitPdf(pdf, batch.pages)).toString("base64")}`,
+            },
+          },
+        ]
+      : [
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:image/jpeg;base64,${(await normalizeImage(await readSourceFile(job, batch.pages[0] - 1))).toString("base64")}`,
+            },
+          },
+        ];
+    const result = await analyzeContent(job, batch.pages, content, { signal });
+    await updateAnalysis(id, execution, (j) => {
+      const b = j.batches.find((b) => b.key === key)!;
+      b.result = result;
+      delete b.error;
+      j.completedPages = j.batches
+        .filter((b) => b.result)
+        .flatMap((b) => b.pages);
+    });
+  } catch (error) {
+    await updateAnalysis(id, execution, (j) => {
+      j.batches.find((b) => b.key === key)!.error = safeError(error);
+      if (error instanceof AppError && error.status === 503) {
+        j.status = "waiting_config";
+        j.message = error.message;
+      }
+    });
+  }
+}
+export async function finishAnalysis(id: string, execution?: string) {
+  await updateAnalysis(id, execution, (j) => {
+    if (!["preparing", "analyzing"].includes(j.status)) return;
+    const failed = j.batches.some((b) => !b.result);
+    j.status = failed
+      ? j.completedPages.length
+        ? "partial"
+        : "failed"
+      : "complete";
+    j.message = failed
+      ? "Một số trang chưa đọc được. Em có thể xem phần đã xong và thử lại phần còn lại."
+      : "Đã nhận diện xong. Em chọn chủ đề để xem câu hỏi nhé!";
+  });
+}
+// Shared by CLI tests; production runs each operation as a separate durable step.
 export async function processJob(id: string, signal?: AbortSignal) {
   try {
     signal?.throwIfAborted();
-    let job = await updateJob(id, (j) => {
-      j.status = "preparing";
-      j.message = "Đang kiểm tra trang và nội dung tệp…";
-    });
-    const isPdf = job.files[0].mime === "application/pdf";
-    const pdf = isPdf
-      ? await loadPdf(await fs.readFile(filePath(id, 0)))
-      : null;
-    const selected = parsePages(
-      job.pageRange,
-      pdf?.getPageCount() ?? job.files.length,
-    );
-    // Normalize every selected image before the API call, even when AI is not configured.
-    if (!isPdf)
-      for (const page of selected)
-        await normalizeImage(await fs.readFile(filePath(id, page - 1)));
-    job = await updateJob(id, (j) => {
-      j.totalPages = pdf?.getPageCount() ?? j.files.length;
-      j.selectedPages = selected;
-      if (!j.batches.length)
-        for (let i = 0; i < selected.length; i += isPdf ? 2 : 1) {
-          const pages = selected.slice(i, i + (isPdf ? 2 : 1));
-          j.batches.push({ key: `pages-${pages.join("-")}`, pages });
-        }
-      j.model = modelName();
-      j.status = process.env.OPENROUTER_API_KEY?.trim()
-        ? "analyzing"
-        : "waiting_config";
-      j.message =
-        j.status === "waiting_config"
-          ? "Tài liệu đã lưu và kiểm tra xong. Chờ cấu hình OpenRouter để nhận diện nội dung."
-          : "Đang đọc câu hỏi và phân loại dạng bài…";
-    });
-    if (job.status === "waiting_config") return;
-    for (const batch of job.batches) {
+    for (const key of await prepareAnalysis(id)) {
       signal?.throwIfAborted();
-      if (batch.result) continue;
-      await updateJob(id, (j) => {
-        j.message = `Đang nhận diện trang ${batch.pages.join(", ")}…`;
-      });
-      try {
-        const content: Content[] = pdf
-          ? [
-              {
-                type: "file",
-                file: {
-                  filename: `pages-${batch.pages.join("-")}.pdf`,
-                  file_data: `data:application/pdf;base64,${(await splitPdf(pdf, batch.pages)).toString("base64")}`,
-                },
-              },
-            ]
-          : [
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:image/jpeg;base64,${(await normalizeImage(await fs.readFile(filePath(id, batch.pages[0] - 1)))).toString("base64")}`,
-                },
-              },
-            ];
-        const result = await analyzeContent(job, batch.pages, content, {
-          signal,
-        });
-        await updateJob(id, (j) => {
-          const b = j.batches.find((b) => b.key === batch.key)!;
-          b.result = result;
-          delete b.error;
-          j.completedPages = j.batches
-            .filter((b) => b.result)
-            .flatMap((b) => b.pages);
-        });
-      } catch (error) {
-        signal?.throwIfAborted();
-        const message = safeError(error);
-        await updateJob(id, (j) => {
-          j.batches.find((b) => b.key === batch.key)!.error = message;
-        });
-        if (error instanceof AppError && error.status === 503) {
-          await updateJob(id, (j) => {
-            j.status = "waiting_config";
-            j.message = message;
-          });
-          return;
-        }
-      }
+      await analyzeBatch(id, key, undefined, signal);
     }
-    await updateJob(id, (j) => {
-      const failed = j.batches.some((b) => !b.result);
-      j.status = failed
-        ? j.completedPages.length
-          ? "partial"
-          : "failed"
-        : "complete";
-      j.message = failed
-        ? "Một số trang chưa đọc được. Em có thể xem phần đã xong và thử lại phần còn lại."
-        : "Đã nhận diện xong. Em chọn chủ đề để xem câu hỏi nhé!";
-    });
+    await finishAnalysis(id);
   } catch (error) {
     await updateJob(id, (j) => {
       j.status = signal?.aborted ? "queued" : "failed";
       j.message = signal?.aborted
-        ? "Sẽ tiếp tục khi bộ xử lý khởi động lại."
+        ? "Tác vụ đang chờ tiếp tục."
         : safeError(error);
     });
   }

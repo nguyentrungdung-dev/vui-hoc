@@ -1,4 +1,6 @@
-import { test, after } from "node:test";
+import { test, after, mock } from "node:test";
+import { dispatcher } from "./dispatch";
+mock.method(dispatcher, "start", async () => {});
 import assert from "node:assert/strict";
 import { promises as fs, mkdtempSync } from "node:fs";
 import os from "node:os";
@@ -405,7 +407,7 @@ test("Origin validation accepts the browser Host when Next internally uses local
   assert.equal((await POST(crossOrigin, context([]))).status, 403);
 });
 
-test("Stopping the worker preserves a queued job for restart", async () => {
+test("Interrupted processing preserves saved input for retry", async () => {
   const bytes = await pdfBytes();
   const now = new Date().toISOString();
   const id = randomUUID();

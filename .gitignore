@@ -12,3 +12,9 @@ coverage/
 # Local uploads, AI results and session ownership
 .data/
 .test-data/
+
+# Local Workflow runtime data and generated route code
+.workflow-data/
+.vercel/
+src/app/.well-known/workflow/
+/.swc

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { createReadStream, promises as fs } from "node:fs";
-import { Readable } from "node:stream";
+import { promises as fs } from "node:fs";
 import { publicDocument, type DocumentJob } from "@/lib/documents";
 import { AppError, createSchema, sniffMime } from "@/server/validation";
 import {
@@ -10,10 +9,17 @@ import {
   lock,
   readJob,
   updateJob,
-  workerAlive,
   writeJob,
 } from "@/server/store";
 import { modelName } from "@/server/analysis";
+import { enqueue } from "@/server/dispatch";
+import {
+  storageMode,
+  requireStorage,
+  authorizeBlobUpload,
+  completeBlobUpload,
+  openSource,
+} from "@/server/source-files";
 
 import { preparePack } from "@/server/generation";
 import {
@@ -97,7 +103,10 @@ async function handler(request: NextRequest, context: Context) {
     if (method === "GET" && parts.join("/") === "config") {
       response = NextResponse.json({
         configured: !!process.env.OPENROUTER_API_KEY?.trim(),
-        workerAlive: await workerAlive(),
+        storage: storageMode(),
+        storageConfigured:
+          storageMode() === "local" ||
+          !!process.env.BLOB_READ_WRITE_TOKEN?.trim(),
         model: modelName(),
       });
     } else if (
@@ -131,14 +140,20 @@ async function handler(request: NextRequest, context: Context) {
       method === "POST"
     ) {
       const input = await jsonBody(request);
+      const execution = randomUUID();
       const job = await updateJob(
         parts[0],
         (j) => {
           j.learning = preparePack(j, input);
+          if (j.learning.status === "queued") j.learningExecution = execution;
         },
         session.owner,
       );
-      response = NextResponse.json(await learningView(job, session.owner));
+      if (job.learning?.status === "queued")
+        await enqueue("learning", job.id, execution);
+      response = NextResponse.json(
+        await learningView(await readJob(job.id, session.owner), session.owner),
+      );
     } else if (parts.length === 2 && parts[1] === "runs" && method === "POST") {
       response = NextResponse.json(
         await startLearningRun(
@@ -165,6 +180,7 @@ async function handler(request: NextRequest, context: Context) {
         documents: (await listJobs(session.owner)).map(publicDocument),
       });
     } else if (!parts.length && method === "POST") {
+      requireStorage();
       const parsed = createSchema.safeParse(await jsonBody(request));
       if (!parsed.success)
         throw new AppError(
@@ -177,6 +193,7 @@ async function handler(request: NextRequest, context: Context) {
         ...input,
         files: input.files.map((f) => ({ ...f, uploaded: false })),
         id: randomUUID(),
+        storage: storageMode(),
         owner: session.owner,
         createdAt: now,
         updatedAt: now,
@@ -199,6 +216,7 @@ async function handler(request: NextRequest, context: Context) {
       method === "POST" &&
       ["start", "retry"].includes(parts[1])
     ) {
+      const execution = randomUUID();
       const job = await updateJob(
         parts[0],
         (j) => {
@@ -213,13 +231,39 @@ async function handler(request: NextRequest, context: Context) {
             );
           if (j.files.some((f) => !f.uploaded))
             throw new AppError("Chưa tải đủ tệp. Hãy quay lại tải tài liệu.");
+          j.analysisExecution = execution;
           j.status = "queued";
           j.message = "Đã lưu tài liệu. Đang chờ nhận diện…";
           for (const b of j.batches) if (!b.result) delete b.error;
         },
         session.owner,
       );
-      response = NextResponse.json(publicDocument(job));
+      await enqueue("analysis", job.id, execution);
+      response = NextResponse.json(
+        publicDocument(await readJob(job.id, session.owner)),
+      );
+    } else if (
+      parts.length === 4 &&
+      parts[1] === "files" &&
+      /^\d+$/.test(parts[2]) &&
+      method === "POST" &&
+      ["token", "complete"].includes(parts[3])
+    ) {
+      const index = Number(parts[2]);
+      if (parts[3] === "token") {
+        response = NextResponse.json(
+          await authorizeBlobUpload(
+            request,
+            await jsonBody(request),
+            parts[0],
+            index,
+            session.owner,
+          ),
+        );
+      } else {
+        await completeBlobUpload(parts[0], index, session.owner);
+        response = NextResponse.json({ uploaded: true });
+      }
     } else if (
       parts.length === 3 &&
       parts[1] === "files" &&
@@ -232,20 +276,19 @@ async function handler(request: NextRequest, context: Context) {
       const target = filePath(job.id, index);
       if (method === "GET") {
         if (!file.uploaded) throw new AppError("Tệp chưa tải xong.", 404);
-        const stat = await fs.stat(target);
-        const stream = Readable.toWeb(
-          createReadStream(target),
-        ) as ReadableStream<Uint8Array>;
+        const stream = await openSource(job, index);
         response = new NextResponse(stream, {
           headers: {
             "Content-Type": file.mime,
-            "Content-Length": String(stat.size),
+            "Content-Length": String(file.size),
             "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(file.name).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16)}`)}`,
             "X-Content-Type-Options": "nosniff",
             "Content-Security-Policy": "default-src 'none'; sandbox",
           },
         });
       } else if (method === "PUT") {
+        if (job.storage === "blob")
+          throw new AppError("Hãy tải trực tiếp vào kho tài liệu.", 409);
         if (job.status !== "uploading")
           throw new AppError(
             "Không thể thay tệp sau khi bắt đầu nhận diện.",

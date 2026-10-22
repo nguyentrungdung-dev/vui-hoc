@@ -15,17 +15,19 @@ cp -n .env.example .env.local
 npm run dev
 ```
 
-Mở [Vui học](http://127.0.0.1:3000). `npm run dev` chạy cả Next.js và worker. Chỉ chạy một lần; nếu đã có server ở cổng 3000, dừng phiên cũ bằng Ctrl+C trước khi khởi động lại. Không chạy thêm `npm run worker` khi đã dùng `npm run dev`.
+Mở [Vui học](http://127.0.0.1:3000). `npm run dev` chạy Next.js cùng Workflow SDK tích hợp. Không cần tiến trình worker riêng. Chỉ chạy một lần; nếu đã có server ở cổng 3000, dừng phiên cũ bằng Ctrl+C trước khi khởi động lại.
 
 Điền khóa vào `OPENROUTER_API_KEY` trong `.env.local`, rồi khởi động lại `npm run dev`. Không đưa khóa vào mã giao diện hoặc biến `NEXT_PUBLIC_*`. Sau đó mở tài liệu đang chờ và bấm **Thử lại sau khi cấu hình**. Không cần tải lại tệp.
 
 Biến môi trường:
 
-| Biến                 | Ý nghĩa                                                                                                |
-| -------------------- | ------------------------------------------------------------------------------------------------------ |
-| `OPENROUTER_API_KEY` | Khóa OpenRouter, chỉ dùng phía máy chủ                                                                 |
-| `OPENROUTER_MODEL`   | Mặc định `anthropic/claude-haiku-4.5`; model thay thế cần hỗ trợ ảnh, PDF native và strict JSON schema |
-| `VUIHOC_DATA_DIR`    | Thư mục dữ liệu bền vững, mặc định `.data`; web và worker phải dùng cùng đường dẫn                     |
+| Biến                    | Ý nghĩa                                                                                                |
+| ----------------------- | ------------------------------------------------------------------------------------------------------ |
+| `OPENROUTER_API_KEY`    | Khóa OpenRouter, chỉ dùng phía máy chủ                                                                 |
+| `OPENROUTER_MODEL`      | Mặc định `anthropic/claude-haiku-4.5`; model thay thế cần hỗ trợ ảnh, PDF native và strict JSON schema |
+| `DATABASE_URL`          | URL kết nối PostgreSQL từ Neon, nên dùng URL pooled có SSL. Có URL này thì dùng chế độ Neon + Blob.    |
+| `BLOB_READ_WRITE_TOKEN` | Token kho Vercel Blob **Private**, bắt buộc khi dùng database.                                         |
+| `VUIHOC_DATA_DIR`       | Thư mục `.data` chỉ dùng khi chạy local và không có `DATABASE_URL`.                                    |
 
 Chưa có khóa vẫn tải và kiểm tra tệp được. Hệ thống dừng ở **Chờ cấu hình AI**, không trả câu hỏi mẫu thay thế.
 
@@ -37,14 +39,26 @@ npm run build
 npm start
 ```
 
-Production local/VPS: `npm start` chạy web và worker cùng nhau. Chạy mỗi dịch vụ riêng bằng `next start` và `npm run worker` nếu có process manager; mỗi thư mục dữ liệu chỉ có một worker. Các tiến trình cần cùng thư mục làm việc và cấu hình.
+`npm start` chạy bản production local, Workflow SDK xử lý tác vụ trong cùng server. Khi chạy local, cần giữ server bật để xử lý nền. Trên Vercel, tác vụ do hạ tầng Workflow thực thi; không cần máy Mac bật.
+
+## Deploy Vercel + Neon
+
+Xem hướng dẫn đầy đủ: [docs/VERCEL_DEPLOYMENT.md](docs/VERCEL_DEPLOYMENT.md).
+
+1. Kết nối Neon với project để có `DATABASE_URL`.
+2. Tạo Blob **Private**, kết nối cùng project để có `BLOB_READ_WRITE_TOKEN`.
+3. Cấu hình `OPENROUTER_API_KEY` và `OPENROUTER_MODEL` ở Production, và Preview nếu dùng bản preview.
+4. Deploy **commit chứa thay đổi mới**. Build Command: `npm run build`, Install Command: `npm ci`, framework Next.js, không tùy chỉnh Output Directory.
+5. Workflow SDK tự cấu hình các route/tác vụ. Không tạo cron hoặc chạy lệnh worker. Bảng dữ liệu được tạo khi API truy cập database lần đầu.
+
+Dữ liệu `.data` cũ trên Mac được giữ nguyên, không tự chuyển lên cloud. Với database mới, tải lại tài liệu cần dùng. Cookie thư viện giữa localhost và tên miền Vercel độc lập.
 
 ## Thử tài liệu thật
 
 1. Chọn một trong bốn khu học → **Gửi tài liệu**, hoặc Toán → **Thử sức TIMO**.
 2. Chọn một PDF hoặc nhiều ảnh JPG/PNG/WebP, sắp xếp ảnh nếu cần. Tổng tối đa 100 MB, tối đa 100 trang. HEIC cần xuất JPG trước.
 3. Chọn toàn bộ hoặc nhập trang như `1-3, 5`. Với nhiều ảnh, số trang là thứ tự ảnh. Đặt tên buổi học và gửi.
-4. Chờ tải tệp xong; sau khi chuyển đến trang tài liệu có thể rời trang. Worker tiếp tục nhận diện khi máy chủ còn chạy.
+4. Chờ tải tệp xong; sau khi chuyển đến trang tài liệu có thể rời trang. Workflow tiếp tục nhận diện trong nền.
 5. Mở **Lời giải và bài luyện của em**, chọn chủ đề/số câu (mặc định 25, từ 5–50), bấm **Tạo lời giải và bộ luyện**. Tài liệu đã nhận diện từ bước 2 dùng được ngay, không cần tải lại.
 6. Tác vụ giải đề gốc và tạo bài mới chạy nền. Có thể học phần đã xong. Nếu lỗi, bấm **Thử lại phần chưa xong**; không gọi AI lại cho phần đã thành công.
 7. Chọn **Làm câu gốc** hoặc **Luyện 25 câu** → thử trả lời → gợi ý → thử lại → xem lời giải khi đúng. Nếu vẫn chưa hiểu, mở **Cùng làm từng bước**. Câu mở/multiple blanks dùng tự đối chiếu, không tính vào điểm.
@@ -69,11 +83,11 @@ Production local/VPS: `npm start` chạy web và worker cùng nhau. Chạy mỗi
 
 ## Cách xử lý tài liệu
 
-- API tạo bản ghi, tải từng tệp theo luồng nhị phân, kiểm tra kích thước thực và chữ ký định dạng rồi mới đưa vào hàng chờ.
+- API tạo bản ghi; ở chế độ cloud, trình duyệt tải trực tiếp từng tệp vào Blob Private bằng multipart. API xác minh kích thước và chữ ký định dạng trước khi đưa vào hàng chờ, không nhận file 100 MB qua Vercel Function. Chế độ local giữ upload nhị phân như trước.
 - PDF được đọc số trang và tách đúng phần đã chọn bằng `pdf-lib`; gửi từng nhóm hai trang với ánh xạ trang gốc. PDF có mật khẩu/hỏng báo lỗi.
 - Ảnh được xoay theo EXIF, chuẩn hóa bằng `sharp`, giới hạn 60 megapixel/ảnh và kích thước gửi AI 2400×3200. Không nhận SVG/HEIC.
 - OpenRouter nhận PDF native hoặc ảnh; JSON được kiểm tra schema, số trang, cấu trúc câu hỏi. Tài liệu được coi là dữ liệu, không phải chỉ dẫn điều khiển hệ thống.
-- Trạng thái và kết quả từng nhóm được ghi nguyên tử xuống ổ đĩa. Worker khôi phục công việc bị ngắt khi khởi động lại. Lỗi mạng/429/5xx có xử lý giới hạn, lỗi khóa/số dư yêu cầu sửa cấu hình; không chạy thử vô hạn.
+- Trạng thái và kết quả từng nhóm lưu trong PostgreSQL (hoặc `.data` khi chạy local). Workflow chia nhận diện theo nhóm trang và tạo bài theo nhóm câu thành các bước riêng. Nhóm AI có hạn thời gian 240 giây; khi lỗi vẫn giữ kết quả đã lưu và cho thử lại. Khóa giao dịch PostgreSQL bảo vệ các cập nhật đồng thời. Lỗi mạng/429/5xx có xử lý giới hạn, lỗi khóa/số dư yêu cầu sửa cấu hình; không chạy thử vô hạn.
 - Tài liệu lỗi một phần vẫn mở được phần đã thành công. Retry không gọi lại AI cho phần đã có kết quả.
 
 Tài liệu tham khảo: [OpenRouter PDF](https://openrouter.ai/docs/guides/overview/multimodal/pdfs), [structured outputs](https://openrouter.ai/docs/guides/features/structured-outputs).
@@ -91,10 +105,10 @@ Tài liệu tham khảo: [OpenRouter PDF](https://openrouter.ai/docs/guides/over
 
 ## Lưu trữ và giới hạn triển khai
 
-- Tệp gốc và kết quả AI lưu tại `.data/documents`, ngoài `public`, được `.gitignore` loại trừ. Sao lưu thư mục này nếu cần giữ dữ liệu lâu dài.
+- Cloud: tệp gốc ở Blob Private; tài liệu, kết quả AI và bài làm ở Neon. Local không có `DATABASE_URL`: dữ liệu ở `.data/documents`, ngoài `public`, được `.gitignore` loại trừ. Vercel không bao giờ tự chuyển về lưu trên đĩa tạm khi thiếu database.
 - Cookie ngẫu nhiên HttpOnly giới hạn thư viện theo trình duyệt. API kiểm tra quyền đọc/tải/xử lý và nguồn request. Đây chưa phải tài khoản đăng nhập; xóa cookie sẽ mất liên kết thư viện, dù tệp vẫn còn trên máy chủ.
-- Hồ sơ và bài mẫu lưu trong `localStorage` (`vuihoc-demo-v1`). Ghi chú trên bản nhận diện lưu theo `vuihoc-responses-[id]`. Bài làm thật lưu tại `.data/documents/[id]/runs`, cùng quyền thư viện theo cookie; chưa đồng bộ thiết bị.
-- Giải pháp này dành cho demo local/VPS với ổ đĩa bền vững. Chưa triển khai PostgreSQL, S3, hàng đợi phân tán, xác thực người dùng hoặc hạn mức cho dịch vụ công cộng. Không triển khai nguyên trạng trên môi trường serverless có ổ đĩa tạm/request limit nhỏ. Khi mở công khai cần bổ sung các thành phần đó và quản lý vòng đời dữ liệu.
+- Hồ sơ và bài mẫu lưu trong `localStorage` (`vuihoc-demo-v1`). Ghi chú trên bản nhận diện lưu theo `vuihoc-responses-[id]`. Bài làm thật lưu ở PostgreSQL hoặc `.data/documents/[id]/runs` trong chế độ local, cùng quyền thư viện theo cookie; chưa đồng bộ thiết bị.
+- Đã có adapter PostgreSQL, Blob Private và Workflow cho Vercel. MVP vẫn chưa có tài khoản đăng nhập, hạn mức AI theo người dùng hoặc tự dọn tệp bỏ dở; các phần này cần bổ sung khi mở rộng ngoài demo.
 - Chưa có thích ứng độ khó theo kết quả, tạo slide/video từ tài liệu thật hoặc API video. Slide/bài mẫu vẫn được ghi rõ; không được xem là video AI.
 - Kiểm thử tự động dùng phản hồi API có kiểm soát để kiểm tra giao thức, điểm và phục hồi lỗi. Kiểm thử AI thật và giới hạn nghiệm thu được ghi trong `docs/IMPLEMENTATION_STATUS.md`; không suy rộng kết quả một tài liệu sang mọi dạng bài/môn học.
 
@@ -105,7 +119,8 @@ Tài liệu tham khảo: [OpenRouter PDF](https://openrouter.ai/docs/guides/over
 - `src/server/generation.ts`, `teaching-ai.ts`, `learning-validation.ts`: tạo/kiểm tra nội dung và thử lại từng phần.
 - `src/server/learning-runs.ts`, `src/lib/learning.ts`: bài làm bền vững, chấm điểm, gợi ý và phản hồi không lộ đáp án sớm.
 - `src/components/learning.tsx`: cấu hình sinh bài, luyện tập thật, kết quả và hành trình.
-- `src/server/worker.ts`, `store.ts`: hàng chờ bền vững trên đĩa, worker, khóa và khôi phục.
+- `src/server/store.ts`, `database.ts`, `source-files.ts`: lưu dữ liệu PostgreSQL, tệp Blob Private, khóa giao dịch và adapter local.
+- `src/server/dispatch.ts`, `src/workflows/*`: khởi tạo và chạy tác vụ nhận diện/tạo bài theo từng bước bền vững.
 - `src/server/validation.ts`: kiểm tra file, chọn trang, schema dữ liệu AI.
 - `src/lib/documents.ts`: môn học và hợp đồng dữ liệu.
 - `src/components/documents.tsx`: thư viện, tải tệp và tài liệu đã nhận diện.

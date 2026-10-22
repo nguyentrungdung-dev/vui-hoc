@@ -97,3 +97,13 @@ Sinh bài/lời giải/gợi ý theo nguồn, chấm điểm bài thật, lưu k
 - Đối chiếu bổ sung phát hiện lỗi vẫn lọt qua hai lượt cùng model. Đã sửa trong kết quả lưu: cách hỏi practice-7; liệt kê thiếu số 85 ở practice-13; đếm 8 số nhưng kết luận 12 ở practice-21; lựa chọn mơ hồ ở practice-24; bỏ bản thân Vinh khi đếm bạn cùng tổ; lời giải tham khảo cho câu hỏi mở của Sẻ. Tạm loại câu có OCR “ngoại ngoài” và một mệnh đề đúng/sai mơ hồ. Đây là các chỉnh sửa bởi trợ lý sau khi đọc kết quả, không phải chứng cứ pipeline tự động đã bắt được tất cả lỗi.
 - Đã bổ sung giải độc lập không thấy đáp án nháp, so sánh đáp án hai lượt; kiểm tra xác định cho mẫu đếm/liệt kê số hai chữ số; chặn lựa chọn “tất cả đều đúng” ở câu luyện mới. Những cải tiến cuối có kiểm thử tự động, chưa gọi model thật lần nữa do HTTP 402.
 - Chưa nghiệm thu chất lượng đầy đủ của TIMO song ngữ, tài liệu tiếng Anh, hình học, tất cả kiểu tự luận; chưa xác nhận thời gian xử lý ổn định. Video và thích ứng độ khó chưa thuộc bước này.
+
+## Hạ tầng Vercel + Neon (22/10/2026)
+
+- Bỏ tiến trình và lệnh worker riêng; `dev`/`start` chỉ chạy Next.js. Workflow SDK xử lý nhận diện theo nhóm trang và tạo/kiểm tra lời giải theo nhóm câu, lưu tiến độ giữa các bước.
+- PostgreSQL lưu metadata, nhận diện, bộ câu hỏi và bài làm; dùng khóa giao dịch để tránh mất cập nhật khi nhiều function cùng chạy. Tự tạo schema lần đầu truy cập.
+- Upload multipart trực tiếp vào Vercel Blob **Private**, giữ tổng 100 MB; cấp token theo cookie chủ tài liệu, đường dẫn, MIME và kích thước, không cho ghi đè. Server xác minh header/dung lượng trước khi nhận diện. Đọc nguồn vẫn qua API có kiểm tra quyền.
+- Local chưa cấu hình database giữ adapter `.data`; dữ liệu cũ không bị xóa. Trên Vercel thiếu database sẽ báo lỗi cấu hình, không ghi vào đĩa tạm.
+- Giữ UI, tính điểm /10 riêng với mức dùng gợi ý, thử lại từng phần, 4 khu học. Video vẫn tạm dừng.
+- Đã qua 30 tests, build production và smoke test upload PDF → Workflow trên production local. PostgreSQL được kiểm thử bằng database tạm riêng; Blob contract dùng mock. Chưa xác nhận upload/AI thực trên deployment mới nếu chưa deploy.
+- Hướng dẫn biến môi trường, deploy và nghiệm thu: [VERCEL_DEPLOYMENT.md](VERCEL_DEPLOYMENT.md).
