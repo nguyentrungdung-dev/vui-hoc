@@ -7,7 +7,7 @@ import { AppError, batchSchema, parsePages, validateBatch } from "./validation";
 import { filePath, readJob, updateJob } from "./store";
 
 export const modelName = () =>
-  process.env.OPENROUTER_MODEL || "google/gemini-3-flash-preview";
+  process.env.OPENROUTER_MODEL || "anthropic/claude-haiku-4.5";
 type Content =
   | { type: "text"; text: string }
   | { type: "file"; file: { filename: string; file_data: string } }

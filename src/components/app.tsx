@@ -43,6 +43,8 @@ import {
   DocumentPage,
 } from "./documents";
 import { subjects, type Subject } from "@/lib/documents";
+import type { LearningResult } from "@/lib/learning";
+import { RealPracticePage, LearningHistory } from "./learning";
 import { PracticePage } from "./practice";
 import { LecturePage } from "./lecture";
 
@@ -59,6 +61,27 @@ export default function VuiHocApp({ path }: { path: string }) {
   const [storageError, setStorageError] = useState(false);
   const [modal, setModal] = useState<"profile" | "collection" | null>(null);
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [learningHistory, setLearningHistory] = useState<
+    LearningResult[] | null
+  >(null);
+  useEffect(() => {
+    if (path !== "/") return;
+    let active = true;
+    fetch("/api/documents/history", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("history");
+        return response.json() as Promise<{ runs: LearningResult[] }>;
+      })
+      .then((data) => {
+        if (active) setLearningHistory(data.runs);
+      })
+      .catch(() => {
+        if (active) setLearningHistory(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [path]);
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -124,6 +147,7 @@ export default function VuiHocApp({ path }: { path: string }) {
     path === "/timo" ||
     (path.startsWith("/tai-len/") && uploadSubject in subjects);
   const documentId = /^\/tai-lieu\/([0-9a-f-]{36})$/.exec(path)?.[1];
+  const realRun = /^\/luyen-tap\/([0-9a-f-]{36})\/([0-9a-f-]{36})$/.exec(path);
   const isSample = [
     "/ban-mau",
     "/buoi-hoc",
@@ -149,7 +173,7 @@ export default function VuiHocApp({ path }: { path: string }) {
     "/thu-vien",
     "/ban-mau",
   ];
-  const totalQuestions = state.history.reduce((n, h) => n + h.total, 0);
+  const totalQuestions = learningHistory?.reduce((n, h) => n + h.solved, 0);
 
   if (!ready)
     return (
@@ -305,21 +329,23 @@ export default function VuiHocApp({ path }: { path: string }) {
               </div>
               <div>
                 <b>
-                  {state.history.length}
+                  {learningHistory?.filter((h) => h.finished).length ?? "—"}
                   <span>☀</span>
                 </b>
                 <small>Buổi đã hoàn thành</small>
               </div>
               <div>
                 <b>
-                  {totalQuestions}
+                  {totalQuestions ?? "—"}
                   <span>✎</span>
                 </b>
                 <small>Câu hỏi đã luyện</small>
               </div>
               <div>
                 <b>
-                  {state.history.filter((h) => h.score >= 8).length}
+                  {learningHistory?.filter(
+                    (h) => h.finished && h.score !== null && h.score >= 8,
+                  ).length ?? "—"}
                   <span>✦</span>
                 </b>
                 <small>Ngôi sao chăm học</small>
@@ -456,11 +482,27 @@ export default function VuiHocApp({ path }: { path: string }) {
         )}
         {(path === "/thu-vien" || path === "/dang-tao") && <DocumentLibrary />}
         {documentId && <DocumentPage key={documentId} id={documentId} />}
+        {realRun && (
+          <RealPracticePage
+            key={realRun[2]}
+            documentId={realRun[1]}
+            runId={realRun[2]}
+            character={state.profile.character}
+          />
+        )}
         {path === "/buoi-hoc" && <LessonPage {...shared} />}
         {path === "/bai-giang" && <LecturePage {...shared} />}
         {path === "/luyen-tap" && <PracticePage {...shared} />}
         {path === "/ket-qua" && <ResultsPage {...shared} />}
-        {path === "/hanh-trinh" && <HistoryPage {...shared} />}
+        {path === "/hanh-trinh" && (
+          <>
+            <LearningHistory />
+            <details className="card source-details">
+              <summary>Lịch sử khu trải nghiệm mẫu</summary>
+              <HistoryPage {...shared} />
+            </details>
+          </>
+        )}
         {path === "/sap-mo" && (
           <div className="empty-state card">
             <span className="large-emoji">🌱</span>
@@ -475,7 +517,7 @@ export default function VuiHocApp({ path }: { path: string }) {
             </ButtonLink>
           </div>
         )}
-        {!supported.includes(path) && !isUpload && !documentId && (
+        {!supported.includes(path) && !isUpload && !documentId && !realRun && (
           <div className="empty-state">
             <PageTitle
               eyebrow="LẠC ĐƯỜNG MỘT CHÚT THÔI"

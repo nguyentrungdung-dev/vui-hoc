@@ -1,3 +1,4 @@
+import type { LearningPack } from "./learning";
 export const subjects = {
   math: {
     name: "Toán",
@@ -91,8 +92,12 @@ export type DocumentJob = {
   }[];
   model: string;
   owner: string;
+  learning?: LearningPack;
 };
-export type PublicDocument = Omit<DocumentJob, "owner" | "batches"> & {
+export type PublicDocument = Omit<
+  DocumentJob,
+  "owner" | "batches" | "learning"
+> & {
   summaries: string[];
   pages: AnalysisPage[];
   questions: ExtractedQuestion[];
@@ -109,7 +114,7 @@ export const statusNames: Record<DocumentStatus, string> = {
   failed: "Cần thử lại",
 };
 export function publicDocument(job: DocumentJob): PublicDocument {
-  const { owner: _owner, batches, ...rest } = job;
+  const { owner: _owner, learning: _learning, batches, ...rest } = job;
   return {
     ...rest,
     summaries: batches.flatMap((b) =>

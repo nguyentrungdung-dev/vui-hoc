@@ -289,3 +289,13 @@ Phạm vi bước này: lưu tệp, chọn trang, nhận diện câu hỏi/dạn
 Lựa chọn triển khai demo local: lưu tệp/JSON trong `.data`, worker Node chạy cùng Next.js. PostgreSQL/S3 vẫn là định hướng khi chuyển sang hạ tầng triển khai lâu dài. Giới hạn vận hành hiện tại: một PDF hoặc nhiều ảnh JPG/PNG/WebP, tổng 100 MB và tối đa 100 trang/tài liệu; ảnh tối đa 60 megapixel. Ảnh HEIC cần chuyển JPG. Không loại nhóm dạng bài; câu chưa đọc rõ được gắn cờ và liên kết trang gốc.
 
 Trạng thái hoàn thành kỹ thuật và kiểm thử thực tế được ghi riêng; chưa nghiệm thu chất lượng AI khi chưa chạy bằng khóa thật.
+
+## 18. Cập nhật triển khai bước 3 — 22/10/2026
+
+Chủ dự án đã nhận diện PDF thật thành công và yêu cầu triển khai đáp án, lời giải từng bước, gợi ý, bộ 25 câu và nối vào luồng làm bài. Model cấu hình hiện tại là Claude Haiku 4.5 qua OpenRouter.
+
+Bản triển khai cho phép mở lại tài liệu đã nhận diện, chọn chủ đề/số câu và tạo nội dung nền. Đề gốc tách khỏi bộ luyện mới. Câu rõ, đủ dữ kiện được giải; câu cần kiểm tra/thiếu âm thanh được ghi lý do; câu trả lời mở dùng tự đối chiếu và không tính điểm tự động. Bộ luyện mới hiện dùng trắc nghiệm 3–4 lựa chọn, có câu củng cố và nâng cao. Chưa coi đây là hoàn tất hỗ trợ tương tác mọi định dạng câu trả lời trong đặc tả cuối.
+
+Luồng bài thật bao gồm lưu lần trả lời đầu và lần sửa, ba mức gợi ý, hướng dẫn khi chưa hiểu, lời giải, điểm /10 và lịch sử trên máy chủ. Câu tương tự được chọn từ bộ đã tạo; tăng độ khó thích ứng và video vẫn là phần tiếp theo. Bài đang làm giữ bộ câu hỏi riêng khi tạo nội dung mới.
+
+Nội dung được kiểm tra cấu trúc/nguồn/số học và kiểm tra lại bằng một lượt AI riêng cùng model. Cần kiểm chứng sư phạm thực tế; việc vượt qua kiểm tra tự động không phải chứng nhận đáp án luôn chính xác. Trạng thái nghiệm thu cụ thể xem `docs/IMPLEMENTATION_STATUS.md`.

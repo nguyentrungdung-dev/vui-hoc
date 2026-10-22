@@ -1,6 +1,6 @@
 # Tiến độ triển khai MVP
 
-Ngày cập nhật: 21/10/2026.
+Ngày cập nhật: 22/10/2026.
 
 ## Bước 1 — Giao diện và điều hướng bằng dữ liệu mẫu
 
@@ -67,3 +67,33 @@ Triển khai tải và đọc tài liệu thật: kho file, giới hạn/kiểm 
 ### Còn lại
 
 Sinh bài/lời giải/gợi ý theo nguồn, chấm điểm bài thật, lưu kết quả vào hệ thống, song ngữ TIMO được biên soạn, độ khó thích ứng và video API theo bước 3–5. PostgreSQL/S3 và tài khoản chưa triển khai trong bản local này. Các giới hạn bước 1 ở phần trên là lịch sử, đã được thay thế ở luồng tải/nhận diện mới; khu trải nghiệm mẫu vẫn giữ nhãn rõ.
+
+## Bước 3 — Nội dung và bài làm từ tài liệu thật (22/10/2026)
+
+### Đã triển khai
+
+- Tạo đáp án, ba mức gợi ý, lời giải từng bước và giải thích từ tài liệu đã nhận diện, không cần tải lại nguồn.
+- Chọn chủ đề/số câu 5–50, mặc định 25. Bộ luyện mới là trắc nghiệm, có câu củng cố/nâng cao, phân bổ theo dạng và lưu tham chiếu nguồn. Đề gốc giữ riêng.
+- Câu có hình gửi kèm trang nguồn vào bước giải/kiểm tra. Câu chưa rõ/thiếu bản nghe được ghi lý do; câu mở hoặc nhiều chỗ điền tự đối chiếu, không chấm máy.
+- Kiểm tra schema, tham chiếu, đáp án/lựa chọn, câu trùng, phép tính; một lượt AI riêng kiểm tra nội dung trước khi giao. Sửa có giới hạn, lưu từng phần và thử lại phần lỗi.
+- Worker xử lý cả nhận diện và biên soạn; khôi phục công việc sau restart. Thiếu khóa/số dư báo rõ, không thay bằng mẫu.
+- Luồng làm bài thật, gợi ý, thử lại, hướng dẫn khi chưa hiểu, bản dịch/lời giải song ngữ TIMO; chọn câu tương tự từ bộ đã biên soạn.
+- Máy chủ chấm/lưu lần đầu và lần sửa; điểm /10 tách mức dùng gợi ý. Chỉ gửi lời giải sau khi giải đúng, mở hướng dẫn hoặc kết thúc.
+- Lưu bài đang làm và kết quả trong `.data`, mở lại tiếp tục, giữ bộ câu hỏi của lượt cũ khi tạo bộ mới. Trang Hành trình và thống kê trang chủ dùng dữ liệu bài thật.
+
+### Giới hạn còn lại
+
+- Câu luyện mới hiện là trắc nghiệm; các câu gốc nối/điền nhiều ô/tự luận dùng tự đối chiếu. Chưa có giao diện chấm từng ô hoặc nhận bài viết tay.
+- Khoảng 20% câu nâng cao được biên soạn sẵn; chưa tự nâng độ khó theo kết quả cá nhân. Nút câu tương tự lấy tối đa 3 câu cùng dạng trong bộ hiện có, chưa tạo thêm không giới hạn.
+- Kiểm tra AI dùng cùng model trong yêu cầu riêng; có thể vẫn sai hoặc từ chối câu hợp lệ. Không thay thế nghiệm thu sư phạm.
+- Lưu trữ JSON và quyền thư viện theo cookie vẫn là kiến trúc local; tài khoản, PostgreSQL/S3, slide/video thật và thích ứng năng lực chưa triển khai.
+
+### Kiểm thử bước 3 và giới hạn nghiệm thu AI
+
+- TypeScript, định dạng mã, build production và 24 kiểm thử tự động đã qua. Bộ tự động kiểm tra API bài học/bài làm, quyền thư viện, không lộ đáp án sớm, điểm lần đầu, hướng dẫn, gợi ý, lưu/resume, bộ cũ giữ nguyên khi thay bộ mới, retry và giữ câu đã kiểm tra trong nhóm lỗi.
+- Trình duyệt với bản sao PDF Tuần 5 trong môi trường riêng: tải PDF 29,94 MB, nối kết quả nhận diện/biên soạn thật; làm sai → mở/đóng gợi ý → đúng → xem lời giải; reload giữ kết quả; mở hướng dẫn; chuyển câu tương tự và chấm 10/10 cho một câu làm đúng độc lập; kết thúc đề gốc ghi đúng 1/16 câu đúng lần đầu (0,6/10), giữ 2 lượt gợi ý riêng; lịch sử tồn tại sau reload.
+- Đã gọi thật `anthropic/claude-haiku-5.5` với tài liệu Tuần 5 (8 trang, 40 câu gốc, gồm Toán và Tiếng Việt). Giữ được 28 lời giải nguồn và 20/25 câu luyện sau đối chiếu bổ sung. Hai câu nguồn cần xem lại đã được tách rõ; các nhóm chưa xong được giữ để retry.
+- OpenRouter trả HTTP 402 về số dư/hạn mức khi tiếp tục. Đã dừng các lời gọi thật. Chưa nghiệm thu được bộ đủ 25 câu từ đầu đến cuối bằng model thật; không dùng câu mẫu để lấp phần thiếu. Chức năng tạo 25 câu và lưu/khôi phục từng phần được kiểm tra bằng phản hồi API có kiểm soát.
+- Đối chiếu bổ sung phát hiện lỗi vẫn lọt qua hai lượt cùng model. Đã sửa trong kết quả lưu: cách hỏi practice-7; liệt kê thiếu số 85 ở practice-13; đếm 8 số nhưng kết luận 12 ở practice-21; lựa chọn mơ hồ ở practice-24; bỏ bản thân Vinh khi đếm bạn cùng tổ; lời giải tham khảo cho câu hỏi mở của Sẻ. Tạm loại câu có OCR “ngoại ngoài” và một mệnh đề đúng/sai mơ hồ. Đây là các chỉnh sửa bởi trợ lý sau khi đọc kết quả, không phải chứng cứ pipeline tự động đã bắt được tất cả lỗi.
+- Đã bổ sung giải độc lập không thấy đáp án nháp, so sánh đáp án hai lượt; kiểm tra xác định cho mẫu đếm/liệt kê số hai chữ số; chặn lựa chọn “tất cả đều đúng” ở câu luyện mới. Những cải tiến cuối có kiểm thử tự động, chưa gọi model thật lần nữa do HTTP 402.
+- Chưa nghiệm thu chất lượng đầy đủ của TIMO song ngữ, tài liệu tiếng Anh, hình học, tất cả kiểu tự luận; chưa xác nhận thời gian xử lý ổn định. Video và thích ứng độ khó chưa thuộc bước này.

@@ -26,6 +26,8 @@ import {
 } from "@/lib/documents";
 import { ButtonLink, Character, PageTitle } from "./ui";
 
+import { LearningPanel } from "./learning";
+
 type Config = { configured: boolean; workerAlive: boolean; model: string };
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`/api/documents${path}`, {
@@ -631,8 +633,8 @@ export function UploadPage({
                   ))}
                 </select>
                 <small>
-                  Lưu lựa chọn cho bước sinh bài tiếp theo. Nhận diện giữ nguyên
-                  số câu có trong tài liệu.
+                  Lưu lựa chọn cho bộ luyện. Nhận diện giữ nguyên số câu có
+                  trong tài liệu.
                 </small>
               </label>
             </section>
@@ -655,8 +657,7 @@ export function UploadPage({
               <Upload size={18} /> Gửi và nhận diện
             </button>
             <p className="micro">
-              Bước này nhận diện nội dung. Sinh bài, lời giải và video sẽ được
-              nối ở bước tiếp theo.
+              Nhận diện xong, em có thể tạo lời giải và bộ luyện từ tài liệu.
             </p>
           </aside>
         </fieldset>
@@ -905,6 +906,7 @@ export function DocumentPage({ id }: { id: string }) {
           <p>Trang đã chọn: {doc.selectedPages.join(", ")}</p>
         )}
       </details>
+      {doc.pages.length > 0 && <LearningPanel key={doc.id} document={doc} />}
       {doc.pages.length > 0 && (
         <>
           <section className="section">
@@ -943,8 +945,8 @@ export function DocumentPage({ id }: { id: string }) {
             </div>
             <p className="notice">
               Nhận diện AI có thể có sai sót; em hãy đối chiếu trang gốc khi
-              cần. Câu trả lời được lưu ở trình duyệt này, chưa chấm điểm. Gợi
-              ý, lời giải, bài tương tự và video chưa được tạo ở bước này.
+              cần. Câu trả lời được lưu ở trình duyệt này, chưa chấm điểm. Để
+              làm bài có gợi ý và lời giải, hãy mở bộ học ở phía trên.
             </p>
             {saveError && (
               <p className="notice error" role="alert">

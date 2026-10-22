@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { dataRoot, listJobs, updateJob } from "./store";
 import { processJob } from "./analysis";
+import { processLearning } from "./generation";
 
 config({ path: ".env.local", quiet: true });
 config({ path: ".env", quiet: true });
@@ -52,13 +53,20 @@ async function main() {
           j.status = "queued";
           j.message = "Tiếp tục xử lý sau khi khởi động lại.";
         });
+    for (const job of await listJobs())
+      if (job.learning?.status === "generating")
+        await updateJob(job.id, (j) => {
+          j.learning!.status = "queued";
+        });
     while (!stopping) {
       const jobs = (await listJobs())
-        .filter((j) => j.status === "queued")
+        .filter((j) => j.status === "queued" || j.learning?.status === "queued")
         .reverse();
       for (const job of jobs) {
         if (stopping) break;
-        await processJob(job.id, shutdown.signal);
+        if (job.status === "queued") await processJob(job.id, shutdown.signal);
+        if (!stopping && job.learning?.status === "queued")
+          await processLearning(job.id, shutdown.signal);
       }
       if (!stopping) await new Promise((r) => setTimeout(r, 1500));
     }

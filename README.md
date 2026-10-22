@@ -1,6 +1,6 @@
 # Vui học — MVP
 
-Next.js + TypeScript, giao diện học tập lớp 2 và luồng **tải PDF/ảnh thật → nhận diện qua OpenRouter → xem câu hỏi, dạng bài, trang nguồn**. Toán/TIMO, Tiếng Anh, Tiếng Việt và Tự học đều đã mở.
+Next.js + TypeScript, giao diện học tập lớp 2 và luồng **tải PDF/ảnh thật → nhận diện → tạo lời giải và bộ luyện → làm bài, nhận gợi ý và lưu kết quả**. Toán/TIMO, Tiếng Anh, Tiếng Việt và Tự học đều đã mở.
 
 Phạm vi chuẩn: [MVP_SPEC.md](MVP_SPEC.md). Tiến độ và giới hạn: [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
 
@@ -21,11 +21,11 @@ Mở [Vui học](http://127.0.0.1:3000). `npm run dev` chạy cả Next.js và w
 
 Biến môi trường:
 
-| Biến                 | Ý nghĩa                                                                                                   |
-| -------------------- | --------------------------------------------------------------------------------------------------------- |
-| `OPENROUTER_API_KEY` | Khóa OpenRouter, chỉ dùng phía máy chủ                                                                    |
-| `OPENROUTER_MODEL`   | Mặc định `google/gemini-3-flash-preview`; model thay thế cần hỗ trợ ảnh, PDF native và strict JSON schema |
-| `VUIHOC_DATA_DIR`    | Thư mục dữ liệu bền vững, mặc định `.data`; web và worker phải dùng cùng đường dẫn                        |
+| Biến                 | Ý nghĩa                                                                                                |
+| -------------------- | ------------------------------------------------------------------------------------------------------ |
+| `OPENROUTER_API_KEY` | Khóa OpenRouter, chỉ dùng phía máy chủ                                                                 |
+| `OPENROUTER_MODEL`   | Mặc định `anthropic/claude-haiku-4.5`; model thay thế cần hỗ trợ ảnh, PDF native và strict JSON schema |
+| `VUIHOC_DATA_DIR`    | Thư mục dữ liệu bền vững, mặc định `.data`; web và worker phải dùng cùng đường dẫn                     |
 
 Chưa có khóa vẫn tải và kiểm tra tệp được. Hệ thống dừng ở **Chờ cấu hình AI**, không trả câu hỏi mẫu thay thế.
 
@@ -45,10 +45,12 @@ Production local/VPS: `npm start` chạy web và worker cùng nhau. Chạy mỗi
 2. Chọn một PDF hoặc nhiều ảnh JPG/PNG/WebP, sắp xếp ảnh nếu cần. Tổng tối đa 100 MB, tối đa 100 trang. HEIC cần xuất JPG trước.
 3. Chọn toàn bộ hoặc nhập trang như `1-3, 5`. Với nhiều ảnh, số trang là thứ tự ảnh. Đặt tên buổi học và gửi.
 4. Chờ tải tệp xong; sau khi chuyển đến trang tài liệu có thể rời trang. Worker tiếp tục nhận diện khi máy chủ còn chạy.
-5. Chọn chủ đề, xem câu hỏi và nguyên bản từng trang. Bấm **Trang …** để đối chiếu hình, bảng hoặc chữ mờ. Có thể ghi câu trả lời; chưa chấm điểm.
-6. Khi có lỗi từng phần, bấm **Thử lại phần chưa xong**. Các trang thành công được giữ nguyên.
+5. Mở **Lời giải và bài luyện của em**, chọn chủ đề/số câu (mặc định 25, từ 5–50), bấm **Tạo lời giải và bộ luyện**. Tài liệu đã nhận diện từ bước 2 dùng được ngay, không cần tải lại.
+6. Tác vụ giải đề gốc và tạo bài mới chạy nền. Có thể học phần đã xong. Nếu lỗi, bấm **Thử lại phần chưa xong**; không gọi AI lại cho phần đã thành công.
+7. Chọn **Làm câu gốc** hoặc **Luyện 25 câu** → thử trả lời → gợi ý → thử lại → xem lời giải khi đúng. Nếu vẫn chưa hiểu, mở **Cùng làm từng bước**. Câu mở/multiple blanks dùng tự đối chiếu, không tính vào điểm.
+8. **Lưu và về menu** rồi mở lại để tiếp tục. **Kết thúc** mở điểm lần đầu /10, mức dùng gợi ý, kết quả theo dạng và lời giải. Hành trình lưu cả bài đang làm và bài đã xong.
 
-Số câu mong muốn (mặc định 25) được lưu cho bước sinh bài sau; số câu nhận diện là số câu trong nguồn. Tài liệu chỉ có kiến thức có thể không có câu hỏi — hệ thống không tự bịa đề.
+Đề gốc giữ nội dung/thứ tự đã nhận diện. Câu thiếu dữ kiện, cần âm thanh chưa có hoặc hình chưa rõ được báo riêng. Bộ luyện mới tách khỏi đề gốc, hiện là trắc nghiệm 3–4 lựa chọn, khoảng 20% câu nâng cao khi số lượng chia hết cho 5. Câu mới có liên kết đến câu/trang nguồn. Tài liệu chỉ có bài học vẫn có thể tạo bài từ các trang đủ rõ.
 
 ## Màn hình
 
@@ -59,10 +61,11 @@ Số câu mong muốn (mặc định 25) được lưu cho bước sinh bài sau
 | `/tai-len`, `/tai-len/math`, `/tai-len/english`, `/tai-len/vietnamese`, `/tai-len/self` | Gửi tài liệu thật                                                         |
 | `/timo`                                                                                 | Gửi đề TIMO thật                                                          |
 | `/thu-vien`                                                                             | Toàn bộ tài liệu của trình duyệt hiện tại                                 |
-| `/tai-lieu/[id]`                                                                        | Trạng thái nền, menu chủ đề, câu hỏi, trang nguồn, ghi câu trả lời        |
+| `/tai-lieu/[id]`                                                                        | Nhận diện, chủ đề, tạo nội dung, bài đang làm và nguồn                    |
 | `/ban-mau`                                                                              | Khu trải nghiệm được ghi rõ dữ liệu mẫu                                   |
 | `/buoi-hoc`, `/bai-giang`, `/luyen-tap`, `/ket-qua`                                     | Luồng gợi ý/chấm điểm/slide của bài mẫu, chưa dùng kết quả phân tích thật |
-| `/hanh-trinh`                                                                           | Lịch sử làm bài mẫu hiện có                                               |
+| `/luyen-tap/[documentId]/[runId]`                                                       | Làm bài thật, lưu tiến độ, kết quả và lời giải                            |
+| `/hanh-trinh`                                                                           | Lịch sử bài thật; bài mẫu nằm trong mục riêng                             |
 
 ## Cách xử lý tài liệu
 
@@ -75,19 +78,33 @@ Số câu mong muốn (mặc định 25) được lưu cho bước sinh bài sau
 
 Tài liệu tham khảo: [OpenRouter PDF](https://openrouter.ai/docs/guides/overview/multimodal/pdfs), [structured outputs](https://openrouter.ai/docs/guides/features/structured-outputs).
 
+## Biên soạn và chấm bài thật
+
+- Mỗi nhóm tối đa 5 câu được biên soạn bằng model cấu hình rồi giải lại trong một yêu cầu AI riêng. Với câu đóng, lượt giải lại không được xem đáp án/lời giải nháp; đáp án hai lượt phải khớp. Câu mở được kiểm tra lời giải tham khảo. Kiểm tra schema, ID/trang nguồn, lựa chọn/đáp án, câu trùng; các biểu thức số học AI khai báo được tính lại bằng bộ phân tích không dùng `eval`. Mẫu bài liệt kê/đếm số chẵn lẻ có hai chữ số có thêm kiểm tra xác định bằng cách liệt kê các khả năng.
+- Khi kiểm tra không đạt, sửa tối đa một lần; giữ phần lỗi để thử lại có chủ đích. Sau hai lượt chưa đạt, câu gốc lỗi được báo riêng và các câu cùng nhóm đã đạt vẫn dùng được. Hai lượt AI dùng cùng model: đây là lớp kiểm tra bổ sung, không đảm bảo mọi lời giải đúng. Cần nghiệm thu nội dung giáo dục bằng tài liệu đại diện.
+- TIMO có bản dịch Việt và lời giải Anh/Việt. Tiếng Anh giữ đề/đoạn đọc tiếng Anh, gợi ý và giải thích tiếng Việt.
+- Máy chủ kiểm tra câu trả lời và lưu lần trả lời đầu, lần sửa, số lượt/thời gian mở gợi ý. Đáp án/lời giải không gửi về trình duyệt trước khi giải đúng, mở hướng dẫn hoặc kết thúc bài.
+- Điểm = số câu đúng lần đầu / số câu chấm tự động × 10. Câu bỏ qua hoặc được hướng dẫn trước khi trả lời không tính đúng độc lập; mở gợi ý không trừ điểm. Câu tự đối chiếu không vào mẫu số.
+- Thời gian gợi ý là tín hiệu gần đúng, dừng khi đóng/ẩn/rời trang; chặn tối đa 5 phút mỗi lần nếu trình duyệt ngắt đột ngột. Không dùng thời gian đọc để tự kết luận năng lực.
+- **Làm câu tương tự** chọn tối đa 3 câu cùng dạng từ bộ đã tạo. Chưa sinh vô hạn câu mới hoặc tự tăng độ khó dựa trên năng lực.
+- Mỗi lượt làm lưu bản chụp bộ câu hỏi. Tạo bộ học mới không làm thay đổi câu hỏi/đáp án của lượt đang làm hoặc kết quả cũ.
+
 ## Lưu trữ và giới hạn triển khai
 
 - Tệp gốc và kết quả AI lưu tại `.data/documents`, ngoài `public`, được `.gitignore` loại trừ. Sao lưu thư mục này nếu cần giữ dữ liệu lâu dài.
 - Cookie ngẫu nhiên HttpOnly giới hạn thư viện theo trình duyệt. API kiểm tra quyền đọc/tải/xử lý và nguồn request. Đây chưa phải tài khoản đăng nhập; xóa cookie sẽ mất liên kết thư viện, dù tệp vẫn còn trên máy chủ.
-- Hồ sơ và lịch sử bài mẫu lưu trong `localStorage` (`vuihoc-demo-v1`); câu trả lời tự học thật lưu theo `vuihoc-responses-[id]`. Chưa đồng bộ thiết bị.
+- Hồ sơ và bài mẫu lưu trong `localStorage` (`vuihoc-demo-v1`). Ghi chú trên bản nhận diện lưu theo `vuihoc-responses-[id]`. Bài làm thật lưu tại `.data/documents/[id]/runs`, cùng quyền thư viện theo cookie; chưa đồng bộ thiết bị.
 - Giải pháp này dành cho demo local/VPS với ổ đĩa bền vững. Chưa triển khai PostgreSQL, S3, hàng đợi phân tán, xác thực người dùng hoặc hạn mức cho dịch vụ công cộng. Không triển khai nguyên trạng trên môi trường serverless có ổ đĩa tạm/request limit nhỏ. Khi mở công khai cần bổ sung các thành phần đó và quản lý vòng đời dữ liệu.
-- Chưa có sinh câu tương tự/nâng cao, đáp án/gợi ý thật, chấm bài thật, thích ứng độ khó hay API video. Slide/bài mẫu vẫn được ghi rõ; không được xem là video AI.
-- Chất lượng nhận diện cần kiểm chứng bằng bộ tài liệu Toán/TIMO/Tiếng Anh/Tiếng Việt thật sau khi cấu hình khóa. Bộ test dùng dữ liệu giả lập phản hồi API để kiểm tra giao thức và phục hồi lỗi, không thay thế nghiệm thu AI.
+- Chưa có thích ứng độ khó theo kết quả, tạo slide/video từ tài liệu thật hoặc API video. Slide/bài mẫu vẫn được ghi rõ; không được xem là video AI.
+- Kiểm thử tự động dùng phản hồi API có kiểm soát để kiểm tra giao thức, điểm và phục hồi lỗi. Kiểm thử AI thật và giới hạn nghiệm thu được ghi trong `docs/IMPLEMENTATION_STATUS.md`; không suy rộng kết quả một tài liệu sang mọi dạng bài/môn học.
 
 ## Cấu trúc
 
 - `src/app/api/documents/[[...parts]]/route.ts`: tạo tài liệu, stream upload, đọc nguồn, trạng thái và retry.
 - `src/server/analysis.ts`: chuẩn hóa nguồn, OpenRouter, kiểm tra kết quả và xử lý từng phần.
+- `src/server/generation.ts`, `teaching-ai.ts`, `learning-validation.ts`: tạo/kiểm tra nội dung và thử lại từng phần.
+- `src/server/learning-runs.ts`, `src/lib/learning.ts`: bài làm bền vững, chấm điểm, gợi ý và phản hồi không lộ đáp án sớm.
+- `src/components/learning.tsx`: cấu hình sinh bài, luyện tập thật, kết quả và hành trình.
 - `src/server/worker.ts`, `store.ts`: hàng chờ bền vững trên đĩa, worker, khóa và khôi phục.
 - `src/server/validation.ts`: kiểm tra file, chọn trang, schema dữ liệu AI.
 - `src/lib/documents.ts`: môn học và hợp đồng dữ liệu.

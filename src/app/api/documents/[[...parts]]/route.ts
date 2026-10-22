@@ -15,6 +15,16 @@ import {
 } from "@/server/store";
 import { modelName } from "@/server/analysis";
 
+import { preparePack } from "@/server/generation";
+import {
+  learningView,
+  startLearningRun,
+  readRun,
+  changeRun,
+  listRuns,
+} from "@/server/learning-runs";
+import { learningResult, runView } from "@/lib/learning";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -90,6 +100,66 @@ async function handler(request: NextRequest, context: Context) {
         workerAlive: await workerAlive(),
         model: modelName(),
       });
+    } else if (
+      parts.length === 1 &&
+      parts[0] === "history" &&
+      method === "GET"
+    ) {
+      const jobs = await listJobs(session.owner);
+      const runs = (
+        await Promise.all(jobs.map((j) => listRuns(j.id, session.owner)))
+      ).flat();
+      response = NextResponse.json({
+        runs: runs
+          .map(learningResult)
+          .sort((a, b) => b.date.localeCompare(a.date)),
+      });
+    } else if (
+      parts.length === 2 &&
+      parts[1] === "learning" &&
+      method === "GET"
+    ) {
+      response = NextResponse.json(
+        await learningView(
+          await readJob(parts[0], session.owner),
+          session.owner,
+        ),
+      );
+    } else if (
+      parts.length === 2 &&
+      parts[1] === "generate" &&
+      method === "POST"
+    ) {
+      const input = await jsonBody(request);
+      const job = await updateJob(
+        parts[0],
+        (j) => {
+          j.learning = preparePack(j, input);
+        },
+        session.owner,
+      );
+      response = NextResponse.json(await learningView(job, session.owner));
+    } else if (parts.length === 2 && parts[1] === "runs" && method === "POST") {
+      response = NextResponse.json(
+        await startLearningRun(
+          parts[0],
+          session.owner,
+          await jsonBody(request),
+        ),
+      );
+    } else if (parts.length === 3 && parts[1] === "runs" && method === "GET") {
+      response = NextResponse.json(
+        runView(await readRun(parts[0], parts[2], session.owner)),
+      );
+    } else if (parts.length === 3 && parts[1] === "runs" && method === "POST") {
+      response = NextResponse.json(
+        await changeRun(
+          parts[0],
+          parts[2],
+          session.owner,
+          await jsonBody(request),
+        ),
+      );
     } else if (!parts.length && method === "GET") {
       response = NextResponse.json({
         documents: (await listJobs(session.owner)).map(publicDocument),
