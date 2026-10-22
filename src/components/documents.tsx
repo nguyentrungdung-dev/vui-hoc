@@ -164,13 +164,16 @@ export function DocumentLibrary({ subject }: { subject?: Subject }) {
     <section className="section">
       <div className="section-heading">
         <div>
-          <span className="eyebrow">TÀI LIỆU CỦA EM</span>
+          <span className="eyebrow">THƯ VIỆN DEMO DÙNG CHUNG</span>
           <h2>
             {subject
               ? `Bài ${subjects[subject].name} đã gửi`
-              : "Thư viện của em"}
+              : "Thư viện dùng chung"}
           </h2>
-          <p>Tài liệu được giữ trên máy chủ và gắn với trình duyệt này.</p>
+          <p>
+            Mọi người đều xem được tài liệu đã tải lên. Bài làm và điểm số của
+            em được lưu riêng.
+          </p>
         </div>
         <button
           className="icon-button"
@@ -447,6 +450,10 @@ export function UploadPage({
         Mình cùng đọc tài liệu và khám phá các dạng bài nhé!
       </PageTitle>
       <ConfigNotice config={config} />
+      <p className="notice">
+        Tài liệu gửi lên bản demo sẽ xuất hiện trong thư viện dùng chung cho mọi
+        người mở website.
+      </p>
       <div className="stepper">
         <span className="current">
           <b>1</b> Gửi tài liệu
@@ -864,7 +871,7 @@ export function DocumentPage({ id }: { id: string }) {
           </p>
         )}
         <div className="actions">
-          {retryable && (
+          {doc.canManage && retryable && (
             <button className="button" disabled={busy} onClick={() => retry()}>
               <RefreshCw size={18} />{" "}
               {doc.status === "waiting_config"
@@ -872,7 +879,8 @@ export function DocumentPage({ id }: { id: string }) {
                 : "Thử lại phần chưa xong"}
             </button>
           )}
-          {doc.status === "uploading" &&
+          {doc.canManage &&
+            doc.status === "uploading" &&
             (doc.files.every((f) => f.uploaded) ? (
               <button
                 className="button"

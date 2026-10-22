@@ -11,7 +11,8 @@ import {
   type LearningRun,
   type LearningView,
 } from "../lib/learning";
-import { jobDir, lock, readJob } from "./store";
+import { jobDir, lock } from "./store";
+import { readLibraryJob } from "./library";
 import { AppError } from "./validation";
 import { runActionSchema, startRunRequest } from "./learning-validation";
 function runPath(docId: string, id: string) {
@@ -41,30 +42,33 @@ async function saveRun(run: LearningRun) {
   await fs.rename(temp, target);
 }
 export async function readRun(docId: string, id: string, owner: string) {
-  await readJob(docId, owner);
+  const job = await readLibraryJob(docId, owner);
   runPath(docId, id);
   if (databaseEnabled()) {
     const result = await query<{ data: LearningRun }>(
-      "SELECT data FROM vuihoc_runs WHERE id=$1 AND document_id=$2",
-      [id, docId],
+      "SELECT data FROM vuihoc_runs WHERE id=$1 AND document_id=$2 AND COALESCE(data->>'owner', $3)=$4",
+      [id, docId, job.owner, owner],
     );
     if (!result.rows[0]) throw new AppError("Không tìm thấy bài làm.", 404);
     return result.rows[0].data;
   }
   try {
-    return JSON.parse(
+    const run = JSON.parse(
       await fs.readFile(runPath(docId, id), "utf8"),
     ) as LearningRun;
+    if ((run.owner ?? job.owner) !== owner)
+      throw new AppError("Không tìm thấy bài làm.", 404);
+    return run;
   } catch {
     throw new AppError("Không tìm thấy bài làm.", 404);
   }
 }
 export async function listRuns(docId: string, owner: string) {
-  await readJob(docId, owner);
+  const job = await readLibraryJob(docId, owner);
   if (databaseEnabled()) {
     const result = await query<{ data: LearningRun }>(
-      "SELECT data FROM vuihoc_runs WHERE document_id=$1 ORDER BY updated_at DESC",
-      [docId],
+      "SELECT data FROM vuihoc_runs WHERE document_id=$1 AND COALESCE(data->>'owner', $2)=$3 ORDER BY updated_at DESC",
+      [docId, job.owner, owner],
     );
     return result.rows.map((row) => row.data);
   }
@@ -128,7 +132,7 @@ export async function startLearningRun(
   if (!parsed.success) throw new AppError("Lựa chọn bài làm chưa hợp lệ.");
   const request = parsed.data;
   return lock(`create-run:${docId}`, async () => {
-    const job = await readJob(docId, owner);
+    const job = await readLibraryJob(docId, owner);
     const pack = job.learning;
     if (!pack) throw new AppError("Hãy tạo bài học trước.");
     const pool = pack.parts
@@ -171,6 +175,7 @@ export async function startLearningRun(
     }
     const now = new Date().toISOString();
     const run: LearningRun = {
+      owner,
       id: randomUUID(),
       documentId: docId,
       title: job.title,

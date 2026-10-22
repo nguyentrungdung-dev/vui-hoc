@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { closeDatabase, query } from "./database";
 import { readJob, writeJob, updateJob, listJobs } from "./store";
+import { readLibraryJob, listLibraryJobs } from "./library";
+import { listRuns } from "./learning-runs";
 import { readRun, startLearningRun, changeRun } from "./learning-runs";
 import { learningResult, type LearningQuestion } from "../lib/learning";
 import { type DocumentJob, publicDocument } from "../lib/documents";
@@ -123,6 +125,7 @@ test(
   async () => {
     const j = document();
     j.status = "complete";
+    j.files[0].uploaded = true;
     j.learning = {
       id: randomUUID(),
       status: "ready",
@@ -152,6 +155,30 @@ test(
     );
     assert.equal(new Set(runs.map((r) => r.id)).size, 1);
     const id = runs[0].id;
+    assert.equal((await readLibraryJob(j.id, "visitor")).id, j.id);
+    assert.ok(
+      (await listLibraryJobs("visitor")).some((doc) => doc.id === j.id),
+    );
+    const visitor = await startLearningRun(j.id, "visitor", {
+      kind: "practice",
+    });
+    assert.notEqual(visitor.id, id);
+    assert.equal("owner" in visitor, false);
+    assert.deepEqual(
+      (await listRuns(j.id, "visitor")).map((r) => r.id),
+      [visitor.id],
+    );
+    assert.deepEqual(
+      (await listRuns(j.id, j.owner)).map((r) => r.id),
+      [id],
+    );
+    await assert.rejects(
+      changeRun(j.id, id, "visitor", {
+        action: "finish",
+        eventId: randomUUID(),
+      }),
+    );
+
     await changeRun(j.id, id, j.owner, {
       eventId: randomUUID(),
       action: "answer",
@@ -171,6 +198,14 @@ test(
     });
     await closeDatabase();
     assert.equal(learningResult(await readRun(j.id, id, j.owner)).score, 0);
+    await query("UPDATE vuihoc_runs SET data=data-'owner' WHERE id=$1", [id]);
+    assert.equal((await readRun(j.id, id, j.owner)).finished, true);
+    await assert.rejects(readRun(j.id, id, "visitor"));
+    assert.deepEqual(
+      (await listRuns(j.id, "visitor")).map((r) => r.id),
+      [visitor.id],
+    );
+
     await assert.rejects(readRun(j.id, id, "another-owner"), /Không tìm thấy/);
   },
 );

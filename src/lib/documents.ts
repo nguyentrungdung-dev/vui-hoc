@@ -101,6 +101,7 @@ export type PublicDocument = Omit<
   DocumentJob,
   "owner" | "batches" | "learning" | "analysisExecution" | "learningExecution"
 > & {
+  canManage: boolean;
   summaries: string[];
   pages: AnalysisPage[];
   questions: ExtractedQuestion[];
@@ -116,7 +117,10 @@ export const statusNames: Record<DocumentStatus, string> = {
   complete: "Đã nhận diện xong",
   failed: "Cần thử lại",
 };
-export function publicDocument(job: DocumentJob): PublicDocument {
+export function publicDocument(
+  job: DocumentJob,
+  viewer?: string,
+): PublicDocument {
   const {
     owner: _owner,
     learning: _learning,
@@ -127,6 +131,7 @@ export function publicDocument(job: DocumentJob): PublicDocument {
   } = job;
   return {
     ...rest,
+    canManage: viewer === job.owner,
     summaries: batches.flatMap((b) =>
       b.result?.summary ? [b.result.summary] : [],
     ),

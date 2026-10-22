@@ -51,7 +51,7 @@ Xem hướng dẫn đầy đủ: [docs/VERCEL_DEPLOYMENT.md](docs/VERCEL_DEPLOYM
 4. Deploy **commit chứa thay đổi mới**. Build Command: `npm run build`, Install Command: `npm ci`, framework Next.js, không tùy chỉnh Output Directory.
 5. Workflow SDK tự cấu hình các route/tác vụ. Không tạo cron hoặc chạy lệnh worker. Bảng dữ liệu được tạo khi API truy cập database lần đầu.
 
-Dữ liệu `.data` cũ trên Mac được giữ nguyên, không tự chuyển lên cloud. Với database mới, tải lại tài liệu cần dùng. Cookie thư viện giữa localhost và tên miền Vercel độc lập.
+Dữ liệu `.data` cũ trên Mac được giữ nguyên, không tự chuyển lên cloud. Với database mới, tải lại tài liệu cần dùng. Thư viện demo trên Vercel dùng chung giữa các trình duyệt; dữ liệu local vẫn là kho riêng.
 
 ## Thử tài liệu thật
 
@@ -74,7 +74,7 @@ Dữ liệu `.data` cũ trên Mac được giữ nguyên, không tự chuyển l
 | `/toan`, `/tieng-anh`, `/tieng-viet`, `/tu-hoc`                                         | Trang môn và tài liệu đã gửi                                              |
 | `/tai-len`, `/tai-len/math`, `/tai-len/english`, `/tai-len/vietnamese`, `/tai-len/self` | Gửi tài liệu thật                                                         |
 | `/timo`                                                                                 | Gửi đề TIMO thật                                                          |
-| `/thu-vien`                                                                             | Toàn bộ tài liệu của trình duyệt hiện tại                                 |
+| `/thu-vien`                                                                             | Thư viện demo: tài liệu đã tải lên dùng chung cho mọi người               |
 | `/tai-lieu/[id]`                                                                        | Nhận diện, chủ đề, tạo nội dung, bài đang làm và nguồn                    |
 | `/ban-mau`                                                                              | Khu trải nghiệm được ghi rõ dữ liệu mẫu                                   |
 | `/buoi-hoc`, `/bai-giang`, `/luyen-tap`, `/ket-qua`                                     | Luồng gợi ý/chấm điểm/slide của bài mẫu, chưa dùng kết quả phân tích thật |
@@ -106,8 +106,9 @@ Tài liệu tham khảo: [OpenRouter PDF](https://openrouter.ai/docs/guides/over
 ## Lưu trữ và giới hạn triển khai
 
 - Cloud: tệp gốc ở Blob Private; tài liệu, kết quả AI và bài làm ở Neon. Local không có `DATABASE_URL`: dữ liệu ở `.data/documents`, ngoài `public`, được `.gitignore` loại trừ. Vercel không bao giờ tự chuyển về lưu trên đĩa tạm khi thiếu database.
-- Cookie ngẫu nhiên HttpOnly giới hạn thư viện theo trình duyệt. API kiểm tra quyền đọc/tải/xử lý và nguồn request. Đây chưa phải tài khoản đăng nhập; xóa cookie sẽ mất liên kết thư viện, dù tệp vẫn còn trên máy chủ.
-- Hồ sơ và bài mẫu lưu trong `localStorage` (`vuihoc-demo-v1`). Ghi chú trên bản nhận diện lưu theo `vuihoc-responses-[id]`. Bài làm thật lưu ở PostgreSQL hoặc `.data/documents/[id]/runs` trong chế độ local, cùng quyền thư viện theo cookie; chưa đồng bộ thiết bị.
+- Thư viện demo dùng chung: ai mở website cũng thấy tài liệu đã tải đủ, nội dung nhận diện, nguồn PDF/ảnh và bộ bài đã tạo, kể cả tài liệu cũ. Tệp chưa tải đủ chỉ hiện với người gửi.
+- Cookie HttpOnly giữ quyền tải tiếp, nhận diện/tạo lại nội dung AI và bài làm riêng của từng trình duyệt. Người xem khác có thể học bộ bài đã có nhưng không gọi AI tạo lại tài liệu đó. Chưa có tài khoản đăng nhập; xóa cookie mất liên kết bài làm và quyền quản lý của trình duyệt đó, nhưng tài liệu đã tải đủ vẫn có trong thư viện chung.
+- Hồ sơ và bài mẫu lưu trong `localStorage` (`vuihoc-demo-v1`). Ghi chú trên bản nhận diện lưu theo `vuihoc-responses-[id]`. Bài làm thật lưu ở PostgreSQL hoặc `.data/documents/[id]/runs` trong chế độ local, với chủ bài làm riêng theo cookie; chưa đồng bộ tiến độ giữa thiết bị.
 - Đã có adapter PostgreSQL, Blob Private và Workflow cho Vercel. MVP vẫn chưa có tài khoản đăng nhập, hạn mức AI theo người dùng hoặc tự dọn tệp bỏ dở; các phần này cần bổ sung khi mở rộng ngoài demo.
 - Chưa có thích ứng độ khó theo kết quả, tạo slide/video từ tài liệu thật hoặc API video. Slide/bài mẫu vẫn được ghi rõ; không được xem là video AI.
 - Kiểm thử tự động dùng phản hồi API có kiểm soát để kiểm tra giao thức, điểm và phục hồi lỗi. Kiểm thử AI thật và giới hạn nghiệm thu được ghi trong `docs/IMPLEMENTATION_STATUS.md`; không suy rộng kết quả một tài liệu sang mọi dạng bài/môn học.

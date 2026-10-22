@@ -132,66 +132,78 @@ export function LearningPanel({ document: doc }: { document: PublicDocument }) {
           diện; các trang lỗi chưa được đưa vào.
         </p>
       )}
-      <fieldset
-        className="generation-options"
-        disabled={busy || working || !view}
-      >
-        <label htmlFor={`practice-count-${doc.id}`}>Số câu luyện mới</label>
-        <input
-          id={`practice-count-${doc.id}`}
-          className="question-count-input"
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          value={countInput}
-          onChange={(e) => {
-            const value = e.target.value;
-            if (/^\d*$/.test(value)) {
-              setCountInput(value.replace(/^0+(?=\d)/, ""));
-            }
-          }}
-        />
-        <details>
-          <summary>
-            Chọn chủ đề ·{" "}
-            {topics.length ? `${topics.length}/${available.length}` : "Tất cả"}
-          </summary>
-          <p className="micro">
-            Để trống lựa chọn nghĩa là học tất cả chủ đề đã nhận diện.
-          </p>
-          <div className="topic-checklist">
-            {available.map((t) => (
-              <label key={t}>
-                <input
-                  type="checkbox"
-                  checked={topics.includes(t)}
-                  onChange={(e) =>
-                    setTopics((ts) =>
-                      e.target.checked ? [...ts, t] : ts.filter((x) => x !== t),
-                    )
-                  }
-                />
-                {t}
-              </label>
-            ))}
-          </div>
-          <button
-            type="button"
-            className="text-button"
-            onClick={() => setTopics([])}
-          >
-            Chọn tất cả chủ đề
-          </button>
-        </details>
-        <button
-          className="button"
-          disabled={!Number.isInteger(count) || count < 5 || count > 50}
-          onClick={() => generate()}
+      {doc.canManage ? (
+        <fieldset
+          className="generation-options"
+          disabled={busy || working || !view}
         >
-          <Rocket size={18} />
-          {pack ? "Tạo theo lựa chọn" : "Tạo lời giải và bộ luyện"}
-        </button>
-      </fieldset>
+          <label htmlFor={`practice-count-${doc.id}`}>Số câu luyện mới</label>
+          <input
+            id={`practice-count-${doc.id}`}
+            className="question-count-input"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={countInput}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (/^\d*$/.test(value)) {
+                setCountInput(value.replace(/^0+(?=\d)/, ""));
+              }
+            }}
+          />
+          <details>
+            <summary>
+              Chọn chủ đề ·{" "}
+              {topics.length
+                ? `${topics.length}/${available.length}`
+                : "Tất cả"}
+            </summary>
+            <p className="micro">
+              Để trống lựa chọn nghĩa là học tất cả chủ đề đã nhận diện.
+            </p>
+            <div className="topic-checklist">
+              {available.map((t) => (
+                <label key={t}>
+                  <input
+                    type="checkbox"
+                    checked={topics.includes(t)}
+                    onChange={(e) =>
+                      setTopics((ts) =>
+                        e.target.checked
+                          ? [...ts, t]
+                          : ts.filter((x) => x !== t),
+                      )
+                    }
+                  />
+                  {t}
+                </label>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => setTopics([])}
+            >
+              Chọn tất cả chủ đề
+            </button>
+          </details>
+          <button
+            className="button"
+            disabled={!Number.isInteger(count) || count < 5 || count > 50}
+            onClick={() => generate()}
+          >
+            <Rocket size={18} />
+            {pack ? "Tạo theo lựa chọn" : "Tạo lời giải và bộ luyện"}
+          </button>
+        </fieldset>
+      ) : (
+        <p className="notice">
+          {pack
+            ? "Em có thể làm các bài đã chuẩn bị bên dưới. Tiến độ và điểm số được lưu riêng trong trình duyệt của em."
+            : "Người tải tài liệu đang chuẩn bị bài luyện. Em có thể xem nội dung nhận diện và tài liệu gốc trước nhé."}
+        </p>
+      )}
       {pack && (
         <div className="generation-status">
           <span className="badge">
@@ -223,15 +235,16 @@ export function LearningPanel({ document: doc }: { document: PublicDocument }) {
                 Luyện {pack.practiceCount} câu <ArrowRight size={18} />
               </button>
             )}
-            {["partial", "failed", "waiting_config"].includes(pack.status) && (
-              <button
-                className="button secondary"
-                disabled={busy}
-                onClick={() => generate(true)}
-              >
-                <RefreshCw size={17} /> Thử lại phần chưa xong
-              </button>
-            )}
+            {doc.canManage &&
+              ["partial", "failed", "waiting_config"].includes(pack.status) && (
+                <button
+                  className="button secondary"
+                  disabled={busy}
+                  onClick={() => generate(true)}
+                >
+                  <RefreshCw size={17} /> Thử lại phần chưa xong
+                </button>
+              )}
           </div>
           {working && (
             <p className="micro">

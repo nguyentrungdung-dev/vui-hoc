@@ -58,6 +58,8 @@ export type LearningAttempt = {
   hintLevel: number;
 };
 export type LearningRun = {
+  /** Absent only on legacy runs, which belong to the original document creator. */
+  owner?: string;
   id: string;
   documentId: string;
   title: string;
@@ -111,7 +113,7 @@ export type LearningResult = {
     hints: number;
   }[];
 };
-export type RunView = Omit<LearningRun, "questions" | "eventIds"> & {
+export type RunView = Omit<LearningRun, "questions" | "eventIds" | "owner"> & {
   questions: QuestionView[];
   result: LearningResult;
 };
@@ -191,7 +193,7 @@ export function learningResult(run: LearningRun): LearningResult {
   };
 }
 export function runView(run: LearningRun): RunView {
-  const { eventIds: _events, questions, ...rest } = run;
+  const { eventIds: _events, owner: _owner, questions, ...rest } = run;
   return {
     ...rest,
     result: learningResult(run),

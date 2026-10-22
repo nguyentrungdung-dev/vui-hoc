@@ -29,7 +29,7 @@ Neon lưu tài liệu đã nhận diện, bộ câu hỏi và bài làm. Blob l�
 
 ## 3. Nghiệm thu trên website
 
-1. Mở `/api/documents/config`: mong đợi `storage: "blob"`, `storageConfigured: true`, `configured: true`.
+1. Mở `/api/documents/config`: mong đợi `storage: "blob"`, `storageConfigured: true`, `configured: true`, `sharedLibrary: true`.
 2. Tải PDF nhỏ; kiểm tra trạng thái đi qua chờ/nhận diện tới hoàn tất. Đóng trang rồi mở lại; tiến độ còn.
 3. Tải PDF lớn hơn 4,5 MB và một ảnh; kiểm tra tiến độ, mở nguồn và chọn trang. File tải thẳng từ browser sang Blob, API chỉ nhận metadata/token request.
 4. Tạo 25 câu; chờ nhóm đầu, mở làm bài, xem gợi ý, kết thúc; tải lại trang và kiểm tra kết quả.
@@ -43,7 +43,9 @@ Một bài 25 câu có thể gồm nhiều bước AI nên tổng thời gian c�
 - Không có `DATABASE_URL` và không chạy trên Vercel: tiếp tục dùng `.data`, `npm run dev` là đủ.
 - Muốn local dùng Neon/Blob: đưa hai biến cloud vào `.env.local`, giữ nguyên khóa AI, khởi động lại server. Không cần PostgreSQL trên Mac.
 - Dữ liệu `.data` cũ không bị xóa hoặc tự upload. Để dùng tài liệu cũ trên cloud, tải lại file. Chưa có công cụ migration tự động.
-- Thư viện vẫn gắn với cookie trình duyệt/tên miền; localhost không chia sẻ cookie với Vercel. Đây chưa phải đăng nhập đồng bộ nhiều thiết bị.
+- Thư viện demo dùng chung cho mọi người trên cùng deployment/database, gồm cả tài liệu đã tải trước thay đổi này. Bản tải dở chỉ hiện cho người gửi. Nguồn Blob vẫn Private; API kiểm tra tài liệu đã tải đủ trước khi phục vụ người xem chung.
+- Bài làm, điểm và lịch sử giữ riêng theo cookie. Bài làm cũ chưa có trường owner tiếp tục thuộc người tải tài liệu ban đầu; không cần di chuyển dữ liệu. Đây chưa phải đăng nhập đồng bộ tiến độ nhiều thiết bị.
+- Người gửi giữ quyền tải tiếp và gọi AI nhận diện/tạo lại nội dung. Người xem dùng các bộ bài sẵn có; mở thư viện không gọi AI.
 - `.workflow-data` là trạng thái Workflow local, không đưa vào Git. Trên Vercel, trạng thái Workflow do nền tảng quản lý.
 
 ## 5. Kiểm thử kỹ thuật

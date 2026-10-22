@@ -329,7 +329,7 @@ test("Generation integrates schema + independent review, repairs rejected answer
   }
 });
 
-test("Learning HTTP routes isolate owners, hide solutions, preserve first score and expose saved history", async () => {
+test("Shared lessons give each browser independent attempts, solutions and history", async () => {
   const token = "a".repeat(64);
   const j = job();
   j.owner = createHash("sha256").update(token).digest("hex");
@@ -370,7 +370,7 @@ test("Learning HTTP routes isolate owners, hide solutions, preserve first score 
   assert.equal(info.pack.parts, undefined);
   assert.equal(
     (await call([j.id, "learning"], undefined, "b".repeat(64))).status,
-    404,
+    200,
   );
   assert.equal(
     (
@@ -388,6 +388,31 @@ test("Learning HTTP routes isolate owners, hide solutions, preserve first score 
   ).json();
   assert.equal(created.questions[0].solution, undefined);
   assert.equal(created.questions[0].answer, undefined);
+  assert.equal("owner" in created, false);
+  const visitorToken = "b".repeat(64);
+  const visitorResponse = await call(
+    [j.id, "runs"],
+    { kind: "practice" },
+    visitorToken,
+  );
+  assert.equal(visitorResponse.status, 200);
+  const visitorRun = await visitorResponse.json();
+  assert.notEqual(visitorRun.id, created.id);
+  const resumed = await (
+    await call([j.id, "runs"], { kind: "practice" }, visitorToken)
+  ).json();
+  assert.equal(resumed.id, visitorRun.id);
+  assert.equal((await call([j.id, "runs", visitorRun.id])).status, 404);
+  assert.equal(
+    (await call([j.id, "runs", visitorRun.id], action("finish"))).status,
+    404,
+  );
+  assert.equal(
+    (await call([j.id, "generate"], { count: 5, topics: [] }, visitorToken))
+      .status,
+    404,
+  );
+
   const route = [j.id, "runs", created.id];
   const first = await (
     await call(
@@ -408,8 +433,41 @@ test("Learning HTTP routes isolate owners, hide solutions, preserve first score 
   assert.equal((await call(route, undefined, "b".repeat(64))).status, 404);
   const history = await (await call(["history"])).json();
   assert.ok(history.runs.some((r: { id: string }) => r.id === created.id));
+  assert.equal(
+    history.runs.some((r: { id: string }) => r.id === visitorRun.id),
+    false,
+  );
+  const visitorHistory = await (
+    await call(["history"], undefined, visitorToken)
+  ).json();
+  assert.ok(
+    visitorHistory.runs.some((r: { id: string }) => r.id === visitorRun.id),
+  );
+  assert.equal(
+    visitorHistory.runs.some((r: { id: string }) => r.id === created.id),
+    false,
+  );
+  const untouched = await (
+    await call([j.id, "runs", visitorRun.id], undefined, visitorToken)
+  ).json();
+  assert.equal(untouched.result.solved, 0);
+  assert.equal(untouched.questions[0].solution, undefined);
+  // Runs created before sharing have no owner field and stay with the document creator.
+  const legacyPath = path.join(
+    dir,
+    "documents",
+    j.id,
+    "runs",
+    `${created.id}.json`,
+  );
+  const legacy = JSON.parse(await fs.readFile(legacyPath, "utf8"));
+  delete legacy.owner;
+  await fs.writeFile(legacyPath, JSON.stringify(legacy));
+  assert.equal((await call(route)).status, 200);
+  assert.equal((await call(route, undefined, visitorToken)).status, 404);
+
   const foreign = await (
-    await call(["history"], undefined, "b".repeat(64))
+    await call(["history"], undefined, "c".repeat(64))
   ).json();
   assert.equal(foreign.runs.length, 0);
 });

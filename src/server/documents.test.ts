@@ -222,7 +222,7 @@ test("OpenRouter contract uses native PDF, strict schema and keeps API key only 
     /Khóa OpenRouter/,
   );
 });
-test("API streams a real PDF, enforces session isolation, origin, signatures and immutable uploaded files", async () => {
+test("API shares uploaded PDFs while protecting unfinished uploads and creator-only mutations", async () => {
   const bytes = await pdfBytes();
   const response = await POST(
     request("POST", [], JSON.stringify(createInput(bytes.length))),
@@ -232,6 +232,16 @@ test("API streams a real PDF, enforces session isolation, origin, signatures and
   const job = await response.json();
   const cookie = response.headers.get("set-cookie")!.split(";")[0];
   const parts = [job.id, "files", "0"];
+  assert.equal(
+    (await GET(request("GET", [job.id]), context([job.id]))).status,
+    404,
+  );
+  const drafts = await (await GET(request("GET", []), context([]))).json();
+  assert.equal(
+    drafts.documents.some((d: { id: string }) => d.id === job.id),
+    false,
+  );
+
   const bad = Buffer.alloc(bytes.length, 65);
   assert.equal(
     (await PUT(request("PUT", parts, bad, cookie), context(parts))).status,
@@ -253,9 +263,37 @@ test("API streams a real PDF, enforces session isolation, origin, signatures and
   assert.deepEqual(Buffer.from(await download.arrayBuffer()), bytes);
   assert.equal(
     (await GET(request("GET", [job.id]), context([job.id]))).status,
+    200,
+  );
+  const shared = await (
+    await GET(request("GET", [job.id]), context([job.id]))
+  ).json();
+  assert.equal(shared.canManage, false);
+  assert.equal("owner" in shared, false);
+  const sharedList = await (await GET(request("GET", []), context([]))).json();
+  assert.ok(sharedList.documents.some((d: { id: string }) => d.id === job.id));
+  const sharedDownload = await GET(request("GET", parts), context(parts));
+  assert.equal(sharedDownload.status, 200);
+  assert.deepEqual(Buffer.from(await sharedDownload.arrayBuffer()), bytes);
+  assert.equal(
+    (await PUT(request("PUT", parts, bytes), context(parts))).status,
     404,
   );
-  assert.equal((await GET(request("GET", parts), context(parts))).status, 404);
+  for (const action of ["start", "retry", "generate"])
+    assert.equal(
+      (
+        await POST(
+          request(
+            "POST",
+            [job.id, action],
+            JSON.stringify({ count: 5, topics: [] }),
+          ),
+          context([job.id, action]),
+        )
+      ).status,
+      404,
+    );
+
   assert.equal(
     (
       await POST(

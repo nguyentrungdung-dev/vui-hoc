@@ -3,15 +3,9 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import { publicDocument, type DocumentJob } from "@/lib/documents";
 import { AppError, createSchema, sniffMime } from "@/server/validation";
-import {
-  filePath,
-  listJobs,
-  lock,
-  readJob,
-  updateJob,
-  writeJob,
-} from "@/server/store";
+import { filePath, lock, readJob, updateJob, writeJob } from "@/server/store";
 import { modelName } from "@/server/analysis";
+import { listLibraryJobs, readLibraryJob } from "@/server/library";
 import { enqueue } from "@/server/dispatch";
 import {
   storageMode,
@@ -108,13 +102,14 @@ async function handler(request: NextRequest, context: Context) {
           storageMode() === "local" ||
           !!process.env.BLOB_READ_WRITE_TOKEN?.trim(),
         model: modelName(),
+        sharedLibrary: true,
       });
     } else if (
       parts.length === 1 &&
       parts[0] === "history" &&
       method === "GET"
     ) {
-      const jobs = await listJobs(session.owner);
+      const jobs = await listLibraryJobs(session.owner);
       const runs = (
         await Promise.all(jobs.map((j) => listRuns(j.id, session.owner)))
       ).flat();
@@ -130,7 +125,7 @@ async function handler(request: NextRequest, context: Context) {
     ) {
       response = NextResponse.json(
         await learningView(
-          await readJob(parts[0], session.owner),
+          await readLibraryJob(parts[0], session.owner),
           session.owner,
         ),
       );
@@ -177,7 +172,9 @@ async function handler(request: NextRequest, context: Context) {
       );
     } else if (!parts.length && method === "GET") {
       response = NextResponse.json({
-        documents: (await listJobs(session.owner)).map(publicDocument),
+        documents: (await listLibraryJobs(session.owner)).map((job) =>
+          publicDocument(job, session.owner),
+        ),
       });
     } else if (!parts.length && method === "POST") {
       requireStorage();
@@ -206,10 +203,15 @@ async function handler(request: NextRequest, context: Context) {
         model: modelName(),
       };
       await writeJob(job);
-      response = NextResponse.json(publicDocument(job), { status: 201 });
+      response = NextResponse.json(publicDocument(job, session.owner), {
+        status: 201,
+      });
     } else if (parts.length === 1 && method === "GET") {
       response = NextResponse.json(
-        publicDocument(await readJob(parts[0], session.owner)),
+        publicDocument(
+          await readLibraryJob(parts[0], session.owner),
+          session.owner,
+        ),
       );
     } else if (
       parts.length === 2 &&
@@ -240,7 +242,7 @@ async function handler(request: NextRequest, context: Context) {
       );
       await enqueue("analysis", job.id, execution);
       response = NextResponse.json(
-        publicDocument(await readJob(job.id, session.owner)),
+        publicDocument(await readJob(job.id, session.owner), session.owner),
       );
     } else if (
       parts.length === 4 &&
@@ -270,7 +272,10 @@ async function handler(request: NextRequest, context: Context) {
       /^\d+$/.test(parts[2])
     ) {
       const index = Number(parts[2]);
-      const job = await readJob(parts[0], session.owner);
+      const job =
+        method === "GET"
+          ? await readLibraryJob(parts[0], session.owner)
+          : await readJob(parts[0], session.owner);
       const file = job.files[index];
       if (!file) throw new AppError("Không tìm thấy tệp.", 404);
       const target = filePath(job.id, index);

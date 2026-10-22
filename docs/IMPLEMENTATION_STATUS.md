@@ -107,3 +107,11 @@ Sinh bài/lời giải/gợi ý theo nguồn, chấm điểm bài thật, lưu k
 - Giữ UI, tính điểm /10 riêng với mức dùng gợi ý, thử lại từng phần, 4 khu học. Video vẫn tạm dừng.
 - Đã qua 30 tests, build production và smoke test upload PDF → Workflow trên production local. PostgreSQL được kiểm thử bằng database tạm riêng; Blob contract dùng mock. Chưa xác nhận upload/AI thực trên deployment mới nếu chưa deploy.
 - Hướng dẫn biến môi trường, deploy và nghiệm thu: [VERCEL_DEPLOYMENT.md](VERCEL_DEPLOYMENT.md).
+
+## Thư viện demo dùng chung (22/10/2026)
+
+- Người dùng xác nhận mở thư viện chung, chưa cần đăng nhập. Tài liệu đã tải đủ, file gốc, nội dung nhận diện và bộ bài đã tạo hiện với mọi trình duyệt/thiết bị trên cùng website; áp dụng ngay với tài liệu cũ.
+- Upload dở và quyền sửa/tạo lại nội dung AI vẫn thuộc người tải lên. Mở thư viện/xem nguồn không phát sinh yêu cầu AI.
+- Mỗi người xem tạo bài làm riêng; chỉ thấy lịch sử/điểm của trình duyệt mình. Các bài làm cũ được giữ cho chủ tài liệu ban đầu, không cần migration dữ liệu.
+- UI ghi rõ thư viện dùng chung và phạm vi chia sẻ ngay trước khi tải file.
+- Kiểm thử thêm hai phiên khác cookie: danh sách, chi tiết, tải PDF, đọc bộ học dùng chung; không sửa tài liệu hoặc bài làm của người khác; resume bài riêng; bảo toàn bài làm cũ trên cả file local và PostgreSQL.
