@@ -103,11 +103,6 @@ export function SubjectPage({ subject }: { subject: Subject }) {
             <ButtonLink href={`/tai-len/${subject}`}>
               <Upload size={19} /> Gửi tài liệu
             </ButtonLink>
-            {subject === "math" && (
-              <ButtonLink href="/timo" secondary>
-                Thử sức TIMO <ArrowRight size={18} />
-              </ButtonLink>
-            )}
           </div>
         </div>
         <Character

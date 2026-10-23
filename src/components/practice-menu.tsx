@@ -16,7 +16,7 @@ export function PracticeMenu({ path }: { path: string }) {
   const trigger = useRef<HTMLButtonElement>(null);
   const canHover = () =>
     window.matchMedia(
-      "(hover: hover) and (pointer: fine) and (min-width: 761px)",
+      "(hover: hover) and (pointer: fine) and (min-width: 901px)",
     ).matches;
   useEffect(() => {
     setOpen(false);

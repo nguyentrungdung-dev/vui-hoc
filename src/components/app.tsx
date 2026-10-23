@@ -230,6 +230,12 @@ export default function VuiHocApp({ path }: { path: string }) {
           <Link href="/#worlds">
             <BookOpen size={18} /> Khám phá
           </Link>
+          <Link
+            href="/thu-vien"
+            className={path === "/thu-vien" ? "active" : ""}
+          >
+            <FileText size={18} /> Thư viện
+          </Link>
           <Link href="/hanh-trinh">
             <Trophy size={18} /> Hành trình
           </Link>
@@ -651,9 +657,6 @@ function MathPage({ state, startRun }: Shared) {
             <span>
               <b>25</b> câu mặc định
             </span>
-            <span>
-              <b>2</b> cách khám phá
-            </span>
           </div>
         </div>
         <div className="math-art">
@@ -669,7 +672,7 @@ function MathPage({ state, startRun }: Shared) {
           <h2>Chọn hành trình hôm nay</h2>
         </div>
       </div>
-      <div className="two-columns">
+      <div>
         <Link href="/tai-len" className="journey-card blue">
           <TopicIcon icon="↥" color="blue" />
           <div>
@@ -677,16 +680,6 @@ function MathPage({ state, startRun }: Shared) {
             <p>Tải bài tuần này, cùng ôn lại và luyện thêm.</p>
             <span className="text-button">
               Bắt đầu ôn tập <ArrowRight size={17} />
-            </span>
-          </div>
-        </Link>
-        <Link href="/timo" className="journey-card peach">
-          <TopicIcon icon="✦" color="peach" />
-          <div>
-            <h3>Chinh phục TIMO</h3>
-            <p>Khám phá đề thi, lời giải song ngữ và thử thách mới.</p>
-            <span className="text-button">
-              Khám phá luyện đề <ArrowRight size={17} />
             </span>
           </div>
         </Link>

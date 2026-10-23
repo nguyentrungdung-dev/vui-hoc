@@ -5,7 +5,7 @@ export const subjects = {
     name: "Toán",
     path: "/toan",
     icon: "🧮",
-    description: "Bài tập trên lớp, toán tư duy và đề TIMO.",
+    description: "Bài tập trên lớp và toán tư duy từ tài liệu của em.",
   },
   english: {
     name: "Tiếng Anh",
