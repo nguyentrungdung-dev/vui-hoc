@@ -26,6 +26,8 @@ Cập nhật **23/10/2026** theo mã nguồn và các quyết định đã duy�
 
 Phạm vi chuẩn: [MVP_SPEC.md](MVP_SPEC.md). Tiến độ và giới hạn: [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
 
+**Hướng video đã thống nhất, chưa triển khai (23/10/2026):** lời giải chi tiết → Claude tạo cảnh → Fish Audio tạo giọng đọc → phát trong webapp khi bấm nút, lưu để dùng lại; chưa xuất MP4. Xem [kế hoạch và điểm tiếp tục](docs/VIDEO_GUIDANCE_PLAN.md). Chủ dự án yêu cầu tạm dừng ở bước lưu tài liệu.
+
 ## Chạy bản production trên local
 
 Code nằm trong thư mục dự án `/Volumes/TrungDung_James/SciEco/MVP Vui Học`. Local và Vercel cùng dùng **Node.js 24.x**, dependency từ `package-lock.json` và build Next.js production. Nếu dùng nvm, chạy `nvm use`.

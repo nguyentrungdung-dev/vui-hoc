@@ -13,6 +13,7 @@ import {
 import { newAttempt, recordAnswer, summarize, topics } from "@/lib/demo";
 import type { Shared } from "./app";
 import { ButtonLink, Character, Modal, PageTitle } from "./ui";
+import { HintHelpActions } from "./hint-help-actions";
 
 export function PracticePage({ state, setState, startRun }: Shared) {
   const router = useRouter();
@@ -396,9 +397,8 @@ export function PracticePage({ state, setState, startRun }: Shared) {
             <button className="button full" onClick={closeHint}>
               Em thử tự làm lại nhé <ArrowRight size={17} />
             </button>
-            <button
-              className="text-button guide-button"
-              onClick={() => {
+            <HintHelpActions
+              onGuide={() => {
                 updateAttempt({
                   guided: true,
                   hintMs: attempt.hintMs + Date.now() - hintStarted.current,
@@ -406,9 +406,7 @@ export function PracticePage({ state, setState, startRun }: Shared) {
                 setHint(false);
                 setExplain(true);
               }}
-            >
-              Con vẫn chưa hiểu — Cùng làm từng bước
-            </button>
+            />
           </div>
         </Modal>
       )}

@@ -169,6 +169,8 @@ Hệ thống giao trực tiếp cho người học, không thêm bước ngườ
 
 ## 10. Video và tích hợp API
 
+> **Quyết định mới 23/10/2026:** luồng hướng dẫn từng câu ưu tiên lời giải chi tiết → Claude tạo cảnh → Fish Audio TTS → phát animation trong webapp và lưu dùng lại; chưa xuất MP4. Xem [kế hoạch](docs/VIDEO_GUIDANCE_PLAN.md). Chỉ lưu tài liệu, chưa triển khai. Định hướng API video công ty bên dưới là phương án ban đầu, không còn là phụ thuộc để thực hiện luồng mới này.
+
 **Hiện trạng 23/10/2026:** chỉ có slide tương tác dùng dữ liệu mẫu. Chưa có pipeline tạo slide/kịch bản từ tài liệu thật, API video, giọng đọc hay đồng bộ điểm dừng với video thật. Các mục dưới đây là yêu cầu còn chờ; tài liệu API và quyền kết nối cần chủ dự án cung cấp.
 
 ### 10.1. Nội dung mỗi chủ đề

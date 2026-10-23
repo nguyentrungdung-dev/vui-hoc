@@ -4,6 +4,10 @@ Cập nhật hiện trạng: **23/10/2026**. Căn cứ: mã nguồn hiện tại
 
 **Cách đọc:** “Đã triển khai” xác nhận có mã/chức năng; “đã kiểm tra kỹ thuật” không đồng nghĩa mọi đầu ra AI đều đúng; “chờ quyết định” chưa được phép tự chọn phương án. Ghi chép 21–22/10 ở cuối file là lịch sử, các nhận định “chưa có” tại thời điểm đó không ghi đè trạng thái hiện tại.
 
+## Hướng dẫn có chuyển động — đã chốt hướng, chưa triển khai
+
+Ngày 23/10/2026: thống nhất dùng lời giải chi tiết có sẵn làm script, Claude tạo cảnh, Fish Audio tạo giọng đọc, bấm nút thì tạo/phát trong webapp và lưu dùng lại. Chưa xuất MP4. Chủ dự án yêu cầu chỉ lưu tài liệu và tiếp tục sau. Xem [kế hoạch và điểm tiếp tục](VIDEO_GUIDANCE_PLAN.md); các ghi chú cũ về chờ API video công ty không phải phụ thuộc của luồng này. UI nút video đã sửa local nhưng backend tạo/phát vẫn chưa có.
+
 ## 1. Đã triển khai
 
 | Khu vực            | Trạng thái hiện tại                                                                                                        |

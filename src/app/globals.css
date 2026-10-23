@@ -2052,10 +2052,51 @@ small {
   line-height: 1.9;
   margin: 15px 0 22px;
 }
-.guide-button {
-  display: flex;
-  margin: 20px auto 0;
-  font-size: 11px;
+.hint-help-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 16px;
+  margin-top: 20px;
+}
+.hint-help-actions .guide-button {
+  justify-content: flex-start;
+  text-align: left;
+  padding: 10px 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.hint-help-actions .hint-video-button {
+  padding: 10px 14px;
+  font-size: 12px;
+}
+.hint-video-button svg,
+.solved-question-actions svg {
+  flex-shrink: 0;
+}
+.hint-video-notice {
+  margin-top: 16px;
+}
+.question-actions.solved-question-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 0.9fr);
+  align-items: stretch;
+  gap: 12px;
+}
+.solved-question-actions > .button {
+  min-width: 0;
+  padding-inline: 14px;
+}
+@media (max-width: 600px) {
+  .hint-help-actions,
+  .question-actions.solved-question-actions {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .hint-help-actions .guide-button {
+    justify-content: center;
+    text-align: center;
+  }
 }
 .solution-steps {
   list-style: none;

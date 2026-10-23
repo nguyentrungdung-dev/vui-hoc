@@ -20,6 +20,7 @@ import {
   type LearningResult,
 } from "@/lib/learning";
 import { ButtonLink, Character, Modal, PageTitle } from "./ui";
+import { HintHelpActions } from "./hint-help-actions";
 async function request<T>(path: string, body?: unknown): Promise<T> {
   const r = await fetch(`/api/documents${path}`, {
     cache: "no-store",
@@ -741,7 +742,9 @@ export function RealPracticePage({
                   : "Đúng rồi! Em đã tìm ra đáp án."
                 : feedback}
             </div>
-            <div className="question-actions">
+            <div
+              className={`question-actions${a.solved ? " solved-question-actions" : ""}`}
+            >
               {!a.solved && !a.guided ? (
                 <>
                   {q.grading !== "self_review" && (
@@ -798,6 +801,16 @@ export function RealPracticePage({
                   {a.solved && (
                     <button
                       type="button"
+                      className="button secondary"
+                      disabled={busy}
+                      onClick={similar}
+                    >
+                      Làm câu tương tự từ bộ luyện <Rocket size={17} />
+                    </button>
+                  )}
+                  {a.solved && (
+                    <button
+                      type="button"
                       className="button"
                       disabled={busy}
                       onClick={() =>
@@ -816,11 +829,6 @@ export function RealPracticePage({
               )}
             </div>
           </form>
-          {a.solved && (
-            <button className="text-button" disabled={busy} onClick={similar}>
-              Làm câu tương tự từ bộ luyện <Rocket size={17} />
-            </button>
-          )}
           <div className="question-bottom">
             <button
               className="text-button"
@@ -898,19 +906,16 @@ export function RealPracticePage({
             <button className="button full" disabled={busy} onClick={closeHint}>
               Em thử tự làm lại nhé <ArrowRight size={17} />
             </button>
-            <button
-              className="text-button guide-button"
+            <HintHelpActions
               disabled={busy}
-              onClick={() =>
+              onGuide={() =>
                 act({ action: "guide", questionId: q.id }, () => {
                   setHint(false);
                   hintVisible.current = false;
                   setExplain(true);
                 })
               }
-            >
-              Con vẫn chưa hiểu — Cùng làm từng bước
-            </button>
+            />
           </div>
         </Modal>
       )}
