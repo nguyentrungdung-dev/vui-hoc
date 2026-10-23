@@ -50,6 +50,8 @@ import { PracticePage } from "./practice";
 import { LecturePage } from "./lecture";
 import { PracticeMenu } from "./practice-menu";
 import { RevisionPage, RevisionSetPage } from "./revision";
+import { WorldsSection } from "./worlds";
+import { TimoPage } from "./timo";
 
 export type Shared = {
   state: State;
@@ -152,6 +154,10 @@ export default function VuiHocApp({ path }: { path: string }) {
   const documentId = /^\/tai-lieu\/([0-9a-f-]{36})$/.exec(path)?.[1];
   const realRun = /^\/luyen-tap\/([0-9a-f-]{36})\/([0-9a-f-]{36})$/.exec(path);
   const revisionSetId = /^\/luyen-tap\/bo\/([0-9a-f-]{36})$/.exec(path)?.[1];
+  const timoGradeId = /^\/luyen-tap\/timo\/(mam-non|lop-[1-5])$/.exec(
+    path,
+  )?.[1];
+  const isTimoBank = path === "/luyen-tap/timo" || !!timoGradeId;
   const isSample = [
     "/ban-mau",
     "/buoi-hoc",
@@ -177,7 +183,12 @@ export default function VuiHocApp({ path }: { path: string }) {
     "/thu-vien",
     "/ban-mau",
   ];
-  supported.push("/luyen-tap/on-bai", "/luyen-tap/on-tong-hop", "/phan-thuong");
+  supported.push(
+    "/luyen-tap/on-bai",
+    "/luyen-tap/on-tong-hop",
+    "/phan-thuong",
+    "/luyen-tap/timo",
+  );
   const totalQuestions = learningHistory?.reduce((n, h) => n + h.solved, 0);
 
   if (!ready)
@@ -234,39 +245,13 @@ export default function VuiHocApp({ path }: { path: string }) {
           </button>
         </nav>
       </header>
-      {!isHome && (
-        <nav className="learning-nav wrap" aria-label="Chức năng học tập">
-          {[
-            ["⌂", "Vui học Toán", "/toan"],
-            ["Aa", "Tiếng Anh", "/tieng-anh"],
-            ["✎", "Tiếng Việt", "/tieng-viet"],
-            ["✦", "Tự học", "/tu-hoc"],
-            ["▤", "Thư viện", "/thu-vien"],
-            ["☆", "Hành trình", "/hanh-trinh"],
-          ].map(([icon, name, href]) => (
-            <Link
-              key={href}
-              href={href}
-              className={path === href ? "active" : ""}
-            >
-              <span>{icon}</span>
-              {name}
-            </Link>
-          ))}
-        </nav>
+      {isSample && (
+        <div className="demo-ribbon wrap">
+          <span className="status-dot" /> Khu trải nghiệm · Dữ liệu mẫu
+          <span className="ribbon-separator">·</span>
+          <span>Bài mẫu minh họa cách học, gợi ý và chấm điểm</span>
+        </div>
       )}
-      <div className="demo-ribbon wrap">
-        <span className="status-dot" />{" "}
-        {isSample
-          ? "Khu trải nghiệm · Dữ liệu mẫu"
-          : "Vui học · Tài liệu của em"}
-        <span className="ribbon-separator">·</span>
-        <span>
-          {isSample
-            ? "Bài mẫu minh họa cách học, gợi ý và chấm điểm"
-            : "PDF & ảnh · 4 không gian học"}
-        </span>
-      </div>
       {storageError && (
         <div className="notice wrap" role="status">
           Trình duyệt chưa lưu được tiến độ. Em vẫn có thể dùng thử trong phiên
@@ -363,70 +348,7 @@ export default function VuiHocApp({ path }: { path: string }) {
                 <small>Ngôi sao chăm học</small>
               </div>
             </section>
-            <section id="worlds" className="section">
-              <div className="section-heading">
-                <div>
-                  <span className="eyebrow">CHỌN MỘT CÁNH CỬA NHỎ</span>
-                  <h2>Hôm nay, em muốn khám phá gì?</h2>
-                  <p>Bốn thế giới, bốn cách để lớn lên mỗi ngày.</p>
-                </div>
-                <span className="section-spark">✳</span>
-              </div>
-              <div className="world-grid">
-                {[
-                  [
-                    "blue",
-                    "＋",
-                    "THẾ GIỚI CON SỐ",
-                    "Vui học Toán",
-                    "Giải mã con số, chinh phục thử thách và khám phá toán quanh em.",
-                    "/toan",
-                  ],
-                  [
-                    "peach",
-                    "Aa",
-                    "HELLO, WORLD!",
-                    "Vui học Tiếng Anh",
-                    "Gặp những từ mới và tự tin khám phá một thế giới rộng lớn.",
-                    "/tieng-anh",
-                  ],
-                  [
-                    "purple",
-                    "✎",
-                    "YÊU TỪNG CON CHỮ",
-                    "Vui học Tiếng Việt",
-                    "Luyện chính tả, mở rộng vốn từ và nâng niu tiếng Việt.",
-                    "/tieng-viet",
-                  ],
-                  [
-                    "green",
-                    "✦",
-                    "HỌC THEO CÁCH CỦA EM",
-                    "Thiết kế tự học",
-                    "Tạo hành trình riêng từ những điều em muốn tìm hiểu.",
-                    "/tu-hoc",
-                  ],
-                ].map(([color, icon, label, title, desc, href], i) => (
-                  <Link
-                    key={title}
-                    className={`world-card ${color}`}
-                    href={href}
-                  >
-                    <div className="world-top">
-                      <span className="world-symbol">{icon}</span>
-                      <span className="badge">Lớp 2</span>
-                    </div>
-                    <span className="eyebrow">{label}</span>
-                    <h3>{title}</h3>
-                    <p>{desc}</p>
-                    <span className="world-bottom">
-                      Bắt đầu hành trình
-                      <ArrowRight size={20} />
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </section>
+            <WorldsSection />
             <section className="bottom-grid">
               <div className="card companion-card">
                 <span className="eyebrow">CÓ BẠN, HỌC VUI HƠN</span>
@@ -503,6 +425,7 @@ export default function VuiHocApp({ path }: { path: string }) {
         {revisionSetId && (
           <RevisionSetPage key={revisionSetId} id={revisionSetId} />
         )}
+        {isTimoBank && <TimoPage gradeId={timoGradeId} />}
         {path === "/phan-thuong" && (
           <section className="card empty-state rewards-placeholder">
             <Gift size={48} />
@@ -548,7 +471,8 @@ export default function VuiHocApp({ path }: { path: string }) {
           !isUpload &&
           !documentId &&
           !realRun &&
-          !revisionSetId && (
+          !revisionSetId &&
+          !timoGradeId && (
             <div className="empty-state">
               <PageTitle
                 eyebrow="LẠC ĐƯỜNG MỘT CHÚT THÔI"
@@ -566,7 +490,9 @@ export default function VuiHocApp({ path }: { path: string }) {
           Lớn lên cùng những điều kỳ diệu. Mỗi ngày một chút. Mỗi bước một niềm
           vui.
         </span>
-        <span>Lớp 2 · Demo MVP</span>
+        <span>
+          {isTimoBank ? "Mầm non – Lớp 5 · Luyện đề TIMO" : "Lớp 2 · Demo MVP"}
+        </span>
       </footer>
       {modal === "profile" && (
         <ProfileModal

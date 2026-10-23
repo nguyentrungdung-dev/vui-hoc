@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { BookOpen, ChevronDown, Layers3, PencilLine } from "lucide-react";
+import {
+  BookOpen,
+  ChevronDown,
+  Layers3,
+  PencilLine,
+  Trophy,
+} from "lucide-react";
 
 export function PracticeMenu({ path }: { path: string }) {
   const [open, setOpen] = useState(false);
@@ -87,6 +93,17 @@ export function PracticeMenu({ path }: { path: string }) {
           <span>
             <strong>Ôn tổng hợp</strong>
             <small>Tìm đề tài, ôn từ tài liệu đã học</small>
+          </span>
+        </Link>
+        <Link
+          href="/luyen-tap/timo"
+          aria-current={path.startsWith("/luyen-tap/timo") ? "page" : undefined}
+          onClick={() => setOpen(false)}
+        >
+          <Trophy size={20} />
+          <span>
+            <strong>Luyện đề TIMO</strong>
+            <small>Toán song ngữ · Mầm non đến lớp 5</small>
           </span>
         </Link>
       </div>

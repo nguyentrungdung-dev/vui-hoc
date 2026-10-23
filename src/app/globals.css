@@ -727,10 +727,121 @@ small {
 }
 .world-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(240px, calc((100% - 51px) / 4.2));
   gap: 17px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: #c9bfdf transparent;
+  padding: 8px 4px 20px;
+}
+.world-scroll-controls {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.world-scroll-controls .icon-button {
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: white;
+  width: 38px;
+  height: 38px;
+}
+.world-scroll-controls button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.world-scroll-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #71788b;
+  font-size: 11px;
+  margin-top: 8px;
+}
+.world-card.gold {
+  background: #fff6df;
+}
+.world-card.gold .world-symbol {
+  color: #be8a35;
+  box-shadow: 0 6px 0 #e6d09e3b;
+}
+.timo-grade-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+.timo-grade-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 28px;
+  gap: 16px;
+  transition:
+    border-color 160ms,
+    background-color 160ms;
+}
+.timo-grade-card:hover,
+.timo-grade-card:focus-visible {
+  background: #f6f3fd;
+  border-color: #b6a6db;
+}
+.timo-grade-card > strong {
+  font-size: 42px;
+  color: var(--purple);
+  line-height: 1.2;
+}
+.timo-grade-status {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+  color: #71788b;
+}
+.timo-grade-arrow {
+  position: absolute;
+  right: 24px;
+  bottom: 28px;
+  color: var(--purple);
+}
+.timo-coming-soon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 64px 24px;
+}
+.timo-coming-soon h2 {
+  font-size: 32px;
+}
+@media (max-width: 760px) {
+  .timo-grade-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .timo-grade-card {
+    padding: 22px 18px;
+  }
+  .timo-grade-arrow {
+    position: static;
+    align-self: flex-end;
+  }
+  .world-scroll-controls {
+    gap: 5px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .timo-grade-card {
+    transition: none;
+  }
 }
 .world-card {
+  scroll-snap-align: start;
+  min-width: 0;
   border: 1px solid #00000005;
   border-radius: 24px;
   padding: 24px 21px;
@@ -925,34 +1036,6 @@ small {
   font-weight: 800;
   color: #7d71ae;
   font-size: 13px;
-}
-.learning-nav {
-  display: flex;
-  gap: 10px;
-  padding-top: 18px;
-  overflow-x: auto;
-  scrollbar-width: thin;
-}
-.learning-nav > a {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 12px 18px;
-  white-space: nowrap;
-  border-radius: 13px;
-  font-weight: 650;
-  font-size: 12px;
-  color: #69748c;
-  background: #eef0f8;
-}
-.learning-nav > a > span {
-  font-size: 21px;
-  line-height: 1;
-}
-.learning-nav > a.active {
-  background: #e2e9fa;
-  color: #3d61a1;
-  box-shadow: inset 0 0 0 1px #d3def3;
 }
 .learning-app .main-content {
   padding-top: 25px;
@@ -2517,10 +2600,6 @@ small {
     width: 55px;
     height: 55px;
   }
-  .learning-nav > a {
-    padding: 12px 13px;
-    font-size: 10px;
-  }
   .upload-layout,
   .processing-layout {
     grid-template-columns: 1fr 290px;
@@ -2698,7 +2777,7 @@ small {
     margin: 0;
   }
   .world-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-auto-columns: minmax(240px, 82%);
     gap: 12px;
   }
   .world-card {
@@ -2765,21 +2844,6 @@ small {
     order: 3;
     width: 100%;
     font-size: 8px;
-  }
-  .learning-nav {
-    gap: 7px;
-    padding-top: 14px;
-    padding-bottom: 7px;
-  }
-  .learning-nav > a {
-    flex-direction: column;
-    gap: 7px;
-    min-width: 80px;
-    padding: 12px 8px;
-    font-size: 9px;
-  }
-  .learning-nav > a > span {
-    font-size: 22px;
   }
   .learning-app .main-content {
     padding-top: 20px;

@@ -93,7 +93,9 @@ Mỗi câu mới phải gắn với dạng bài hoặc ví dụ nguồn trong t�
 
 Nếu tài liệu thiếu nội dung hoặc phần nhận diện chưa đủ để tạo bộ câu đạt chất lượng, phải báo rõ; không âm thầm thêm kiến thức không liên quan để đủ số lượng.
 
-## 6. Luồng luyện đề TIMO
+## 6. Luồng tự tải đề TIMO hiện có
+
+Luồng dưới đây thuộc tính năng tài liệu do người dùng tự tải. Khu **Luyện thi Toán song ngữ / Luyện đề TIMO** mới trên trang chủ và dropdown Luyện tập có phạm vi riêng theo cập nhật ngày 23/10/2026 ở mục 19; không tự áp dụng chức năng tải đề, sinh câu tương tự hoặc chấm /10 của luồng cũ cho khu mới.
 
 1. Chọn **Luyện đề TIMO** và tải đề.
 2. Hệ thống hiển thị danh sách câu đã nhận diện.
@@ -303,3 +305,33 @@ Nội dung được kiểm tra cấu trúc/nguồn/số học và kiểm tra l�
 ## Cập nhật triển khai demo — 22/10/2026
 
 Theo xác nhận của chủ dự án: trước mắt dùng **thư viện demo chung, chưa cần đăng nhập**. Ai mở link triển khai cũng xem được tài liệu đã tải đủ, nội dung nhận diện, file gốc và bộ luyện đã chuẩn bị; tài liệu đã tải trước đó cũng được chia sẻ. Bản tải dở và thao tác tạo lại nội dung AI vẫn thuộc trình duyệt người tải. Theo cập nhật ngày 22/10/2026, bài làm thật, điểm, mức dùng gợi ý và lịch sử trên máy chủ được dùng chung, không lọc theo cookie người làm. Mở cùng bài từ trình duyệt/máy khác có thể xem và tiếp tục bài đó, kể cả bài cũ. Cookie chỉ giữ quyền quản lý tài liệu của người tải lên; không phải tài khoản. Khung tiến độ và nút tải tiếp/nhận diện lại chỉ hiển thị cho người tải lên. Nháp tự học ở phần nhận diện và tùy chọn giao diện mẫu vẫn là dữ liệu cục bộ, không tạo rào cản truy cập tài liệu.
+
+## 19. Luyện thi Toán song ngữ / Luyện đề TIMO — 23/10/2026
+
+### Phạm vi giao diện đã duyệt cho giai đoạn hiện tại
+
+- Thêm thẻ **Luyện thi Toán song ngữ** cạnh các thẻ không gian học ở trang chủ.
+- Khu vực các thẻ dùng **Horizontal Scroll**: cuộn/vuốt ngang, có nút trước/sau, không tự chuyển. Các thẻ dừng ngay ngắn theo vị trí khi cuộn.
+- Thêm **Luyện đề TIMO** vào dropdown **Luyện tập**. Thẻ trang chủ và mục dropdown dẫn tới cùng một khu.
+- Hiển thị sáu thẻ chọn khối: **Mầm non, lớp 1, lớp 2, lớp 3, lớp 4, lớp 5**.
+- Bấm vào một khối sẽ mở trang của khối đó với nội dung **Coming soon**. Chưa có đề thi thật, số lượng đề mẫu hay thao tác làm bài trong khu mới.
+- Giai đoạn này chỉ dựng giao diện; chưa triển khai trang quản trị, upload đề, AI nhận diện đề, chấm bài hoặc ghi kết quả TIMO vào Hành trình.
+- Phạm vi khối Mầm non–lớp 5 chỉ áp dụng khu ngân hàng đề mới; không tự thay đổi các tính năng tài liệu lớp 2 hiện có.
+
+### Định hướng ngân hàng đề cho giai đoạn sau
+
+Ngân hàng đề do **nhà phát hành** cung cấp và phân theo khối học. Khi phương án nhập đề được thống nhất, AI nhận diện đề và chuẩn bị bộ câu hỏi từ đề nguồn. Người học đi theo luồng: **chọn khối → chọn đề → làm bài → xem kết quả → học lỗi sai → làm lại hoặc chọn đề khác**.
+
+- Giữ bộ câu hỏi gốc và số câu của đề; không có tùy chỉnh số câu, tạo thêm đề hoặc sinh câu tương tự trong khu này.
+- Kết quả dùng **số câu đúng/tổng số câu**, không quy đổi sang thang 10.
+- Sau khi nộp bài, hiển thị các câu sai cùng gợi ý/hướng dẫn để học lại cách làm đúng.
+- Các nội dung trên là định hướng đã thống nhất, chưa phải chức năng hoạt động ở giao diện Coming soon.
+
+### Các quyết định đang mở — phải thống nhất trước khi phát triển
+
+1. **Quản trị và upload đề:** chưa chốt cách nhà phát hành thêm đề, phân khối, quản lý và đưa đề vào ngân hàng; chưa xây trang quản trị.
+2. **Đáp án:** chưa chốt việc nhà phát hành cung cấp đáp án chính thức hay AI tự giải, cũng như cách kiểm tra và xử lý đáp án chưa chắc chắn. Không tự chọn phương án.
+3. **Song ngữ, bản dịch/phụ đề:** chưa chốt cách chuẩn bị và hiển thị Anh–Việt (đồng thời hay nút xem bản dịch). Không kế thừa mặc định cách hiển thị của luồng tự tải TIMO cũ.
+4. **Hành trình:** chưa chốt có lưu các lượt thi, kết quả, lỗi sai và lần làm lại vào Hành trình hay không, cũng như cách hiển thị số câu đúng thay cho /10. Quyết định lưu Ôn bài/Ôn tổng hợp trước đó không tự áp dụng cho khu luyện thi này.
+
+Chỉ triển khai các phần đang mở sau khi được chủ dự án duyệt bổ sung.
