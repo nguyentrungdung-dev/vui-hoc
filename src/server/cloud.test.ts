@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { closeDatabase, query } from "./database";
 import { readJob, writeJob, updateJob, listJobs } from "./store";
 import { readLibraryJob, listLibraryJobs } from "./library";
-import { listRuns } from "./learning-runs";
+import { learningHistory, learningView, listRuns } from "./learning-runs";
 import { readRun, startLearningRun, changeRun } from "./learning-runs";
 import { learningResult, type LearningQuestion } from "../lib/learning";
 import { type DocumentJob, publicDocument } from "../lib/documents";
@@ -162,21 +162,15 @@ test(
     const visitor = await startLearningRun(j.id, "visitor", {
       kind: "practice",
     });
-    assert.notEqual(visitor.id, id);
+    assert.equal(visitor.id, id);
     assert.equal("owner" in visitor, false);
     assert.deepEqual(
       (await listRuns(j.id, "visitor")).map((r) => r.id),
-      [visitor.id],
+      [id],
     );
     assert.deepEqual(
       (await listRuns(j.id, j.owner)).map((r) => r.id),
       [id],
-    );
-    await assert.rejects(
-      changeRun(j.id, id, "visitor", {
-        action: "finish",
-        eventId: randomUUID(),
-      }),
     );
 
     await changeRun(j.id, id, j.owner, {
@@ -185,7 +179,34 @@ test(
       questionId: "q1",
       answer: "B",
     });
-    await changeRun(j.id, id, j.owner, {
+    // Concurrent retries of one event count once, while distinct answers all persist.
+    const duplicate = {
+      eventId: randomUUID(),
+      action: "answer",
+      questionId: "q1",
+      answer: "B",
+    };
+    await Promise.all([
+      ...Array.from({ length: 4 }, () =>
+        changeRun(j.id, id, "visitor", duplicate),
+      ),
+      ...Array.from({ length: 4 }, () =>
+        changeRun(j.id, id, "visitor", { ...duplicate, eventId: randomUUID() }),
+      ),
+    ]);
+    const beforeInvalid = await readRun(j.id, id, "visitor");
+    assert.equal(beforeInvalid.attempts.q1.tries, 6);
+    assert.equal(beforeInvalid.attempts.q1.first, "B");
+    await assert.rejects(
+      changeRun(j.id, id, "visitor", {
+        ...duplicate,
+        eventId: randomUUID(),
+        questionId: "stale-question",
+      }),
+      /đã thay đổi/,
+    );
+    assert.deepEqual(await readRun(j.id, id, "visitor"), beforeInvalid);
+    await changeRun(j.id, id, "visitor", {
       eventId: randomUUID(),
       action: "answer",
       questionId: "q1",
@@ -197,16 +218,53 @@ test(
       questionId: "q1",
     });
     await closeDatabase();
-    assert.equal(learningResult(await readRun(j.id, id, j.owner)).score, 0);
+    const saved = await readRun(j.id, id, j.owner);
+    assert.equal(learningResult(saved).score, 0);
+    assert.equal(saved.attempts.q1.tries, 7);
+    assert.equal(saved.attempts.q1.solved, true);
+    assert.deepEqual(
+      (await learningHistory("visitor")).find((r) => r.id === id),
+      learningResult(saved),
+    );
+    assert.deepEqual((await learningView(j, "visitor")).runs, [
+      learningResult(saved),
+    ]);
+
+    // Joined reads/history must apply the same access rule for partial and empty uploads.
+    for (const files of [
+      [...j.files, { ...j.files[0], name: "pending.pdf", uploaded: false }],
+      [],
+    ]) {
+      await updateJob(j.id, (job) => {
+        job.files = files;
+      });
+      await assert.rejects(readRun(j.id, id, "visitor"), /Không tìm thấy/);
+      await assert.rejects(
+        changeRun(j.id, id, "visitor", duplicate),
+        /Không tìm thấy/,
+      );
+      assert.equal(
+        (await learningHistory("visitor")).some((r) => r.id === id),
+        false,
+      );
+      assert.deepEqual(await readRun(j.id, id, j.owner), saved);
+      assert.deepEqual(
+        (await learningHistory(j.owner)).find((r) => r.id === id),
+        learningResult(saved),
+      );
+    }
+    await updateJob(j.id, (job) => {
+      job.files = j.files;
+    });
     await query("UPDATE vuihoc_runs SET data=data-'owner' WHERE id=$1", [id]);
     assert.equal((await readRun(j.id, id, j.owner)).finished, true);
-    await assert.rejects(readRun(j.id, id, "visitor"));
+    assert.equal((await readRun(j.id, id, "visitor")).finished, true);
     assert.deepEqual(
       (await listRuns(j.id, "visitor")).map((r) => r.id),
       [visitor.id],
     );
 
-    await assert.rejects(readRun(j.id, id, "another-owner"), /Không tìm thấy/);
+    assert.equal((await readRun(j.id, id, "another-owner")).id, id);
   },
 );
 test(

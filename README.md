@@ -4,42 +4,50 @@ Next.js + TypeScript, giao diện học tập lớp 2 và luồng **tải PDF/�
 
 Phạm vi chuẩn: [MVP_SPEC.md](MVP_SPEC.md). Tiến độ và giới hạn: [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
 
-## Chạy local
+## Chạy bản production trên local
 
-Dùng Node.js 22.12+ (đã kiểm thử với Node 24) và npm. Chạy trong thư mục dự án `/Volumes/TrungDung_James/SciEco/MVP Vui Học`.
-
-```sh
-npm install
-# Chỉ sao chép nếu chưa có .env.local; giữ nguyên khóa đã cấu hình.
-cp -n .env.example .env.local
-npm run dev
-```
-
-Mở [Vui học](http://127.0.0.1:3000). `npm run dev` chạy Next.js cùng Workflow SDK tích hợp. Không cần tiến trình worker riêng. Chỉ chạy một lần; nếu đã có server ở cổng 3000, dừng phiên cũ bằng Ctrl+C trước khi khởi động lại.
-
-Điền khóa vào `OPENROUTER_API_KEY` trong `.env.local`, rồi khởi động lại `npm run dev`. Không đưa khóa vào mã giao diện hoặc biến `NEXT_PUBLIC_*`. Sau đó mở tài liệu đang chờ và bấm **Thử lại sau khi cấu hình**. Không cần tải lại tệp.
-
-Biến môi trường:
-
-| Biến                    | Ý nghĩa                                                                                                |
-| ----------------------- | ------------------------------------------------------------------------------------------------------ |
-| `OPENROUTER_API_KEY`    | Khóa OpenRouter, chỉ dùng phía máy chủ                                                                 |
-| `OPENROUTER_MODEL`      | Mặc định `anthropic/claude-haiku-4.5`; model thay thế cần hỗ trợ ảnh, PDF native và strict JSON schema |
-| `DATABASE_URL`          | URL kết nối PostgreSQL từ Neon, nên dùng URL pooled có SSL. Có URL này thì dùng chế độ Neon + Blob.    |
-| `BLOB_READ_WRITE_TOKEN` | Token kho Vercel Blob **Private**, bắt buộc khi dùng database.                                         |
-| `VUIHOC_DATA_DIR`       | Thư mục `.data` chỉ dùng khi chạy local và không có `DATABASE_URL`.                                    |
-
-Chưa có khóa vẫn tải và kiểm tra tệp được. Hệ thống dừng ở **Chờ cấu hình AI**, không trả câu hỏi mẫu thay thế.
+Code nằm trong thư mục dự án `/Volumes/TrungDung_James/SciEco/MVP Vui Học`. Local và Vercel cùng dùng **Node.js 24.x**, dependency từ `package-lock.json` và build Next.js production. Nếu dùng nvm, chạy `nvm use`.
 
 ```sh
-npm run typecheck
-npm test
-npm run build
-# Sau build, dùng thay cho dev:
-npm start
+npm ci
+# Chỉ sao chép nếu chưa có file; giữ nguyên khóa đang dùng.
+cp -n .env.example .env.production.local
+# Điền đủ bốn biến bên dưới rồi chạy:
+npm run prod
 ```
 
-`npm start` chạy bản production local, Workflow SDK xử lý tác vụ trong cùng server. Khi chạy local, cần giữ server bật để xử lý nền. Trên Vercel, tác vụ do hạ tầng Workflow thực thi; không cần máy Mac bật.
+Mở [Vui học](http://127.0.0.1:3000). `npm run prod` kiểm tra cấu hình và kết nối PostgreSQL/Blob → build production → chạy `next start`. Khi code thay đổi, dừng server bằng Ctrl+C rồi chạy lại lệnh này. `npm start` chỉ chạy bản đã build trước đó. Không chạy dev và production đồng thời trên cùng cổng.
+
+| Biến                    | Yêu cầu production                                                                     |
+| ----------------------- | -------------------------------------------------------------------------------------- |
+| `DATABASE_URL`          | PostgreSQL/Neon; nên dùng URL pooled có SSL.                                           |
+| `BLOB_READ_WRITE_TOKEN` | Token kho Vercel Blob **Private**.                                                     |
+| `OPENROUTER_API_KEY`    | Khóa OpenRouter phía server.                                                           |
+| `OPENROUTER_MODEL`      | Đặt rõ model đang dùng trên deploy; phải hỗ trợ ảnh, PDF native và strict JSON schema. |
+
+Cấu hình production local nằm ở `.env.production.local` (đã bị Git bỏ qua), ưu tiên hơn `.env.local`; biến có sẵn trong shell ưu tiên cao nhất. Nếu copy file mẫu, cần điền lại đủ giá trị vì giá trị rỗng trong file production sẽ che cấu hình `.env.local`. Không gửi khóa vào chat/Git hoặc dùng tiền tố `NEXT_PUBLIC_`.
+
+Production bắt buộc dùng PostgreSQL + Blob; thiếu cấu hình sẽ báo lỗi, không chuyển sang `.data`. Dùng database/Blob dành cho Preview để thử dữ liệu; chọn cùng loại dịch vụ và cùng model với Production. Nếu dùng trực tiếp database Production thì thao tác local sẽ thay đổi dữ liệu thật.
+
+Kiểm tra trước và sau triển khai:
+
+```sh
+npm run verify            # tests + build production + TypeScript
+npm run check:env         # kiểm tra biến cấu hình
+npm run check:services    # thử kết nối PostgreSQL và đọc danh sách Blob
+# Chạy trong terminal khác khi npm run prod đang bật:
+npm run smoke
+# Chạy cùng phép kiểm tra với URL deploy thực:
+npm run smoke -- https://your-project.vercel.app
+```
+
+Smoke test kiểm tra trang chủ, assets JS/CSS, cấu hình cloud, cookie và API đọc database. Nó không gọi AI hoặc tải tệp; truy cập API có thể khởi tạo schema nếu database còn trống. Vẫn phải nghiệm thu upload Blob, Workflow và AI theo [hướng dẫn triển khai](docs/VERCEL_DEPLOYMENT.md). `npm run build` thành công chỉ xác nhận biên dịch; không chứng minh dịch vụ cloud hoạt động.
+
+Workflow local vẫn do server trên Mac xử lý; Vercel dùng hạ tầng Workflow riêng. Hệ điều hành, HTTPS, giới hạn Function và mạng cũng khác. Không có cam kết giống 100% chỉ từ kiểm tra local.
+
+## Chế độ phát triển nhanh
+
+`npm run dev` dùng `.env.local`, có hot reload và vẫn cho phép kho `.data` khi không có `DATABASE_URL`. Chế độ này dùng để sửa giao diện/code; nghiệm thu deploy phải dùng `npm run prod`. Dữ liệu `.data` cũ được giữ nguyên và không tự chuyển lên cloud.
 
 ## Deploy Vercel + Neon
 
@@ -48,7 +56,7 @@ Xem hướng dẫn đầy đủ: [docs/VERCEL_DEPLOYMENT.md](docs/VERCEL_DEPLOYM
 1. Kết nối Neon với project để có `DATABASE_URL`.
 2. Tạo Blob **Private**, kết nối cùng project để có `BLOB_READ_WRITE_TOKEN`.
 3. Cấu hình `OPENROUTER_API_KEY` và `OPENROUTER_MODEL` ở Production, và Preview nếu dùng bản preview.
-4. Deploy **commit chứa thay đổi mới**. Build Command: `npm run build`, Install Command: `npm ci`, framework Next.js, không tùy chỉnh Output Directory.
+4. Deploy **commit chứa thay đổi mới**. Build Command: `npm run build:deploy`, Install Command: `npm ci`, framework Next.js, không tùy chỉnh Output Directory.
 5. Workflow SDK tự cấu hình các route/tác vụ. Không tạo cron hoặc chạy lệnh worker. Bảng dữ liệu được tạo khi API truy cập database lần đầu.
 
 Dữ liệu `.data` cũ trên Mac được giữ nguyên, không tự chuyển lên cloud. Với database mới, tải lại tài liệu cần dùng. Thư viện demo trên Vercel dùng chung giữa các trình duyệt; dữ liệu local vẫn là kho riêng.
@@ -107,8 +115,8 @@ Tài liệu tham khảo: [OpenRouter PDF](https://openrouter.ai/docs/guides/over
 
 - Cloud: tệp gốc ở Blob Private; tài liệu, kết quả AI và bài làm ở Neon. Local không có `DATABASE_URL`: dữ liệu ở `.data/documents`, ngoài `public`, được `.gitignore` loại trừ. Vercel không bao giờ tự chuyển về lưu trên đĩa tạm khi thiếu database.
 - Thư viện demo dùng chung: ai mở website cũng thấy tài liệu đã tải đủ, nội dung nhận diện, nguồn PDF/ảnh và bộ bài đã tạo, kể cả tài liệu cũ. Tệp chưa tải đủ chỉ hiện với người gửi.
-- Cookie HttpOnly giữ quyền tải tiếp, nhận diện/tạo lại nội dung AI và bài làm riêng của từng trình duyệt. Người xem khác có thể học bộ bài đã có nhưng không gọi AI tạo lại tài liệu đó. Chưa có tài khoản đăng nhập; xóa cookie mất liên kết bài làm và quyền quản lý của trình duyệt đó, nhưng tài liệu đã tải đủ vẫn có trong thư viện chung.
-- Hồ sơ và bài mẫu lưu trong `localStorage` (`vuihoc-demo-v1`). Ghi chú trên bản nhận diện lưu theo `vuihoc-responses-[id]`. Bài làm thật lưu ở PostgreSQL hoặc `.data/documents/[id]/runs` trong chế độ local, với chủ bài làm riêng theo cookie; chưa đồng bộ tiến độ giữa thiết bị.
+- Cookie HttpOnly chỉ giữ quyền tải tiếp và nhận diện/tạo lại nội dung tài liệu của người tải lên. Bài làm thật, điểm và lịch sử dùng chung; người xem khác có thể mở và tiếp tục bài cũ. Chưa có tài khoản đăng nhập; xóa cookie làm mất quyền quản lý tài liệu của trình duyệt đó, nhưng vẫn xem tài liệu và học bình thường.
+- Hồ sơ và bài mẫu lưu trong `localStorage` (`vuihoc-demo-v1`). Ghi chú trên bản nhận diện lưu theo `vuihoc-responses-[id]`. Bài làm thật lưu ở PostgreSQL hoặc `.data/documents/[id]/runs` trong chế độ local, dùng chung giữa mọi trình duyệt/thiết bị; cookie chỉ giữ quyền quản lý tài liệu.
 - Đã có adapter PostgreSQL, Blob Private và Workflow cho Vercel. MVP vẫn chưa có tài khoản đăng nhập, hạn mức AI theo người dùng hoặc tự dọn tệp bỏ dở; các phần này cần bổ sung khi mở rộng ngoài demo.
 - Chưa có thích ứng độ khó theo kết quả, tạo slide/video từ tài liệu thật hoặc API video. Slide/bài mẫu vẫn được ghi rõ; không được xem là video AI.
 - Kiểm thử tự động dùng phản hồi API có kiểm soát để kiểm tra giao thức, điểm và phục hồi lỗi. Kiểm thử AI thật và giới hạn nghiệm thu được ghi trong `docs/IMPLEMENTATION_STATUS.md`; không suy rộng kết quả một tài liệu sang mọi dạng bài/môn học.

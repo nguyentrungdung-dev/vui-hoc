@@ -7,9 +7,16 @@
     "build": "next build",
     "start": "next start --hostname 127.0.0.1",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/lib/*.test.ts src/server/*.test.ts",
+    "test": "node scripts/test.mjs",
     "format": "prettier --write src next.config.ts package.json tsconfig.json README.md docs/*.md",
-    "format:check": "prettier --check src next.config.ts package.json tsconfig.json README.md docs/*.md"
+    "format:check": "prettier --check src next.config.ts package.json tsconfig.json README.md docs/*.md",
+    "check:env": "node scripts/check-env.mjs",
+    "build:deploy": "npm run check:env && npm run check:services && npm run build",
+    "prestart": "npm run check:env",
+    "prod": "npm run build:deploy && npm start",
+    "verify": "npm test && npm run build && npm run typecheck",
+    "smoke": "node scripts/smoke.mjs",
+    "check:services": "node scripts/check-services.mjs"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.2",
@@ -21,7 +28,8 @@
     "react-dom": "^19.2.0",
     "sharp": "^0.35.5",
     "workflow": "^5.2.3",
-    "zod": "^4.6.7"
+    "zod": "^4.6.7",
+    "@next/env": "16.4.2"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
@@ -31,5 +39,8 @@
     "prettier": "^3.9.10",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0"
+  },
+  "engines": {
+    "node": "24.x"
   }
 }

@@ -1,15 +1,16 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { Pool, type PoolClient, type QueryResultRow } from "pg";
 import { AppError } from "./validation";
+import { requiresCloud } from "./runtime-config.mjs";
 
 const transaction = new AsyncLocalStorage<PoolClient>();
 let pool: Pool | undefined;
 let initialized: Promise<void> | undefined;
 export function databaseEnabled() {
   if (process.env.DATABASE_URL?.trim()) return true;
-  if (process.env.VERCEL)
+  if (requiresCloud())
     throw new AppError(
-      "Chưa kết nối database. Hãy kết nối Neon với project và deploy lại.",
+      "Chưa cấu hình DATABASE_URL. Production yêu cầu PostgreSQL, không dùng kho file local.",
       503,
     );
   return false;
@@ -21,7 +22,8 @@ function getPool() {
   pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     max: 3,
-    idleTimeoutMillis: 1000,
+    // Keep connections across pauses between answers instead of reconnecting each time.
+    idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 15000,
     allowExitOnIdle: true,
   });
@@ -92,8 +94,7 @@ export async function databaseLock<T>(
   }
   const client = await getPool().connect();
   try {
-    await client.query("BEGIN");
-    await client.query("SET LOCAL lock_timeout = '5s'");
+    await client.query("BEGIN; SET LOCAL lock_timeout = '5s'");
     await client.query(
       "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
       [key],

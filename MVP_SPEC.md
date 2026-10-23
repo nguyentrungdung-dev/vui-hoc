@@ -300,7 +300,6 @@ Luồng bài thật bao gồm lưu lần trả lời đầu và lần sửa, ba 
 
 Nội dung được kiểm tra cấu trúc/nguồn/số học và kiểm tra lại bằng một lượt AI riêng cùng model. Cần kiểm chứng sư phạm thực tế; việc vượt qua kiểm tra tự động không phải chứng nhận đáp án luôn chính xác. Trạng thái nghiệm thu cụ thể xem `docs/IMPLEMENTATION_STATUS.md`.
 
-
 ## Cập nhật triển khai demo — 22/10/2026
 
-Theo xác nhận của chủ dự án: trước mắt dùng **thư viện demo chung, chưa cần đăng nhập**. Ai mở link triển khai cũng xem được tài liệu đã tải đủ, nội dung nhận diện, file gốc và bộ luyện đã chuẩn bị; tài liệu đã tải trước đó cũng được chia sẻ. Bản tải dở và thao tác tạo lại nội dung AI vẫn thuộc trình duyệt người tải. Bài làm, điểm và mức dùng gợi ý được lưu riêng theo trình duyệt để nhiều người thử demo không ghi đè tiến độ của nhau. Đăng nhập và đồng bộ tiến độ nhiều thiết bị là bước sau.
+Theo xác nhận của chủ dự án: trước mắt dùng **thư viện demo chung, chưa cần đăng nhập**. Ai mở link triển khai cũng xem được tài liệu đã tải đủ, nội dung nhận diện, file gốc và bộ luyện đã chuẩn bị; tài liệu đã tải trước đó cũng được chia sẻ. Bản tải dở và thao tác tạo lại nội dung AI vẫn thuộc trình duyệt người tải. Theo cập nhật ngày 22/10/2026, bài làm thật, điểm, mức dùng gợi ý và lịch sử trên máy chủ được dùng chung, không lọc theo cookie người làm. Mở cùng bài từ trình duyệt/máy khác có thể xem và tiếp tục bài đó, kể cả bài cũ. Cookie chỉ giữ quyền quản lý tài liệu của người tải lên; không phải tài khoản. Khung tiến độ và nút tải tiếp/nhận diện lại chỉ hiển thị cho người tải lên. Nháp tự học ở phần nhận diện và tùy chọn giao diện mẫu vẫn là dữ liệu cục bộ, không tạo rào cản truy cập tài liệu.

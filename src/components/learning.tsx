@@ -200,7 +200,7 @@ export function LearningPanel({ document: doc }: { document: PublicDocument }) {
       ) : (
         <p className="notice">
           {pack
-            ? "Em có thể làm các bài đã chuẩn bị bên dưới. Tiến độ và điểm số được lưu riêng trong trình duyệt của em."
+            ? "Em có thể tiếp tục các bài bên dưới. Bài làm, điểm và lịch sử dùng chung trên mọi trình duyệt, thiết bị."
             : "Người tải tài liệu đang chuẩn bị bài luyện. Em có thể xem nội dung nhận diện và tài liệu gốc trước nhé."}
         </p>
       )}
@@ -996,7 +996,7 @@ export function LearningHistory() {
   return (
     <section className="section">
       <PageTitle eyebrow="TỪ TÀI LIỆU CỦA EM" title="Hành trình học tập">
-        Bài đang làm và kết quả được lưu trên máy chủ.
+        Bài đang làm và kết quả dùng chung trên mọi trình duyệt, thiết bị.
       </PageTitle>
       {error && <p className="notice error">{error}</p>}
       {runs.length ? (

@@ -171,8 +171,8 @@ export function DocumentLibrary({ subject }: { subject?: Subject }) {
               : "Thư viện dùng chung"}
           </h2>
           <p>
-            Mọi người đều xem được tài liệu đã tải lên. Bài làm và điểm số của
-            em được lưu riêng.
+            Tài liệu, bài học, bài làm và điểm số dùng chung. Chỉ người tải lên
+            được quản lý tài liệu của mình.
           </p>
         </div>
         <button
@@ -208,7 +208,7 @@ export function DocumentLibrary({ subject }: { subject?: Subject }) {
               href={`/tai-lieu/${d.id}`}
             >
               <span className={`badge status-${d.status}`}>
-                {statusNames[d.status]}
+                {d.canManage ? statusNames[d.status] : "Tài liệu dùng chung"}
               </span>
               <h3>{d.title}</h3>
               <p>
@@ -837,71 +837,77 @@ export function DocumentPage({ id }: { id: string }) {
         Từ tài liệu của em, học theo nhịp của em.
       </PageTitle>
       <ConfigNotice config={config} />
-      <section className="card analysis-status" aria-live="polite">
-        <div>
-          {pending ? (
-            <LoaderCircle className="spin" size={26} />
-          ) : (
-            <FileText size={26} />
-          )}
+      {doc.canManage && (
+        <section className="card analysis-status" aria-live="polite">
           <div>
-            <span className={`badge status-${doc.status}`}>
-              {statusNames[doc.status]}
-            </span>
-            <h2>{doc.message}</h2>
+            {pending ? (
+              <LoaderCircle className="spin" size={26} />
+            ) : (
+              <FileText size={26} />
+            )}
+            <div>
+              <span className={`badge status-${doc.status}`}>
+                {statusNames[doc.status]}
+              </span>
+              <h2>{doc.message}</h2>
+            </div>
           </div>
-        </div>
-        {doc.selectedPages.length > 0 && (
-          <>
-            <progress
-              max={doc.selectedPages.length}
-              value={doc.completedPages.length}
-            />
-            <p>
-              {doc.completedPages.length}/{doc.selectedPages.length} trang đã
-              nhận diện · {doc.questions.length} câu hỏi · {topics.length} chủ
-              đề
-            </p>
-          </>
-        )}
-        {pending && (
-          <p className="micro">
-            Em có thể rời trang này và quay lại từ thư viện. Tài liệu vẫn được
-            xử lý khi máy chủ đang chạy.
-          </p>
-        )}
-        <div className="actions">
-          {doc.canManage && retryable && (
-            <button className="button" disabled={busy} onClick={() => retry()}>
-              <RefreshCw size={18} />{" "}
-              {doc.status === "waiting_config"
-                ? "Thử lại sau khi cấu hình"
-                : "Thử lại phần chưa xong"}
-            </button>
+          {doc.selectedPages.length > 0 && (
+            <>
+              <progress
+                max={doc.selectedPages.length}
+                value={doc.completedPages.length}
+              />
+              <p>
+                {doc.completedPages.length}/{doc.selectedPages.length} trang đã
+                nhận diện · {doc.questions.length} câu hỏi · {topics.length} chủ
+                đề
+              </p>
+            </>
           )}
-          {doc.canManage &&
-            doc.status === "uploading" &&
-            (doc.files.every((f) => f.uploaded) ? (
+          {pending && (
+            <p className="micro">
+              Em có thể rời trang này và quay lại từ thư viện. Tài liệu vẫn được
+              xử lý khi máy chủ đang chạy.
+            </p>
+          )}
+          <div className="actions">
+            {doc.canManage && retryable && (
               <button
                 className="button"
                 disabled={busy}
-                onClick={() => retry("start")}
+                onClick={() => retry()}
               >
-                Bắt đầu nhận diện
+                <RefreshCw size={18} />{" "}
+                {doc.status === "waiting_config"
+                  ? "Thử lại sau khi cấu hình"
+                  : "Thử lại phần chưa xong"}
               </button>
-            ) : (
-              <ButtonLink href={`/tai-len/${doc.subject}`}>
-                Chọn lại tài liệu để tải đủ
-              </ButtonLink>
-            ))}
-          <button
-            className="text-button"
-            onClick={() => setVersion((v) => v + 1)}
-          >
-            Cập nhật trạng thái
-          </button>
-        </div>
-      </section>
+            )}
+            {doc.canManage &&
+              doc.status === "uploading" &&
+              (doc.files.every((f) => f.uploaded) ? (
+                <button
+                  className="button"
+                  disabled={busy}
+                  onClick={() => retry("start")}
+                >
+                  Bắt đầu nhận diện
+                </button>
+              ) : (
+                <ButtonLink href={`/tai-len/${doc.subject}`}>
+                  Chọn lại tài liệu để tải đủ
+                </ButtonLink>
+              ))}
+            <button
+              className="text-button"
+              onClick={() => setVersion((v) => v + 1)}
+            >
+              Cập nhật trạng thái
+            </button>
+          </div>
+        </section>
+      )}
       {error && (
         <p className="notice error" role="alert">
           {error}

@@ -200,7 +200,7 @@ test("Pack planning honors count and topics, excludes missing audio, and does no
     ),
   );
 });
-test("Stored runs resume and survive pack replacement; owner isolation and result persistence", async () => {
+test("Stored shared runs resume across browsers and survive pack replacement", async () => {
   const j = job();
   j.learning = preparePack(j, { count: 5, topics: [] });
   const p = j.learning.parts.find((p) => p.kind === "practice")!;
@@ -211,7 +211,7 @@ test("Stored runs resume and survive pack replacement; owner isolation and resul
   const first = await startLearningRun(j.id, j.owner, { kind: "practice" });
   const second = await startLearningRun(j.id, j.owner, { kind: "practice" });
   assert.equal(first.id, second.id);
-  await assert.rejects(readRun(j.id, first.id, "other-owner"));
+  assert.equal((await readRun(j.id, first.id, "other-owner")).id, first.id);
   await changeRun(j.id, first.id, j.owner, action("answer", { answer: "A" }));
   await updateJob(j.id, (x) => {
     delete x.learning;
@@ -329,7 +329,7 @@ test("Generation integrates schema + independent review, repairs rejected answer
   }
 });
 
-test("Shared lessons give each browser independent attempts, solutions and history", async () => {
+test("Shared lessons, attempts and history work across browsers; source mutations stay creator-only", async () => {
   const token = "a".repeat(64);
   const j = job();
   j.owner = createHash("sha256").update(token).digest("hex");
@@ -397,15 +397,23 @@ test("Shared lessons give each browser independent attempts, solutions and histo
   );
   assert.equal(visitorResponse.status, 200);
   const visitorRun = await visitorResponse.json();
-  assert.notEqual(visitorRun.id, created.id);
+  assert.equal(visitorRun.id, created.id);
   const resumed = await (
     await call([j.id, "runs"], { kind: "practice" }, visitorToken)
   ).json();
-  assert.equal(resumed.id, visitorRun.id);
-  assert.equal((await call([j.id, "runs", visitorRun.id])).status, 404);
+  assert.equal(resumed.id, created.id);
+  assert.equal((await call([j.id, "runs", visitorRun.id])).status, 200);
+  const independent = await (
+    await call(
+      [j.id, "runs"],
+      { kind: "practice", resume: false },
+      visitorToken,
+    )
+  ).json();
+  assert.notEqual(independent.id, created.id);
   assert.equal(
-    (await call([j.id, "runs", visitorRun.id], action("finish"))).status,
-    404,
+    (await call([j.id, "runs", independent.id], action("finish"))).status,
+    200,
   );
   assert.equal(
     (await call([j.id, "generate"], { count: 5, topics: [] }, visitorToken))
@@ -426,33 +434,23 @@ test("Shared lessons give each browser independent attempts, solutions and histo
     await call(
       route,
       action("answer", { questionId: "practice-1", answer: "A" }),
+      visitorToken,
     )
   ).json();
   assert.equal(correct.result.firstCorrect, 0);
   assert.equal(correct.questions[0].solution.answer, "A");
-  assert.equal((await call(route, undefined, "b".repeat(64))).status, 404);
+  assert.equal((await call(route, undefined, visitorToken)).status, 200);
   const history = await (await call(["history"])).json();
-  assert.ok(history.runs.some((r: { id: string }) => r.id === created.id));
-  assert.equal(
-    history.runs.some((r: { id: string }) => r.id === visitorRun.id),
-    false,
-  );
   const visitorHistory = await (
     await call(["history"], undefined, visitorToken)
   ).json();
-  assert.ok(
-    visitorHistory.runs.some((r: { id: string }) => r.id === visitorRun.id),
-  );
-  assert.equal(
-    visitorHistory.runs.some((r: { id: string }) => r.id === created.id),
-    false,
-  );
-  const untouched = await (
-    await call([j.id, "runs", visitorRun.id], undefined, visitorToken)
-  ).json();
-  assert.equal(untouched.result.solved, 0);
-  assert.equal(untouched.questions[0].solution, undefined);
-  // Runs created before sharing have no owner field and stay with the document creator.
+  assert.deepEqual(visitorHistory, history);
+  assert.ok(history.runs.some((r: { id: string }) => r.id === created.id));
+  assert.ok(history.runs.some((r: { id: string }) => r.id === independent.id));
+  const shared = await (await call(route, undefined, visitorToken)).json();
+  assert.equal(shared.result.solved, 1);
+  assert.equal(shared.questions[0].solution.answer, "A");
+  // Both historical formats remain accessible without migrating existing data.
   const legacyPath = path.join(
     dir,
     "documents",
@@ -461,15 +459,28 @@ test("Shared lessons give each browser independent attempts, solutions and histo
     `${created.id}.json`,
   );
   const legacy = JSON.parse(await fs.readFile(legacyPath, "utf8"));
-  delete legacy.owner;
-  await fs.writeFile(legacyPath, JSON.stringify(legacy));
-  assert.equal((await call(route)).status, 200);
-  assert.equal((await call(route, undefined, visitorToken)).status, 404);
-
-  const foreign = await (
+  for (const oldOwner of [j.owner, undefined]) {
+    legacy.owner = oldOwner;
+    await fs.writeFile(legacyPath, JSON.stringify(legacy));
+    const response = await (await call(route, undefined, visitorToken)).json();
+    assert.equal(response.id, created.id);
+    assert.equal("owner" in response, false);
+  }
+  const thirdBrowser = await (
     await call(["history"], undefined, "c".repeat(64))
   ).json();
-  assert.equal(foreign.runs.length, 0);
+  assert.deepEqual(thirdBrowser, history);
+  const anotherDocument = job();
+  await writeJob(anotherDocument);
+  assert.equal(
+    (await call([anotherDocument.id, "runs", created.id])).status,
+    404,
+  );
+  await updateJob(j.id, (doc) => {
+    doc.files[0].uploaded = false;
+  });
+  assert.equal((await call(route, undefined, visitorToken)).status, 404);
+  assert.equal((await call(route)).status, 200);
 });
 
 test("Repeatedly rejected source questions are flagged without discarding verified siblings", async () => {

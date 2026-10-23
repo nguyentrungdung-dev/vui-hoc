@@ -115,3 +115,21 @@ Sinh bài/lời giải/gợi ý theo nguồn, chấm điểm bài thật, lưu k
 - Mỗi người xem tạo bài làm riêng; chỉ thấy lịch sử/điểm của trình duyệt mình. Các bài làm cũ được giữ cho chủ tài liệu ban đầu, không cần migration dữ liệu.
 - UI ghi rõ thư viện dùng chung và phạm vi chia sẻ ngay trước khi tải file.
 - Kiểm thử thêm hai phiên khác cookie: danh sách, chi tiết, tải PDF, đọc bộ học dùng chung; không sửa tài liệu hoặc bài làm của người khác; resume bài riêng; bảo toàn bài làm cũ trên cả file local và PostgreSQL.
+
+## Đồng bộ cách chạy production local và Vercel — 22/10/2026
+
+- Thêm `npm run prod`: cùng `build:deploy` với Vercel, kiểm tra biến môi trường và kết nối PostgreSQL/Blob rồi build và chạy `next start`. Node 24.x được khai báo trong `package.json`/`.nvmrc`; cài dependency bằng `npm ci`.
+- Production local không còn fallback sang `.data`; file storage chỉ dành cho development. `next.config.ts` kiểm tra biến khi production server khởi động hoặc build trên Vercel, kể cả khi bỏ qua npm script.
+- Thêm `check:env`, `check:services`, `smoke`, `verify`, cấu hình Vercel và GitHub Actions kiểm tra Linux/Node 24/PostgreSQL. CI đã được viết nhưng chưa chạy trên GitHub trong lần chỉnh này.
+- Kết quả xác minh: 32/32 test qua với PostgreSQL tạm riêng; production build, TypeScript, format của các file thay đổi và kiểm tra diff qua. Kết nối PostgreSQL và quyền đọc Blob bằng cấu hình local thật đã qua sau khi cập nhật thông tin xác thực.
+- Smoke test trang chủ, 8 assets, cấu hình cloud, cookie và API/database qua trên cả `http://127.0.0.1:3000` và `https://vui-hoc-theta.vercel.app`.
+- Chưa push/deploy các thay đổi cấu hình này. Smoke trên Vercel kiểm tra bản đang triển khai trước thay đổi. Chưa chạy lại upload/Workflow/AI toàn luồng; chưa xác minh quyền ghi Blob bằng tải lên thật. Chế độ local không mô phỏng toàn bộ HTTPS, Linux và giới hạn serverless.
+
+## Quyền truy cập demo mở và điều tra độ trễ — 22/10/2026
+
+- Bỏ lọc người sở hữu bài làm trong cả adapter file và PostgreSQL. Mọi phiên truy cập tài liệu công khai đều xem, tiếp tục, trả lời và mở lịch sử chung. Bài cũ có/không có owner đều tiếp tục dùng được, không di chuyển dữ liệu.
+- Giữ nguyên quyền người tải lên đối với bản tải dở, upload token, tải tiếp, bắt đầu/thử lại nhận diện và tạo lại bộ học. Khung quản lý/tiến độ tài liệu chỉ hiện cho người tải lên; người khác xem nguồn và nội dung AI đã có bình thường.
+- Nháp ghi chú tự học và tùy chọn giao diện mẫu vẫn cục bộ; chúng không tham gia kiểm tra quyền truy cập tài liệu/bài học.
+- Đã qua 32/32 tests, gồm PostgreSQL tạm riêng; TypeScript và định dạng các file sửa qua. Kiểm thử API với ba cookie khác nhau, bài cũ, tiếp tục bài, chấm điểm và lịch sử; vẫn chặn sửa nguồn không có quyền và truy cập bản tải dở.
+- Đã xác minh UI bằng phiên trình duyệt khác: thư viện, nội dung nhận diện và kết quả bài cũ mở được trên dev cổng 3001. Dùng lại server dev đang có; đã dừng server production local cũ. Không chạy build/prod, commit, push hoặc deploy trong lần sửa này.
+- Chỉ đo và phân tích hiệu năng; chưa sửa pool, query, vùng máy chủ hay cơ chế cập nhật UI. Xem [báo cáo độ trễ](LATENCY_AUDIT_2026-10-22.md).

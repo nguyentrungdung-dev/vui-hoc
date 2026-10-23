@@ -21,9 +21,9 @@ import {
   startLearningRun,
   readRun,
   changeRun,
-  listRuns,
+  learningHistory,
 } from "@/server/learning-runs";
-import { learningResult, runView } from "@/lib/learning";
+import { runView } from "@/lib/learning";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -109,14 +109,8 @@ async function handler(request: NextRequest, context: Context) {
       parts[0] === "history" &&
       method === "GET"
     ) {
-      const jobs = await listLibraryJobs(session.owner);
-      const runs = (
-        await Promise.all(jobs.map((j) => listRuns(j.id, session.owner)))
-      ).flat();
       response = NextResponse.json({
-        runs: runs
-          .map(learningResult)
-          .sort((a, b) => b.date.localeCompare(a.date)),
+        runs: await learningHistory(session.owner),
       });
     } else if (
       parts.length === 2 &&

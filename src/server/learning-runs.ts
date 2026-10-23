@@ -12,7 +12,11 @@ import {
   type LearningView,
 } from "../lib/learning";
 import { jobDir, lock } from "./store";
-import { readLibraryJob } from "./library";
+import {
+  canReadLibraryDocument,
+  listLibraryJobs,
+  readLibraryJob,
+} from "./library";
 import { AppError } from "./validation";
 import { runActionSchema, startRunRequest } from "./learning-validation";
 function runPath(docId: string, id: string) {
@@ -41,34 +45,48 @@ async function saveRun(run: LearningRun) {
   await fs.writeFile(temp, JSON.stringify(run), { mode: 0o600 });
   await fs.rename(temp, target);
 }
-export async function readRun(docId: string, id: string, owner: string) {
-  const job = await readLibraryJob(docId, owner);
+export async function readRun(docId: string, id: string, viewer: string) {
   runPath(docId, id);
   if (databaseEnabled()) {
-    const result = await query<{ data: LearningRun }>(
-      "SELECT data FROM vuihoc_runs WHERE id=$1 AND document_id=$2 AND COALESCE(data->>'owner', $3)=$4",
-      [id, docId, job.owner, owner],
+    const result = await query<LibraryRunRow>(
+      `SELECT r.data, d.owner, d.data->'files' AS files
+       FROM vuihoc_runs r JOIN vuihoc_documents d ON d.id = r.document_id
+       WHERE r.id=$1 AND r.document_id=$2`,
+      [id, docId],
     );
-    if (!result.rows[0]) throw new AppError("Không tìm thấy bài làm.", 404);
-    return result.rows[0].data;
+    const row = result.rows[0];
+    if (!row || !canReadLibraryDocument(row, viewer))
+      throw new AppError("Không tìm thấy bài làm.", 404);
+    return row.data;
   }
+  await readLibraryJob(docId, viewer);
+  return readRunFile(docId, id);
+}
+type LibraryRunRow = Pick<DocumentJob, "owner" | "files"> & {
+  data: LearningRun;
+};
+async function readRunFile(docId: string, id: string) {
   try {
     const run = JSON.parse(
       await fs.readFile(runPath(docId, id), "utf8"),
     ) as LearningRun;
-    if ((run.owner ?? job.owner) !== owner)
+    if (run.documentId !== docId)
       throw new AppError("Không tìm thấy bài làm.", 404);
     return run;
   } catch {
     throw new AppError("Không tìm thấy bài làm.", 404);
   }
 }
-export async function listRuns(docId: string, owner: string) {
-  const job = await readLibraryJob(docId, owner);
+export async function listRuns(docId: string, viewer: string) {
+  await readLibraryJob(docId, viewer);
+  return listDocumentRuns(docId);
+}
+// Internal only: callers must have checked access to the document in this request.
+async function listDocumentRuns(docId: string) {
   if (databaseEnabled()) {
     const result = await query<{ data: LearningRun }>(
-      "SELECT data FROM vuihoc_runs WHERE document_id=$1 AND COALESCE(data->>'owner', $2)=$3 ORDER BY updated_at DESC",
-      [docId, job.owner, owner],
+      "SELECT data FROM vuihoc_runs WHERE document_id=$1 ORDER BY updated_at DESC",
+      [docId],
     );
     return result.rows.map((row) => row.data);
   }
@@ -78,16 +96,37 @@ export async function listRuns(docId: string, owner: string) {
   const runs = await Promise.all(
     files
       .filter((f) => /^[0-9a-f-]{36}\.json$/.test(f))
-      .map((f) => readRun(docId, f.slice(0, -5), owner).catch(() => null)),
+      .map((f) => readRunFile(docId, f.slice(0, -5)).catch(() => null)),
   );
   return runs
     .filter((r): r is LearningRun => !!r)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
+export async function learningHistory(viewer: string) {
+  let runs: LearningRun[];
+  if (databaseEnabled()) {
+    // One round trip; don't transfer document text or learning packs for history.
+    const result = await query<LibraryRunRow>(
+      `SELECT r.data, d.owner, d.data->'files' AS files
+       FROM vuihoc_runs r JOIN vuihoc_documents d ON d.id = r.document_id`,
+    );
+    runs = result.rows
+      .filter((row) => canReadLibraryDocument(row, viewer))
+      .map((row) => row.data);
+  } else {
+    const jobs = await listLibraryJobs(viewer);
+    runs = (
+      await Promise.all(jobs.map((job) => listDocumentRuns(job.id)))
+    ).flat();
+  }
+  return runs.map(learningResult).sort((a, b) => b.date.localeCompare(a.date));
+}
 export async function learningView(
   job: DocumentJob,
   owner: string,
 ): Promise<LearningView> {
+  if (!canReadLibraryDocument(job, owner))
+    throw new AppError("Tài liệu chưa tải xong.", 404);
   const p = job.learning;
   return {
     pack: p
@@ -112,7 +151,7 @@ export async function learningView(
           errors: p.parts.filter((x) => x.error).map((x) => x.error!),
         }
       : null,
-    runs: (await listRuns(job.id, owner)).map(learningResult),
+    runs: (await listDocumentRuns(job.id)).map(learningResult),
     sources: publicDocument(job).questions.map(
       ({ id, label, topic, needsReview }) => ({
         id,
@@ -163,7 +202,7 @@ export async function startLearningRun(
         "Chưa có câu đã kiểm tra cho lựa chọn này. Em hãy chọn chủ đề khác hoặc đợi tạo bài xong.",
       );
     if (request.resume) {
-      const existing = (await listRuns(docId, owner)).find(
+      const existing = (await listDocumentRuns(docId)).find(
         (r) =>
           !r.finished &&
           r.packId === pack.id &&
@@ -175,7 +214,6 @@ export async function startLearningRun(
     }
     const now = new Date().toISOString();
     const run: LearningRun = {
-      owner,
       id: randomUUID(),
       documentId: docId,
       title: job.title,
@@ -272,7 +310,7 @@ export async function changeRun(
   owner: string,
   input: unknown,
 ) {
-  await readRun(docId, id, owner);
+  runPath(docId, id);
   return lock(`run:${docId}:${id}`, async () => {
     const run = await readRun(docId, id, owner);
     applyRunAction(run, input);

@@ -3,7 +3,10 @@ import { listJobs, readJob } from "./store";
 import { AppError } from "./validation";
 
 // Uploaded documents are shared in this demo. Unfinished uploads stay with their creator.
-export function canReadLibraryDocument(job: DocumentJob, viewer: string) {
+export function canReadLibraryDocument(
+  job: Pick<DocumentJob, "owner" | "files">,
+  viewer: string,
+) {
   return (
     job.owner === viewer ||
     (job.files.length > 0 && job.files.every((file) => file.uploaded))

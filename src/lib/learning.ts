@@ -58,7 +58,7 @@ export type LearningAttempt = {
   hintLevel: number;
 };
 export type LearningRun = {
-  /** Absent only on legacy runs, which belong to the original document creator. */
+  /** Legacy metadata only. Demo runs are shared; this field never grants access. */
   owner?: string;
   id: string;
   documentId: string;
