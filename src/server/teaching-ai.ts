@@ -19,9 +19,12 @@ export async function teachingAI<T extends z.ZodType>(
       503,
     );
   const { $schema: _, ...jsonSchema } = z.toJSONSchema(schema);
+  const model = modelName();
   const body = {
-    model: modelName(),
-    temperature: 0.2,
+    model,
+    ...(model.startsWith("anthropic/claude-haiku-5.5")
+      ? {}
+      : { temperature: 0.2 }),
     max_tokens: name === "teaching_review" ? 5000 : 16000,
     provider: { require_parameters: true },
     ...(content.some((c) => c.type === "file")

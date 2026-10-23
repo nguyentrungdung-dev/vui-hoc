@@ -73,9 +73,12 @@ export async function analyzeContent(
     );
   const schema = z.toJSONSchema(batchSchema);
   const { $schema: _schema, ...jsonSchema } = schema;
+  const model = modelName();
   const body = {
-    model: modelName(),
-    temperature: 0.1,
+    model,
+    ...(model.startsWith("anthropic/claude-haiku-5.5")
+      ? {}
+      : { temperature: 0.1 }),
     max_tokens: 16000,
     provider: { require_parameters: true },
     ...(content.some((c) => c.type === "file")
