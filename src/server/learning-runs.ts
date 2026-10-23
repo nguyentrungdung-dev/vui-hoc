@@ -49,7 +49,7 @@ export async function readRun(docId: string, id: string, viewer: string) {
   runPath(docId, id);
   if (databaseEnabled()) {
     const result = await query<LibraryRunRow>(
-      `SELECT r.data, d.owner, d.data->'files' AS files
+      `SELECT r.data, d.owner, d.data->'files' AS files, d.data->'revision' AS revision
        FROM vuihoc_runs r JOIN vuihoc_documents d ON d.id = r.document_id
        WHERE r.id=$1 AND r.document_id=$2`,
       [id, docId],
@@ -62,7 +62,7 @@ export async function readRun(docId: string, id: string, viewer: string) {
   await readLibraryJob(docId, viewer);
   return readRunFile(docId, id);
 }
-type LibraryRunRow = Pick<DocumentJob, "owner" | "files"> & {
+type LibraryRunRow = Pick<DocumentJob, "owner" | "files" | "revision"> & {
   data: LearningRun;
 };
 async function readRunFile(docId: string, id: string) {
@@ -107,7 +107,7 @@ export async function learningHistory(viewer: string) {
   if (databaseEnabled()) {
     // One round trip; don't transfer document text or learning packs for history.
     const result = await query<LibraryRunRow>(
-      `SELECT r.data, d.owner, d.data->'files' AS files
+      `SELECT r.data, d.owner, d.data->'files' AS files, d.data->'revision' AS revision
        FROM vuihoc_runs r JOIN vuihoc_documents d ON d.id = r.document_id`,
     );
     runs = result.rows
@@ -174,6 +174,11 @@ export async function startLearningRun(
     const job = await readLibraryJob(docId, owner);
     const pack = job.learning;
     if (!pack) throw new AppError("Hãy tạo bài học trước.");
+    if (job.revision && pack.status !== "ready")
+      throw new AppError(
+        "Chờ bộ ôn tạo đủ câu hỏi và kiểm tra xong trước khi làm bài.",
+        409,
+      );
     const pool = pack.parts
       .filter((p) => p.done)
       .flatMap((p) => p.questions.map((q) => ({ q, kind: p.kind })));

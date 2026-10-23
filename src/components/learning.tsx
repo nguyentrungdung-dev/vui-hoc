@@ -12,6 +12,7 @@ import {
   Rocket,
 } from "lucide-react";
 import type { PublicDocument } from "@/lib/documents";
+import { sourceUrl } from "@/lib/revision";
 import {
   emptyLearningAttempt,
   type LearningView,
@@ -457,8 +458,21 @@ export function RealPracticePage({
       hintVisible.current = false;
     });
   }
-  const source = (page: number) =>
-    `/api/documents/${documentId}/files/${doc?.files[0].mime === "application/pdf" ? 0 : page - 1}${doc?.files[0].mime === "application/pdf" ? `#page=${page}` : ""}`;
+  const lessonHref = doc?.revision
+    ? `/luyen-tap/bo/${documentId}`
+    : `/tai-lieu/${documentId}`;
+  const source = (page: number) => {
+    const original = doc?.revision?.sources.find((s) => s.page === page);
+    if (original) return sourceUrl(original);
+    const pdf = doc?.files[0]?.mime === "application/pdf";
+    return `/api/documents/${documentId}/files/${pdf ? 0 : page - 1}${pdf ? `#page=${page}` : ""}`;
+  };
+  const sourceLabel = (page: number) => {
+    const original = doc?.revision?.sources.find((s) => s.page === page);
+    return original
+      ? `${original.title} · trang ${original.sourcePage}`
+      : `Trang nguồn ${page}`;
+  };
   if (run.finished)
     return (
       <>
@@ -506,7 +520,7 @@ export function RealPracticePage({
           ))}
         </section>
         <div className="actions">
-          <ButtonLink href={`/tai-lieu/${documentId}`}>
+          <ButtonLink href={lessonHref}>
             Về bài học <ArrowLeft size={17} />
           </ButtonLink>
           <ButtonLink href="/hanh-trinh" secondary>
@@ -566,7 +580,7 @@ export function RealPracticePage({
                   target="_blank"
                   rel="noreferrer"
                 >
-                  Trang nguồn {p} ↗
+                  {sourceLabel(p)} ↗
                 </a>
               ))}
             </details>
@@ -577,7 +591,7 @@ export function RealPracticePage({
   return (
     <>
       <div className="practice-top">
-        <ButtonLink href={`/tai-lieu/${documentId}`} secondary>
+        <ButtonLink href={lessonHref} secondary>
           <ArrowLeft size={16} /> Lưu và về menu
         </ButtonLink>
         <span className="badge">
@@ -654,7 +668,7 @@ export function RealPracticePage({
           {q.hasFigure && (
             <div className="figure-notice">
               <p>{q.figureDescription}</p>
-              {doc?.files[0].mime.startsWith("image/") &&
+              {doc?.files[0]?.mime.startsWith("image/") &&
                 q.sourcePages.map((p) => (
                   <img key={p} src={source(p)} alt={`Hình trong trang ${p}`} />
                 ))}
@@ -833,7 +847,7 @@ export function RealPracticePage({
             Đã lưu tiến độ trên máy chủ.{" "}
             {q.sourcePages.map((p) => (
               <a key={p} href={source(p)} target="_blank" rel="noreferrer">
-                Trang nguồn {p} ↗{" "}
+                {sourceLabel(p)} ↗{" "}
               </a>
             ))}
           </p>

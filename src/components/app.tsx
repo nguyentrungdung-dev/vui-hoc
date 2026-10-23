@@ -12,6 +12,7 @@ import {
   Clock3,
   FileText,
   Flame,
+  Gift,
   Home,
   Lightbulb,
   Menu,
@@ -47,6 +48,8 @@ import type { LearningResult } from "@/lib/learning";
 import { RealPracticePage, LearningHistory } from "./learning";
 import { PracticePage } from "./practice";
 import { LecturePage } from "./lecture";
+import { PracticeMenu } from "./practice-menu";
+import { RevisionPage, RevisionSetPage } from "./revision";
 
 export type Shared = {
   state: State;
@@ -148,6 +151,7 @@ export default function VuiHocApp({ path }: { path: string }) {
     (path.startsWith("/tai-len/") && uploadSubject in subjects);
   const documentId = /^\/tai-lieu\/([0-9a-f-]{36})$/.exec(path)?.[1];
   const realRun = /^\/luyen-tap\/([0-9a-f-]{36})\/([0-9a-f-]{36})$/.exec(path);
+  const revisionSetId = /^\/luyen-tap\/bo\/([0-9a-f-]{36})$/.exec(path)?.[1];
   const isSample = [
     "/ban-mau",
     "/buoi-hoc",
@@ -173,6 +177,7 @@ export default function VuiHocApp({ path }: { path: string }) {
     "/thu-vien",
     "/ban-mau",
   ];
+  supported.push("/luyen-tap/on-bai", "/luyen-tap/on-tong-hop", "/phan-thuong");
   const totalQuestions = learningHistory?.reduce((n, h) => n + h.solved, 0);
 
   if (!ready)
@@ -210,11 +215,18 @@ export default function VuiHocApp({ path }: { path: string }) {
           <Link href="/" className={isHome ? "active" : ""}>
             <Home size={18} /> Trang chủ
           </Link>
+          <PracticeMenu path={path} />
           <Link href="/#worlds">
             <BookOpen size={18} /> Khám phá
           </Link>
           <Link href="/hanh-trinh">
             <Trophy size={18} /> Hành trình
+          </Link>
+          <Link
+            href="/phan-thuong"
+            className={path === "/phan-thuong" ? "active" : ""}
+          >
+            <Gift size={18} /> Phần thưởng
           </Link>
           <button className="profile-chip" onClick={() => setModal("profile")}>
             <Character index={state.profile.character} />
@@ -482,6 +494,21 @@ export default function VuiHocApp({ path }: { path: string }) {
         )}
         {(path === "/thu-vien" || path === "/dang-tao") && <DocumentLibrary />}
         {documentId && <DocumentPage key={documentId} id={documentId} />}
+        {path === "/luyen-tap/on-bai" && (
+          <RevisionPage key="documents" kind="documents" />
+        )}
+        {path === "/luyen-tap/on-tong-hop" && (
+          <RevisionPage key="topics" kind="topics" />
+        )}
+        {revisionSetId && (
+          <RevisionSetPage key={revisionSetId} id={revisionSetId} />
+        )}
+        {path === "/phan-thuong" && (
+          <section className="card empty-state rewards-placeholder">
+            <Gift size={48} />
+            <PageTitle eyebrow="PHẦN THƯỞNG" title="Coming soon" />
+          </section>
+        )}
         {realRun && (
           <RealPracticePage
             key={realRun[2]}
@@ -517,17 +544,21 @@ export default function VuiHocApp({ path }: { path: string }) {
             </ButtonLink>
           </div>
         )}
-        {!supported.includes(path) && !isUpload && !documentId && !realRun && (
-          <div className="empty-state">
-            <PageTitle
-              eyebrow="LẠC ĐƯỜNG MỘT CHÚT THÔI"
-              title="Cánh cửa này chưa có"
-            >
-              Mình quay lại thế giới học tập nhé.
-            </PageTitle>
-            <ButtonLink href="/">Về trang chủ</ButtonLink>
-          </div>
-        )}
+        {!supported.includes(path) &&
+          !isUpload &&
+          !documentId &&
+          !realRun &&
+          !revisionSetId && (
+            <div className="empty-state">
+              <PageTitle
+                eyebrow="LẠC ĐƯỜNG MỘT CHÚT THÔI"
+                title="Cánh cửa này chưa có"
+              >
+                Mình quay lại thế giới học tập nhé.
+              </PageTitle>
+              <ButtonLink href="/">Về trang chủ</ButtonLink>
+            </div>
+          )}
       </main>
       <footer className="wrap site-footer">
         <Link href="/">✦ Vui học</Link>

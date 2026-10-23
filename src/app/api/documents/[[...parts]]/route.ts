@@ -24,6 +24,7 @@ import {
   learningHistory,
 } from "@/server/learning-runs";
 import { runView } from "@/lib/learning";
+import { createRevision, revisionCatalog } from "@/server/revision";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -106,6 +107,21 @@ async function handler(request: NextRequest, context: Context) {
       });
     } else if (
       parts.length === 1 &&
+      parts[0] === "revision" &&
+      method === "GET"
+    ) {
+      response = NextResponse.json(await revisionCatalog(session.owner));
+    } else if (
+      parts.length === 1 &&
+      parts[0] === "revision" &&
+      method === "POST"
+    ) {
+      const job = await createRevision(session.owner, await jsonBody(request));
+      // The saved set can be reopened and retried even if dispatch fails.
+      await enqueue("learning", job.id, job.learningExecution!).catch(() => {});
+      response = NextResponse.json({ id: job.id }, { status: 201 });
+    } else if (
+      parts.length === 1 &&
       parts[0] === "history" &&
       method === "GET"
     ) {
@@ -166,9 +182,9 @@ async function handler(request: NextRequest, context: Context) {
       );
     } else if (!parts.length && method === "GET") {
       response = NextResponse.json({
-        documents: (await listLibraryJobs(session.owner)).map((job) =>
-          publicDocument(job, session.owner),
-        ),
+        documents: (await listLibraryJobs(session.owner))
+          .filter((job) => !job.revision)
+          .map((job) => publicDocument(job, session.owner)),
       });
     } else if (!parts.length && method === "POST") {
       requireStorage();

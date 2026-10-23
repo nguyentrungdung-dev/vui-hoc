@@ -1,4 +1,5 @@
 import type { LearningPack } from "./learning";
+import type { Revision } from "./revision";
 export const subjects = {
   math: {
     name: "Toán",
@@ -96,6 +97,7 @@ export type DocumentJob = {
   storage?: "local" | "blob";
   analysisExecution?: string;
   learningExecution?: string;
+  revision?: Revision;
 };
 export type PublicDocument = Omit<
   DocumentJob,
