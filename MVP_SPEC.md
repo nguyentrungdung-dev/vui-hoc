@@ -1,8 +1,8 @@
 # Vui học — Đặc tả MVP
 
 > **Trạng thái:** Đã được chủ dự án thống nhất, là tài liệu chuẩn để thiết kế, triển khai và nghiệm thu MVP.
-> **Ngày chốt:** 21/10/2026.
-> **Giai đoạn:** Đã dựng giao diện; triển khai bước 2 — tải và nhận diện tài liệu thật. Xem `docs/IMPLEMENTATION_STATUS.md` để phân biệt tính năng đã kiểm thử và phần chờ tích hợp.
+> **Ngày chốt ban đầu:** 21/10/2026. **Cập nhật hiện trạng và quyết định:** 23/10/2026.
+> **Giai đoạn:** Đã có tải/nhận diện tài liệu thật, biên soạn và làm bài, Ôn bài/Ôn tổng hợp, lưu Hành trình và hạ tầng cloud. Bài giảng/video thật và thích ứng độ khó còn chờ xây dựng. TIMO mới và Phần thưởng chỉ có giao diện Coming soon. Xem [tiến độ](docs/IMPLEMENTATION_STATUS.md) để phân biệt triển khai, kiểm thử và nghiệm thu; không coi mọi yêu cầu dưới đây là đã hoạt động.
 
 ## 1. Mục tiêu và nguyên tắc dự án
 
@@ -10,10 +10,13 @@ Vui học là công cụ tự học dành cho học sinh lớp 2, giúp giảm t
 
 **Mục tiêu quan trọng nhất của MVP:** Tải một tài liệu mới và tạo được buổi học đúng nội dung, với giao diện sát bản demo và học sinh lớp 2 có thể tự sử dụng.
 
-Hai tình huống cốt lõi:
+Các luồng đã thống nhất:
 
-1. **Ôn bài theo tuần:** Biến bài học/bài tập được tải lên thành menu kiến thức, bài giảng và bộ luyện mới.
-2. **Luyện đề TIMO:** Hướng dẫn giải đề gốc, luyện theo dạng, tạo bài tương tự và nâng cao.
+1. **Học từ tài liệu:** Tải bài học/bài tập, nhận diện và tạo lời giải/bộ luyện. Phần tạo bài giảng/video từ tài liệu thật còn chờ.
+2. **Ôn bài và Ôn tổng hợp:** Chọn tài liệu hoặc đề tài đã nhận diện cùng môn, tạo bộ luyện bám nguồn, làm bài và lưu Hành trình. Đã triển khai; chi tiết ở mục 20.
+3. **Luyện thi Toán song ngữ / Luyện đề TIMO mới:** Ngân hàng đề do nhà phát hành cung cấp, phạm vi Mầm non–lớp 5. Hiện chỉ cho chọn khối và mở Coming soon; phần còn chờ ở mục 19.
+
+Tài liệu TIMO đã upload và luồng bài làm cũ được giữ nguyên. Trang Vui học Toán đã bỏ nội dung giới thiệu/nút TIMO; không xóa hoặc ẩn tài liệu TIMO cũ khỏi thư viện.
 
 Nguyên tắc:
 
@@ -23,29 +26,29 @@ Nguyên tắc:
 - Nội dung phù hợp độ tuổi, lớp và chương trình học; kết hợp phương pháp của giáo viên trong tài liệu nếu nhận diện được.
 - Hệ thống tự tạo và giao nội dung; không yêu cầu phụ huynh duyệt trước.
 - Không tự đoán nội dung khi đề, ký hiệu hoặc hình minh họa chưa được đọc chắc chắn.
-- Điểm kết quả /10 tách biệt với mức sử dụng gợi ý.
+- Điểm /10 của luồng tài liệu và Ôn bài/Ôn tổng hợp tách biệt với mức dùng gợi ý. Ngân hàng TIMO mới có định hướng đếm câu đúng, chưa triển khai chấm bài.
 - Bài luyện có thể sẵn sàng trước video; không buộc trẻ chờ video mới được học.
 
 ## 2. Phạm vi MVP
 
-| Hạng mục                | Phạm vi đã chốt                                                                          |
-| ----------------------- | ---------------------------------------------------------------------------------------- |
-| Người học               | Học sinh lớp 2                                                                           |
-| Nội dung hoạt động thật | Toán/TIMO lớp 2, Tiếng Anh, Tiếng Việt và Tự học; bước 2 mở tải/nhận diện cho cả bốn khu |
-| Trang chủ               | Giữ đủ Toán, tiếng Anh, tiếng Việt, Thiết kế tự học                                      |
-| Ba khu vực ngoài Toán   | Đã được chủ dự án yêu cầu mở khóa; dùng chung luồng tài liệu và phân loại theo nội dung  |
-| Đầu vào                 | PDF và ảnh chụp                                                                          |
-| Dung lượng              | Tối đa 100 MB mỗi lượt tải                                                               |
-| Phạm vi trang           | Chọn toàn bộ tài liệu hoặc một số trang                                                  |
-| Bài luyện mới           | Mặc định 25 câu, có thể chỉnh tổng số và chủ đề trước khi tạo                            |
-| Đề gốc                  | Giữ số câu và thứ tự trong tài liệu; không ép thành 25 câu                               |
-| Video                   | Tạo slide/kịch bản, gửi API công ty, nhận video; website quản lý tương tác               |
-| Theo dõi                | Kết quả, số lần thử, lượt dùng gợi ý, mức tự làm và lịch sử                              |
-| Hồ sơ demo              | Hồ sơ bé theo thiết bị; bài học và tiến độ lưu ở hệ thống                                |
+| Hạng mục                | Phạm vi đã chốt                                                                              |
+| ----------------------- | -------------------------------------------------------------------------------------------- |
+| Người học               | Luồng tài liệu/ôn tập cho lớp 2; khu TIMO mới chỉ có giao diện chọn Mầm non–lớp 5            |
+| Nội dung hoạt động thật | Toán, Tiếng Anh, Tiếng Việt và Tự học đã có luồng tài liệu thật; giữ dữ liệu TIMO cũ         |
+| Trang chủ               | Bốn khu tài liệu và thẻ Luyện thi Toán song ngữ trong Horizontal Scroll                      |
+| Ba khu vực ngoài Toán   | Đã được chủ dự án yêu cầu mở khóa; dùng chung luồng tài liệu và phân loại theo nội dung      |
+| Đầu vào                 | PDF và ảnh chụp                                                                              |
+| Dung lượng              | Tối đa 100 MB mỗi lượt tải                                                                   |
+| Phạm vi trang           | Chọn toàn bộ tài liệu hoặc một số trang                                                      |
+| Bài luyện mới           | Mặc định 25 câu, có thể chỉnh tổng số và chủ đề trước khi tạo                                |
+| Đề gốc                  | Giữ số câu và thứ tự trong tài liệu; không ép thành 25 câu                                   |
+| Video                   | Chưa triển khai từ tài liệu thật; mục tiêu là slide/kịch bản → API công ty → video tương tác |
+| Theo dõi                | Kết quả, số lần thử, lượt dùng gợi ý, mức tự làm và lịch sử                                  |
+| Hồ sơ demo              | Hồ sơ bé theo thiết bị; bài học và tiến độ lưu ở hệ thống                                    |
 
 Các nhóm dạng bài thuộc phạm vi kiểm chứng gồm phép tính, tìm số, toán lời văn, hình học, đo lường, thời gian, tiền và suy luận TIMO. Không chủ động loại bỏ cả nhóm dạng chỉ để thu hẹp demo. Từng câu không đọc hoặc xử lý chắc chắn phải được đánh dấu riêng.
 
-Đăng ký email, đồng bộ nhiều thiết bị, chấm ảnh bài làm viết tay và mở rộng sang lớp khác không thuộc MVP này. Ảnh đầu vào trong MVP là ảnh đề/tài liệu, không đồng nghĩa có chức năng chấm bài viết tay.
+Đăng ký/đăng nhập, nhiều hồ sơ bé, chấm ảnh bài viết tay và mở rộng luồng tài liệu thật ngoài lớp 2 chưa thuộc phạm vi demo đã chốt. Bài làm thật và Hành trình đã dùng chung qua máy chủ giữa các thiết bị; hồ sơ bé và nháp mẫu vẫn cục bộ. Giao diện chọn Mầm non–lớp 5 của TIMO mới không đồng nghĩa đã có nội dung AI cho các khối đó. Ảnh đầu vào là đề/tài liệu, không phải chấm bài viết tay.
 
 ## 3. Tài liệu tham chiếu và định hướng giao diện
 
@@ -67,14 +70,16 @@ Giao diện ưu tiên điện thoại và máy tính bảng:
 
 | Màn hình              | Nội dung và thao tác chính                                                        |
 | --------------------- | --------------------------------------------------------------------------------- |
-| Trang chủ             | Slogan, bốn khu vực, nhân vật đồng hành, thống kê và tiếp tục học                 |
-| Vui học Toán          | “Ôn bài của em”, “Luyện đề TIMO”, tài liệu gần đây và buổi đang học               |
+| Trang chủ             | Horizontal Scroll gồm bốn khu tài liệu và TIMO, nhân vật, thống kê                |
+| Vui học Toán          | Gửi tài liệu Toán, tài liệu đã gửi; bỏ nút/giới thiệu TIMO, giữ dữ liệu cũ        |
 | Tải tài liệu          | Chọn PDF/ảnh, chụp ảnh nếu thiết bị hỗ trợ, xem trước, sắp xếp ảnh, chọn trang    |
 | Đang tạo buổi học     | Tiến độ từng phần, chủ đề nhận diện, phần đọc không rõ, mở nội dung đã sẵn sàng   |
-| Menu buổi học         | Chủ đề, số câu, trạng thái video, tiến độ, chọn xem bài giảng hoặc luyện tập      |
-| Xem bài giảng         | Video, phụ đề, mục lục, phát lại từng phần, điểm dừng chọn đáp án                 |
+| Menu buổi học         | Đã có chủ đề, số câu, tiến độ và làm bài; bài giảng/video thật còn chờ            |
+| Xem bài giảng         | Hiện chỉ là slide mẫu; video/phụ đề/điểm dừng từ tài liệu thật còn chờ            |
 | Làm bài               | Một câu mỗi màn hình, trả lời, gợi ý, hướng dẫn từng bước, lời giải và luyện tiếp |
 | Kết quả và hành trình | Điểm /10, kết quả theo dạng, mức dùng gợi ý, đề xuất luyện thêm và lịch sử        |
+
+Header hiện có **Trang chủ → Luyện tập → Khám phá → Thư viện → Hành trình → Phần thưởng**. Dropdown Luyện tập gồm **Ôn bài, Ôn tổng hợp, Luyện đề TIMO**. Đã bỏ hàng menu phụ và dòng trạng thái ở các trang chính; giữ nhãn dữ liệu mẫu ở khu trải nghiệm. Khám phá dẫn về các thẻ trang chủ. Thư viện trên header mở các tài liệu đã upload. Phần thưởng chỉ hiện Coming soon.
 
 Tên gọi, ảnh đại diện và nhân vật đồng hành được chỉnh trong bảng hồ sơ mở từ trang chủ, không cần màn hình riêng.
 
@@ -85,8 +90,8 @@ Tên gọi, ảnh đại diện và nhân vật đồng hành được chỉnh t
 3. Hệ thống đọc tài liệu, tách câu hỏi và nhận diện dạng bài.
 4. Hiện menu chủ đề; đánh dấu phần chưa đọc chắc chắn.
 5. Người dùng chọn chủ đề và số câu; mặc định 25 câu cho toàn bộ bộ luyện mới, phân bổ theo các dạng được chọn.
-6. Hệ thống tạo bài luyện, lời giải, gợi ý, slide và kịch bản; xử lý video qua API.
-7. Bé chọn xem bài giảng hoặc làm bài khi nội dung tương ứng sẵn sàng.
+6. Đã tạo bài luyện, lời giải và gợi ý; slide/kịch bản thật và xử lý video qua API còn chờ.
+7. Bé làm bài khi nội dung đã sẵn sàng. Xem bài giảng thật là mục tiêu sau khi triển khai video; hiện chỉ có bài giảng mẫu.
 8. Xem kết quả và luyện thêm theo dạng.
 
 Mỗi câu mới phải gắn với dạng bài hoặc ví dụ nguồn trong tài liệu. Câu nâng cao có nhãn riêng, tăng độ khó có chủ đích và vẫn phù hợp kiến thức lớp 2.
@@ -97,7 +102,7 @@ Nếu tài liệu thiếu nội dung hoặc phần nhận diện chưa đủ đ�
 
 Luồng dưới đây thuộc tính năng tài liệu do người dùng tự tải. Khu **Luyện thi Toán song ngữ / Luyện đề TIMO** mới trên trang chủ và dropdown Luyện tập có phạm vi riêng theo cập nhật ngày 23/10/2026 ở mục 19; không tự áp dụng chức năng tải đề, sinh câu tương tự hoặc chấm /10 của luồng cũ cho khu mới.
 
-1. Chọn **Luyện đề TIMO** và tải đề.
+1. Mở tài liệu TIMO cũ trong **Thư viện**. Route upload cũ `/timo` vẫn còn trong mã để tương thích, nhưng không còn nút dẫn từ trang Toán; mục Luyện đề TIMO trên header dẫn sang khu Coming soon, không vào luồng upload cũ.
 2. Hệ thống hiển thị danh sách câu đã nhận diện.
 3. Bé chọn **Làm đề gốc** hoặc **Luyện theo dạng**.
 4. Làm bài với gợi ý và hướng dẫn theo luồng chung.
@@ -123,13 +128,13 @@ Nếu bé mắc kẹt, **Cùng làm từng bước** giúp hoàn thành câu hi�
 
 Bé có thể bỏ qua, thoát và tiếp tục sau. Không tạo vòng lặp bắt đoán đến đúng mới được đi tiếp.
 
-Sau 1–2 câu tương tự làm đúng độc lập, đề xuất câu khó hơn; bé có thể giữ mức hiện tại.
+**Còn chờ xây dựng:** sau 1–2 câu tương tự làm đúng độc lập, đề xuất câu khó hơn; bé có thể giữ mức hiện tại. Hiện câu tương tự được chọn tối đa 3 câu từ bộ có sẵn, chưa có cơ chế tự tăng độ khó.
 
 ## 8. Chấm điểm và theo dõi
 
 ### 8.1. Điểm kết quả /10
 
-**Điểm = (số câu đúng ở lần nộp đầu tiên / tổng số câu của bài) × 10.**
+**Điểm hiện tại = (số câu chấm tự động đúng ở lần trả lời đầu / tổng số câu chấm tự động của bài) × 10.** Câu tự đối chiếu không nằm trong mẫu số; bài không có câu chấm tự động hiển thị tự đối chiếu. Quy tắc này áp dụng luồng tài liệu và Ôn bài/Ôn tổng hợp, không áp dụng ngân hàng TIMO mới còn Coming soon.
 
 - Hiển thị rõ đây là **điểm lần làm đầu**.
 - Không trừ điểm vì mở gợi ý.
@@ -147,7 +152,7 @@ Theo dõi riêng từng câu và tổng hợp theo dạng:
 
 Lưu số lần trả lời, lượt mở gợi ý và thời gian xem. Thời gian xem chỉ là tín hiệu bổ sung, không tự suy ra trẻ yếu vì đọc lâu.
 
-Khả năng làm đúng câu mới tương tự mà không dùng gợi ý là bằng chứng chính để đề xuất tăng độ khó hoặc luyện thêm. Không gắn nhãn cố định như “bé yếu toán”.
+Trong phần thích ứng độ khó còn chờ xây dựng, khả năng làm đúng câu mới tương tự mà không dùng gợi ý là bằng chứng chính để đề xuất tăng độ khó hoặc luyện thêm. Không gắn nhãn cố định như “bé yếu toán”.
 
 ## 9. Tiêu chuẩn nội dung
 
@@ -163,6 +168,8 @@ Một buổi học được coi là đúng nội dung khi:
 Hệ thống giao trực tiếp cho người học, không thêm bước người lớn duyệt. Việc kiểm tra tính nhất quán và xử lý câu chưa chắc chắn phải nằm trong quy trình tự động.
 
 ## 10. Video và tích hợp API
+
+**Hiện trạng 23/10/2026:** chỉ có slide tương tác dùng dữ liệu mẫu. Chưa có pipeline tạo slide/kịch bản từ tài liệu thật, API video, giọng đọc hay đồng bộ điểm dừng với video thật. Các mục dưới đây là yêu cầu còn chờ; tài liệu API và quyền kết nối cần chủ dự án cung cấp.
 
 ### 10.1. Nội dung mỗi chủ đề
 
@@ -211,24 +218,26 @@ Theo dõi riêng các phần bài luyện và video để phần đã xong có t
 | Video chưa xong                             | Cho dùng bài luyện và hướng dẫn đã sẵn sàng                                    |
 | File dài                                    | Cho chọn toàn bộ hoặc một số trang; dự kiến thời gian khi đủ dữ liệu phân tích |
 
-## 12. Định hướng công nghệ
+## 12. Công nghệ đã triển khai và phần còn chờ
 
-| Thành phần                     | Định hướng                                                                          |
-| ------------------------------ | ----------------------------------------------------------------------------------- |
-| Web và API điều phối           | Next.js + TypeScript                                                                |
-| Phân tích và biên soạn bằng AI | OpenRouter; chọn model theo khả năng đọc tài liệu/hình và chất lượng đầu ra thực tế |
-| Dữ liệu                        | PostgreSQL                                                                          |
-| File và video                  | Kho lưu trữ tương thích S3                                                          |
-| Xử lý dài                      | Tác vụ chạy nền, lưu trạng thái và hỗ trợ thử lại                                   |
-| Dựng video                     | API công ty đã có                                                                   |
+| Thành phần                     | Định hướng                                                                           |
+| ------------------------------ | ------------------------------------------------------------------------------------ |
+| Web và API điều phối           | Next.js + TypeScript                                                                 |
+| Phân tích và biên soạn bằng AI | OpenRouter; chọn model theo khả năng đọc tài liệu/hình và chất lượng đầu ra thực tế  |
+| Dữ liệu                        | Đã dùng Neon PostgreSQL; file JSON chỉ là adapter development                        |
+| File và video                  | Đã dùng Vercel Blob Private cho PDF/ảnh; lưu video còn chờ                           |
+| Xử lý dài                      | Đã dùng Vercel Workflow SDK, lưu từng phần và hỗ trợ thử lại; không cần worker riêng |
+| Dựng video                     | API công ty theo định hướng ban đầu; chưa nhận tài liệu và chưa tích hợp             |
 
 File lớn tải trực tiếp lên kho lưu trữ; Next.js điều phối thay vì buộc toàn bộ file và tác vụ dài đi qua một request đồng bộ.
 
-Nhà cung cấp hosting, kho file, hàng đợi và model cụ thể là quyết định triển khai tiếp theo; tài liệu này chưa chốt tên nhà cung cấp hoặc ngân sách.
+Đã chọn Vercel cho hosting/Workflow, Neon cho database và Blob Private cho file. Model cấu hình bằng `OPENROUTER_MODEL`; đã xử lý bỏ `temperature` ở hai hàm gọi AI khi dùng Haiku 5.5. Ngân sách vận hành và lựa chọn model lâu dài chưa chốt. Không coi cấu hình/mã local là bằng chứng deployment mới nhất đã được cập nhật.
 
 Dữ liệu cần lưu gồm hồ sơ bé, tài liệu/trang nguồn, câu hỏi gốc, chủ đề, buổi học, câu luyện, lời giải/gợi ý, lượt trả lời, tiến độ và tác vụ/tài sản video. Giữ liên kết từ nội dung được tạo về nguồn để kiểm tra chất lượng.
 
 ## 13. Thứ tự triển khai
+
+Trạng thái hiện tại: bước 1–3 đã có triển khai kỹ thuật; bước 4 đã có làm bài/lưu kết quả nhưng chưa thích ứng độ khó; bước 5 còn chờ; bước 6 có kiểm thử kỹ thuật và một số thử nghiệm thật, chưa nghiệm thu toàn diện nội dung AI. Bảng dưới là lộ trình, không phải danh sách mọi phần chưa làm.
 
 | Thứ tự                      | Công việc                                                 | Điều kiện hoàn thành                             |
 | --------------------------- | --------------------------------------------------------- | ------------------------------------------------ |
@@ -241,24 +250,31 @@ Dữ liệu cần lưu gồm hồ sơ bé, tài liệu/trang nguồn, câu hỏi
 
 Thiết kế kết nối video chuẩn bị từ đầu; tích hợp thực tế phụ thuộc thời điểm cung cấp API. Mục tiêu tiến độ là demo trong vài ngày, không phải cam kết mọi phần hoàn tất khi còn thiếu phụ thuộc.
 
-## 14. Tiêu chí nghiệm thu
+## 14. Tiêu chí nghiệm thu và mức xác minh
 
-- [ ] Giao diện bám sát bản mẫu trên điện thoại và máy tính bảng.
-- [ ] Trang chủ mở cả bốn khu học theo yêu cầu cập nhật; phân biệt tính năng thật và dữ liệu mẫu.
-- [ ] Tải PDF/ảnh mới và chọn trang được; giới hạn 100 MB được thực thi.
-- [ ] Menu phản ánh đúng nội dung tài liệu, có liên kết nguồn để kiểm tra.
-- [ ] Tạo bộ luyện mặc định 25 câu; chỉnh được số lượng/chủ đề.
-- [ ] Giữ nguyên số câu và thứ tự đề TIMO gốc; bộ luyện mới được tách riêng.
-- [ ] Gợi ý, hướng dẫn, lời giải phù hợp lớp 2; TIMO có hỗ trợ song ngữ.
-- [ ] Luồng thử làm, gợi ý, thử lại, hướng dẫn từng bước và giải thích hoạt động đúng.
-- [ ] Điểm lần làm đầu /10 tách khỏi mức dùng gợi ý; lưu được tiến độ và kết quả sau sửa.
-- [ ] Tăng độ khó dựa trên câu tương tự làm đúng độc lập.
-- [ ] Rời trang và quay lại vẫn tiếp tục được bài học/tác vụ.
-- [ ] Câu không đọc chắc chắn được báo rõ, không tự đoán; các câu khác tiếp tục xử lý.
-- [ ] Slide, kịch bản và video khớp nội dung nguồn; điểm dừng hoạt động đúng.
-- [ ] Video từ tài liệu mới được tạo qua API thật trước khi nghiệm thu phần này.
-- [ ] Kiểm tra bằng bộ PDF và ảnh đại diện cho các nhóm dạng đã thống nhất, gồm hình học, lời văn nhiều bước và suy luận TIMO.
-- [ ] Ghi nhận thời gian xử lý và lỗi thực tế; không công bố tốc độ chưa được kiểm chứng.
+Các mục đã triển khai kỹ thuật, có kiểm thử tự động hoặc kiểm tra trình duyệt:
+
+- [x] Upload PDF/ảnh, chọn trang, giới hạn 100 MB/100 trang, kiểm tra định dạng.
+- [x] Nhận diện, hiển thị chủ đề/câu gốc, cảnh báo nội dung chưa rõ và liên kết nguồn.
+- [x] Tạo lời giải/bộ luyện 5–50 câu, mặc định 25; tách đề gốc khỏi bộ luyện mới.
+- [x] Ôn bài/Ôn tổng hợp từ nguồn cùng môn; không lấy kiến thức ngoài nguồn làm chủ đích.
+- [x] Làm bài, ba mức gợi ý, hướng dẫn, giải thích, điểm /10 và lưu/tiếp tục qua máy chủ.
+- [x] Tác vụ nền, lưu từng phần, thử lại phần chưa xong.
+- [x] Header có Thư viện và dropdown Luyện tập; Horizontal Scroll trang chủ; sáu khối TIMO và Phần thưởng hiển thị Coming soon.
+
+Các dấu đã có ở trên xác nhận triển khai và kiểm tra kỹ thuật, **không chứng nhận mọi đầu ra AI đúng**. Chủ dự án đã báo test xong phần Ôn bài/Ôn tổng hợp, chưa có biên bản đánh giá toàn diện mọi môn/dạng bài.
+
+Các mục còn chờ xây dựng hoặc nghiệm thu:
+
+- [ ] Chất lượng nhận diện/đáp án/gợi ý trên bộ PDF và ảnh đại diện: các môn, hình học, lời văn nhiều bước, nội dung mờ và tài liệu TIMO cũ.
+- [ ] Hỗ trợ đầy đủ tương tác nối cặp, nhiều ô điền và đúng–sai nhiều ý; hiện thường dùng tự đối chiếu.
+- [ ] Tự đề xuất tăng độ khó theo kết quả làm độc lập và gợi ý.
+- [ ] Tạo slide/kịch bản thật bám tài liệu; tích hợp API video và giọng đọc.
+- [ ] Đồng bộ điểm dừng, câu hỏi và lời giải với video thực tế.
+- [ ] Ghi nhận thời gian/chi phí AI trên bộ tài liệu đại diện, đo lại độ trễ production.
+- [ ] Xác nhận triển khai mới nhất bằng upload Blob → Workflow → AI → làm bài → mở lại trên deployment đích.
+
+Ngân hàng TIMO mới và Phần thưởng không được coi là thiếu nghiệm thu backend của đợt giao diện: backend chưa được duyệt triển khai, chờ các quyết định ở mục 19–20.
 
 ## 15. Phụ thuộc và quản lý thay đổi
 
@@ -267,7 +283,7 @@ Các đầu vào còn cần bổ sung trong quá trình triển khai:
 - Tài liệu API video và quyền kết nối khi tới bước tích hợp.
 - Khả năng giọng miền Bắc và mốc thời gian theo slide của API.
 - Bộ PDF/ảnh thực tế đại diện cho nội dung muốn nghiệm thu.
-- Nhà cung cấp hạ tầng, model và ngân sách vận hành.
+- Model/ngân sách vận hành lâu dài; hạ tầng Vercel + Neon + Blob + Workflow đã có triển khai.
 
 Các mục này là phụ thuộc triển khai, không thay đổi mục tiêu đã chốt.
 
@@ -282,19 +298,21 @@ Mọi thay đổi về đối tượng, môn học, chức năng, cách tính đ
 | 21/10/2026 | Thống nhất hồ sơ theo thiết bị cho demo, điểm theo lần trả lời đầu, 25 câu cho bộ luyện mới và giữ nguyên đề gốc |
 | 21/10/2026 | Đóng gói đặc tả thành tài liệu Markdown chuẩn của dự án; chưa bắt đầu code                                       |
 
-## 17. Cập nhật triển khai bước 2 — 21/10/2026
+## 17. Ghi nhận lịch sử bước 2 — 21/10/2026
+
+Đây là ảnh chụp giai đoạn cũ, không phải trạng thái hiện tại: sinh bài/chấm bài và hạ tầng cloud đã được bổ sung sau đó. Production hiện dùng PostgreSQL/Blob/Workflow, không dùng worker riêng.
 
 Chủ dự án yêu cầu tải/nhận diện PDF và ảnh thật thay cho dữ liệu mẫu, đồng thời mở Tiếng Anh, Tiếng Việt và Tự học. Chủ dự án sẽ cấu hình OpenRouter sau; việc tích hợp tiếp tục, không dùng dữ liệu mẫu để che trạng thái thiếu khóa.
 
 Phạm vi bước này: lưu tệp, chọn trang, nhận diện câu hỏi/dạng bài qua OpenRouter, truy vết nguồn, tác vụ nền, trạng thái lỗi và thử lại từng phần. Câu trả lời tự học được ghi lại nhưng chưa chấm điểm. Sinh 25 câu, lời giải/gợi ý, đánh giá và video vẫn thuộc các bước 3–5.
 
-Lựa chọn triển khai demo local: lưu tệp/JSON trong `.data`, worker Node chạy cùng Next.js. PostgreSQL/S3 vẫn là định hướng khi chuyển sang hạ tầng triển khai lâu dài. Giới hạn vận hành hiện tại: một PDF hoặc nhiều ảnh JPG/PNG/WebP, tổng 100 MB và tối đa 100 trang/tài liệu; ảnh tối đa 60 megapixel. Ảnh HEIC cần chuyển JPG. Không loại nhóm dạng bài; câu chưa đọc rõ được gắn cờ và liên kết trang gốc.
+Lựa chọn triển khai demo local tại thời điểm đó: lưu tệp/JSON trong `.data`, worker Node chạy cùng Next.js. PostgreSQL/S3 vẫn là định hướng khi chuyển sang hạ tầng triển khai lâu dài. Giới hạn tệp vẫn áp dụng: một PDF hoặc nhiều ảnh JPG/PNG/WebP, tổng 100 MB và tối đa 100 trang/tài liệu; ảnh tối đa 60 megapixel. Ảnh HEIC cần chuyển JPG. Không loại nhóm dạng bài; câu chưa đọc rõ được gắn cờ và liên kết trang gốc.
 
 Trạng thái hoàn thành kỹ thuật và kiểm thử thực tế được ghi riêng; chưa nghiệm thu chất lượng AI khi chưa chạy bằng khóa thật.
 
-## 18. Cập nhật triển khai bước 3 — 22/10/2026
+## 18. Ghi nhận lịch sử bước 3 — 22/10/2026
 
-Chủ dự án đã nhận diện PDF thật thành công và yêu cầu triển khai đáp án, lời giải từng bước, gợi ý, bộ 25 câu và nối vào luồng làm bài. Model cấu hình hiện tại là Claude Haiku 4.5 qua OpenRouter.
+Chủ dự án đã nhận diện PDF thật thành công và yêu cầu triển khai đáp án, lời giải từng bước, gợi ý, bộ 25 câu và nối vào luồng làm bài. Ở lần cập nhật này model được ghi là Claude Haiku 4.5 qua OpenRouter; không dùng ghi nhận lịch sử này để suy ra model hiện chạy trên mọi môi trường.
 
 Bản triển khai cho phép mở lại tài liệu đã nhận diện, chọn chủ đề/số câu và tạo nội dung nền. Đề gốc tách khỏi bộ luyện mới. Câu rõ, đủ dữ kiện được giải; câu cần kiểm tra/thiếu âm thanh được ghi lý do; câu trả lời mở dùng tự đối chiếu và không tính điểm tự động. Bộ luyện mới hiện dùng trắc nghiệm 3–4 lựa chọn, có câu củng cố và nâng cao. Chưa coi đây là hoàn tất hỗ trợ tương tác mọi định dạng câu trả lời trong đặc tả cuối.
 
@@ -335,3 +353,22 @@ Ngân hàng đề do **nhà phát hành** cung cấp và phân theo khối học
 4. **Hành trình:** chưa chốt có lưu các lượt thi, kết quả, lỗi sai và lần làm lại vào Hành trình hay không, cũng như cách hiển thị số câu đúng thay cho /10. Quyết định lưu Ôn bài/Ôn tổng hợp trước đó không tự áp dụng cho khu luyện thi này.
 
 Chỉ triển khai các phần đang mở sau khi được chủ dự án duyệt bổ sung.
+
+## 20. Ôn tập, điều hướng và các phần còn chờ — 23/10/2026
+
+### Đã triển khai theo duyệt của chủ dự án
+
+- **Ôn bài:** người dùng chọn một môn, một hoặc nhiều tài liệu đã nhận diện trong thư viện, đặt số câu và tạo bộ ôn bám nội dung nguồn.
+- **Ôn tổng hợp:** chọn một môn, tìm/chọn các đề tài đã nhận diện, dùng nội dung tài liệu nguồn thay vì tạo từ kiến thức chung ngoài tài liệu.
+- Cả hai mặc định 25 câu, tùy chỉnh 5–50; không trộn môn. Giới hạn kỹ thuật hiện tại: tối đa 20 tài liệu hoặc 50 đề tài, số câu ít nhất bằng số mục đã chọn. Máy chủ kiểm tra lại nguồn/môn/số lượng.
+- Dùng văn bản nguồn đủ rõ; bộ ôn mới được biên soạn và kiểm tra theo nhóm. Chưa có bài tập mới cần hình/âm thanh ngoài nội dung được cung cấp. Câu có gợi ý, đáp án, lời giải, chấm /10 và lưu kết quả vào Hành trình.
+- Có trang tiến độ bộ ôn, thử lại phần lỗi, mở lại và liên kết về từng tài liệu/trang gốc; bộ ôn đã tạo không xuất hiện như một PDF/ảnh nguồn trong Thư viện.
+- Dropdown mở bằng hover trên desktop và chạm trên màn hình nhỏ; hỗ trợ bàn phím. Header thu gọn ở tối đa 900 px để không tràn khi thêm Thư viện.
+- Đã bỏ menu phụ ở các trang chính, đưa **Thư viện** lên header. Trang Toán và khu mẫu Toán bỏ nút/thẻ giới thiệu TIMO; giữ toàn bộ tài liệu TIMO đã upload, nội dung nhận diện, bài làm và kết quả cũ.
+- Chủ dự án đã báo test xong phần ôn tập trước khi chuyển sang yêu cầu giao diện TIMO. Kiểm thử tự động và UI được ghi riêng trong tài liệu tiến độ.
+
+### Phần thưởng và phạm vi tạm dừng
+
+- Header **Phần thưởng** mở trang **Coming soon**. Chưa thống nhất cơ chế nhận/sử dụng phần thưởng; chưa xây điểm thưởng, đổi thưởng hay kho quà.
+- Các quyết định quản trị/upload đề, đáp án, song ngữ và Hành trình TIMO mới tiếp tục chờ theo mục 19; không tự suy ra từ chức năng cũ.
+- Bài giảng/video thật, thích ứng độ khó và mở rộng kiểu bài còn chờ xây dựng/duyệt công việc tiếp theo. Chỉ sửa tài liệu trong đợt cập nhật hiện tại; không tự triển khai các phần còn chờ.
