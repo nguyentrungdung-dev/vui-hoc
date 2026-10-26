@@ -24,5 +24,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+      # npm 12 also validates optional dependencies missing from the lockfile.
+      - run: npm install --global npm@12.2.1
       - run: npm ci
       - run: npm run verify
