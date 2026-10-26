@@ -78,6 +78,7 @@ const question: LearningQuestion = {
   advanced: false,
   translation: "",
   grading: "choice",
+  contentVersion: 2,
   answer: "A",
   acceptedAnswers: [],
   hints: ["Gộp hai nhóm.", "Đếm thêm.", "Thêm 3."],

@@ -19,17 +19,19 @@
     "check:services": "node scripts/check-services.mjs"
   },
   "dependencies": {
+    "@napi-rs/canvas": "^1.0.13",
+    "@next/env": "16.4.2",
     "@vercel/blob": "^2.8.2",
     "lucide-react": "^0.468.0",
     "next": "^16.4.2",
     "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.4.299",
     "pg": "^8.23.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "sharp": "^0.35.5",
     "workflow": "^5.2.3",
-    "zod": "^4.6.7",
-    "@next/env": "16.4.2"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

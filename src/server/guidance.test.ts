@@ -47,6 +47,7 @@ const q: LearningQuestion = {
   advanced: false,
   translation: "",
   grading: "choice",
+  contentVersion: 2,
   answer: "A",
   acceptedAnswers: [],
   hints: ["Một gợi ý ngắn, không phải script."],

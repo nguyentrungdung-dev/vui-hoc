@@ -20,6 +20,19 @@ export const learningQuestionSchema = z
     advanced: z.boolean(),
     translation: z.string().max(16000),
     grading: z.enum(["choice", "exact", "self_review"]),
+    rubric: z
+      .array(
+        z
+          .object({
+            id: z.string().min(1).max(80),
+            label: z.string().min(1).max(500),
+            criteria: z.string().min(1).max(2000),
+            maxPoints: z.number().positive().max(10),
+          })
+          .strict(),
+      )
+      .max(30)
+      .default([]),
     answer: z.string().min(1).max(4000),
     acceptedAnswers: z.array(z.string().min(1).max(4000)).max(20),
     hints: z.array(z.string().min(1).max(1500)).length(3),
@@ -71,11 +84,13 @@ export const reviewSchema = z
   .strict();
 export const generateRequest = z
   .object({
-    count: z.number().int().min(5).max(50).default(25),
+    count: z.number().int().min(0).max(50).default(25),
+    scope: z.enum(["original", "practice", "combined"]).default("combined"),
     topics: z.array(z.string().min(1).max(160)).max(200).default([]),
     retry: z.boolean().default(false),
   })
-  .strict();
+  .strict()
+  .refine((v) => (v.scope === "original" ? v.count === 0 : v.count >= 5));
 export const startRunRequest = z
   .object({
     kind: z.enum(["practice", "original", "similar"]),
@@ -97,7 +112,7 @@ export const runActionSchema = z
       "finish",
     ]),
     questionId: z.string().max(100).optional(),
-    answer: z.string().trim().min(1).max(4000).optional(),
+    answer: z.string().trim().min(1).max(12000).optional(),
     index: z.number().int().nonnegative().optional(),
   })
   .strict();
@@ -160,6 +175,12 @@ export function validateTeaching(
   timo: boolean,
 ) {
   validateTwoDigitExercise(q);
+  if (
+    q.grading === "self_review" &&
+    q.rubric?.length &&
+    new Set(q.rubric.map((r) => r.id)).size !== q.rubric.length
+  )
+    throw new AppError("Tiêu chí chấm bị trùng mã.", 502);
   if (
     q.sourcePages.some((p) => !pages.includes(p)) ||
     q.sourceIds.some((id) => !sourceIds.includes(id))
@@ -233,4 +254,53 @@ export function validateTwoDigitExercise(q: LearningQuestion) {
       `Câu ${q.id}: đếm lại các số theo điều kiện được ${expected.join(", ")} (${expected.length} số). Đáp án và danh sách lựa chọn chưa nhất quán.`,
       502,
     );
+}
+
+export const consistencySchema = z
+  .object({
+    reviews: z
+      .array(
+        z
+          .object({
+            id: z.string(),
+            valid: z.boolean(),
+            reason: z.string().max(1500),
+          })
+          .strict(),
+      )
+      .max(8),
+  })
+  .strict();
+export const assessmentSchema = z
+  .object({
+    confident: z.boolean(),
+    feedback: z.string().max(2000),
+    parts: z
+      .array(
+        z
+          .object({
+            id: z.string().max(80),
+            points: z.number().nonnegative().max(10),
+            feedback: z.string().max(1500),
+          })
+          .strict(),
+      )
+      .max(30),
+  })
+  .strict();
+
+// Compare the fields that carry meaning. JSONB may reorder object keys.
+export function sameSourceOptions(
+  a: { label: string; text: string }[],
+  b: { label: string; text: string }[],
+) {
+  const value = (s: string) => s.normalize("NFC").replace(/\s+/gu, " ").trim();
+  return (
+    a.length === b.length &&
+    a.every(
+      (o, i) =>
+        value(o.label) === value(b[i].label) &&
+        value(o.text) === value(b[i].text),
+    )
+  );
 }

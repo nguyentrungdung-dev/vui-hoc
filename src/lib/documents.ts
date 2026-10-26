@@ -35,6 +35,14 @@ export type SourceFile = {
   mime: string;
   uploaded: boolean;
 };
+export type FigureRegion = {
+  page: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+export type AnswerField = { id: string; label: string };
 export type ExtractedQuestion = {
   id: string;
   label: string;
@@ -47,6 +55,9 @@ export type ExtractedQuestion = {
   sourcePages: number[];
   hasFigure: boolean;
   figureDescription: string;
+  figureRegions?: FigureRegion[];
+  figureIssue?: string;
+  answerFields?: AnswerField[];
   needsReview: boolean;
   issues: string[];
 };
@@ -116,7 +127,7 @@ export const statusNames: Record<DocumentStatus, string> = {
   waiting_config: "Chờ cấu hình AI",
   analyzing: "Đang nhận diện",
   partial: "Đã nhận diện một phần",
-  complete: "Đã nhận diện xong",
+  complete: "Sẵn sàng làm bài",
   failed: "Cần thử lại",
 };
 export function publicDocument(
@@ -133,6 +144,25 @@ export function publicDocument(
   } = job;
   return {
     ...rest,
+    ...(!job.revision &&
+    job.learning?.count === 0 &&
+    ["complete", "partial"].includes(job.status)
+      ? {
+          status: ["queued", "generating"].includes(job.learning.status)
+            ? ("preparing" as const)
+            : job.learning.status === "ready"
+              ? job.status
+              : ("partial" as const),
+          message: job.learning.message,
+        }
+      : !job.revision &&
+          job.learning &&
+          ["complete", "partial"].includes(job.status)
+        ? {
+            message:
+              "Bài gốc đã được chuẩn bị. Em có thể vào làm bài với gợi ý có sẵn.",
+          }
+        : {}),
     canManage: viewer === job.owner,
     summaries: batches.flatMap((b) =>
       b.result?.summary ? [b.result.summary] : [],

@@ -1,5 +1,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
+import { PDFDocument } from "pdf-lib";
+import { filePath } from "./store";
 import { randomUUID, createHash } from "node:crypto";
 import { NextRequest } from "next/server";
 import { GET, POST } from "../app/api/documents/[[...parts]]/route";
@@ -13,7 +15,11 @@ import {
   type LearningQuestion,
   type LearningRun,
 } from "../lib/learning";
-import { arithmetic, validateTeaching } from "./learning-validation";
+import {
+  arithmetic,
+  validateTeaching,
+  sameSourceOptions,
+} from "./learning-validation";
 import {
   applyRunAction,
   startLearningRun,
@@ -21,6 +27,8 @@ import {
   changeRun,
   learningView,
 } from "./learning-runs";
+import { finishDocument } from "../workflows/steps";
+import { finishLearning } from "./generation";
 import { preparePack, processLearning, buildPart } from "./generation";
 import { writeJob, readJob, updateJob } from "./store";
 const dir = mkdtempSync(path.join(os.tmpdir(), "vuihoc-learning-"));
@@ -180,7 +188,7 @@ test("Answer keys stay hidden until solved/guided/finished; malformed navigation
   applyRunAction(r, action("finish"));
   assert.throws(() => applyRunAction(r, action("hint")));
 });
-test("Pack planning honors count and topics, excludes missing audio, and does not leak private learning data", () => {
+test("Pack planning honors count and topics, retains unanswered audio questions, and does not leak private learning data", () => {
   const j = job();
   const q = j.batches[0].result!.questions[0];
   q.prompt = "Listen and tick";
@@ -191,7 +199,8 @@ test("Pack planning honors count and topics, excludes missing audio, and does no
       .reduce((n, p) => n + p.count, 0),
     25,
   );
-  assert.equal(j.learning.parts[0].skipped.length, 1);
+  assert.equal(j.learning.parts[0].skipped.length, 0);
+  assert.equal(j.learning.parts[0].sourceIds.length, 1);
   assert.equal("learning" in publicDocument(j), false);
   assert.throws(() =>
     preparePack(
@@ -205,7 +214,7 @@ test("Stored shared runs resume across browsers and survive pack replacement", a
   j.learning = preparePack(j, { count: 5, topics: [] });
   const p = j.learning.parts.find((p) => p.kind === "practice")!;
   p.done = true;
-  p.questions = [question()];
+  p.questions = [{ ...question(), contentVersion: 2 }];
   j.learning.status = "partial";
   await writeJob(j);
   const first = await startLearningRun(j.id, j.owner, { kind: "practice" });
@@ -228,8 +237,17 @@ test("Stored shared runs resume across browsers and survive pack replacement", a
 });
 test("Generation integrates schema + independent review, repairs rejected answers, preserves successful parts on retry", async () => {
   const j = job();
+  // PostgreSQL JSONB returns text before label; generated JSON is parsed in schema order.
+  j.batches[0].result!.questions[0].options =
+    j.batches[0].result!.questions[0].options.map((o) => ({
+      text: o.text,
+      label: o.label,
+    }));
   j.learning = preparePack(j, { count: 5, topics: [] });
   await writeJob(j);
+  const pdf = await PDFDocument.create();
+  pdf.addPage();
+  await fs.writeFile(filePath(j.id, 0), await pdf.save());
   const previousFetch = globalThis.fetch;
   const previousKey = process.env.OPENROUTER_API_KEY;
   process.env.OPENROUTER_API_KEY = "test-only";
@@ -256,6 +274,17 @@ test("Generation integrates schema + independent review, repairs rejected answer
             valid: true,
             answer: reviews === 1 ? "B" : "A",
             reason: reviews === 1 ? "Hãy kiểm tra phép cộng." : "",
+          })),
+        };
+      } else if (
+        b.response_format.json_schema.name === "teaching_consistency"
+      ) {
+        const data = JSON.parse(user);
+        result = {
+          reviews: data.questions.map((q: LearningQuestion) => ({
+            id: q.id,
+            valid: true,
+            reason: "",
           })),
         };
       } else {
@@ -338,7 +367,10 @@ test("Shared lessons, attempts and history work across browsers; source mutation
   for (const p of j.learning.parts) {
     p.done = true;
     p.questions = [
-      question(p.kind === "practice" ? "practice-1" : p.sourceIds[0]),
+      {
+        ...question(p.kind === "practice" ? "practice-1" : p.sourceIds[0]),
+        contentVersion: 2,
+      },
     ];
   }
   await writeJob(j);
@@ -495,6 +527,10 @@ test("Repeatedly rejected source questions are flagged without discarding verifi
   const originalFetch = globalThis.fetch;
   const key = process.env.OPENROUTER_API_KEY;
   process.env.OPENROUTER_API_KEY = "test";
+  await writeJob(j);
+  const pdf = await PDFDocument.create();
+  pdf.addPage();
+  await fs.writeFile(filePath(j.id, 0), await pdf.save());
   let calls = 0;
   globalThis.fetch = async (_url, options) => {
     const body = JSON.parse(String(options!.body));
@@ -508,14 +544,22 @@ test("Repeatedly rejected source questions are flagged without discarding verifi
             })),
             skipped: [],
           }
-        : {
-            reviews: sources.map((s, i) => ({
-              id: s.id,
-              valid: i === 0,
-              answer: "A",
-              reason: i === 0 ? "" : "Đáp án chưa khớp dữ kiện.",
-            })),
-          };
+        : body.response_format.json_schema.name === "teaching_consistency"
+          ? {
+              reviews: sources.map((s) => ({
+                id: s.id,
+                valid: true,
+                reason: "",
+              })),
+            }
+          : {
+              reviews: sources.map((s, i) => ({
+                id: s.id,
+                valid: i === 0,
+                answer: "A",
+                reason: i === 0 ? "" : "Đáp án chưa khớp dữ kiện.",
+              })),
+            };
     return new Response(
       JSON.stringify({
         choices: [
@@ -529,13 +573,17 @@ test("Repeatedly rejected source questions are flagged without discarding verifi
   };
   try {
     const result = await buildPart(j, pack, pack.parts[0]);
-    assert.equal(calls, 4);
+    assert.equal(calls, 6);
     assert.deepEqual(
       result.questions.map((q) => q.id),
-      [sources[0].id],
+      sources.map((q) => q.id),
     );
-    assert.equal(result.skipped[0].sourceId, sources[1].id);
-    assert.match(result.skipped[0].reason, /kiểm tra nội dung/);
+    assert.equal(result.skipped.length, 0);
+    assert.equal(result.questions[1].grading, "ungraded");
+    assert.match(
+      (result.questions[1] as LearningQuestion).ungradableReason!,
+      /kiểm tra nội dung/,
+    );
   } finally {
     globalThis.fetch = originalFetch;
     if (key === undefined) delete process.env.OPENROUTER_API_KEY;
@@ -578,4 +626,185 @@ test("Unlabelled word banks are accepted for self review but never as automatic 
   validateTeaching(q, [1], ["source1"], false);
   q.grading = "choice";
   assert.throws(() => validateTeaching(q, [1], ["source1"], false));
+});
+
+test("Upload completion prepares originals only and readiness waits for stored hints", async () => {
+  const j = job();
+  j.status = "analyzing";
+  j.analysisExecution = randomUUID();
+  await writeJob(j);
+  await finishDocument(j.id, j.analysisExecution);
+  let saved = await readJob(j.id);
+  assert.equal(saved.learning?.count, 0);
+  assert.equal(
+    saved.learning?.parts.some((p) => p.kind === "practice"),
+    false,
+  );
+  assert.equal(publicDocument(saved).status, "preparing");
+  const original = saved.learning!.parts.find((p) => p.kind === "original")!;
+  await updateJob(j.id, (x) => {
+    const part = x.learning!.parts.find((p) => p.key === original.key)!;
+    part.done = true;
+    part.questions = [{ ...question(part.sourceIds[0]), contentVersion: 2 }];
+  });
+  await finishLearning(j.id, j.analysisExecution);
+  saved = await readJob(j.id);
+  assert.equal(publicDocument(saved).status, "complete");
+  const started = await startLearningRun(j.id, j.owner, { kind: "original" });
+  assert.equal(started.questions[0].hint, undefined);
+  // A hint action only reads the stored teaching content; no AI request is needed.
+  const hinted = await changeRun(
+    j.id,
+    started.id,
+    j.owner,
+    action("hint", { questionId: original.sourceIds[0] }),
+  );
+  assert.equal(hinted.questions[0].hint, question().hints[0]);
+  const again = await readJob(j.id);
+  await finishDocument(j.id, j.analysisExecution);
+  assert.equal((await readJob(j.id)).learning?.id, again.learning?.id);
+});
+
+test("Optional practice reuses original solutions and rejects generation before originals finish", () => {
+  const j = job();
+  j.learning = preparePack(j, { count: 0, scope: "original" });
+  assert.throws(() => preparePack(j, { count: 5, scope: "practice" }));
+  j.learning.parts.forEach((p) => {
+    p.done = true;
+    p.questions = [question(p.sourceIds[0])];
+  });
+  j.learning.status = "ready";
+  const originals = structuredClone(j.learning.parts);
+  const extra = preparePack(j, { count: 5, scope: "practice" });
+  assert.deepEqual(
+    extra.parts.filter((p) => p.kind === "original"),
+    originals,
+  );
+  assert.equal(
+    extra.parts
+      .filter((p) => p.kind === "practice")
+      .reduce((n, p) => n + p.count, 0),
+    5,
+  );
+  assert.throws(() => preparePack({ ...j, learning: undefined }, { count: 0 }));
+});
+
+test("Source choices keep their original binding and contradictory hints never become a grading key", async () => {
+  const j = job();
+  await writeJob(j);
+  const pdf = await PDFDocument.create();
+  pdf.addPage();
+  await fs.writeFile(filePath(j.id, 0), await pdf.save());
+  const pack = preparePack(j, { count: 0, scope: "original" });
+  const fetcher = globalThis.fetch,
+    key = process.env.OPENROUTER_API_KEY;
+  process.env.OPENROUTER_API_KEY = "test-only";
+  try {
+    for (const mode of ["swapped", "contradiction"]) {
+      let calls = 0;
+      globalThis.fetch = async (_url, options) => {
+        calls++;
+        const body = JSON.parse(String(options?.body));
+        const name = body.response_format.json_schema.name;
+        let output;
+        if (name === "learning_content") {
+          const q = { ...question("page-1-0"), sourceIds: ["page-1-0"] };
+          if (mode === "swapped")
+            q.options = [q.options[1], q.options[0], q.options[2]];
+          else q.steps = ["2+3=5.", "Chọn B là đáp án đúng."];
+          output = { questions: [q], skipped: [] };
+        } else if (name === "teaching_review")
+          output = {
+            reviews: [{ id: "page-1-0", valid: true, answer: "A", reason: "" }],
+          };
+        else
+          output = {
+            reviews: [
+              {
+                id: "page-1-0",
+                valid: false,
+                reason: "Lời giải ghi B nhưng đáp án lưu là A.",
+              },
+            ],
+          };
+        return Response.json({
+          choices: [
+            {
+              finish_reason: "stop",
+              message: { content: JSON.stringify(output) },
+            },
+          ],
+        });
+      };
+      const result = await buildPart(j, pack, pack.parts[0]);
+      assert.equal(result.questions.length, 1);
+      assert.deepEqual(
+        result.questions[0].options,
+        publicDocument(j).questions[0].options,
+      );
+      assert.equal(result.questions[0].grading, "ungraded");
+      assert.equal(result.questions[0].hints.length, 0);
+      assert.equal(result.skipped.length, 0);
+      assert.ok(calls >= 2);
+    }
+  } finally {
+    globalThis.fetch = fetcher;
+    if (key === undefined) delete process.env.OPENROUTER_API_KEY;
+    else process.env.OPENROUTER_API_KEY = key;
+  }
+});
+
+test("Starting an original run retains every source question, including legacy exclusions", async () => {
+  const j = job();
+  const src = j.batches[0].result!.questions[0];
+  j.batches[0].result!.questions.push({
+    ...src,
+    label: "Câu 2",
+    prompt: "Đề [không đọc rõ]",
+    needsReview: true,
+    issues: ["Chữ thiếu nét"],
+  });
+  j.learning = preparePack(j, { count: 0, scope: "original" });
+  j.learning.status = "ready";
+  j.learning.parts[0].done = true;
+  j.learning.parts[0].questions = [
+    { ...question("page-1-0"), contentVersion: 2 },
+  ];
+  await writeJob(j);
+  const view = await startLearningRun(j.id, j.owner, { kind: "original" });
+  assert.equal(view.questions.length, 2);
+  assert.equal(view.questions[1].prompt, "Đề [không đọc rõ]");
+  assert.equal(view.questions[1].grading, "ungraded");
+  assert.equal(view.result.gradable, 1);
+  const next = await changeRun(j.id, view.id, j.owner, {
+    eventId: randomUUID(),
+    action: "go",
+    index: 1,
+  });
+  const saved = await changeRun(j.id, next.id, j.owner, {
+    eventId: randomUUID(),
+    action: "answer",
+    questionId: next.questions[1].id,
+    answer: "Em đã thử giải",
+  });
+  assert.equal(saved.attempts[next.questions[1].id].firstCorrect, undefined);
+  assert.equal(saved.attempts[next.questions[1].id].last, "Em đã thử giải");
+});
+
+test("Choice binding ignores JSONB object-key order but detects actual content changes", () => {
+  const stored = [
+    { text: "68", label: "B" },
+    { text: "99", label: "C" },
+  ];
+  const parsed = [
+    { label: "B", text: "68" },
+    { label: "C", text: "99" },
+  ];
+  assert.notEqual(JSON.stringify(stored), JSON.stringify(parsed));
+  assert.equal(sameSourceOptions(stored, parsed), true);
+  assert.equal(
+    sameSourceOptions(stored, [{ label: "B", text: "69" }, parsed[1]]),
+    false,
+  );
+  assert.equal(sameSourceOptions(stored, [parsed[1], parsed[0]]), false);
 });

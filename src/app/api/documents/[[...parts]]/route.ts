@@ -4,7 +4,7 @@ import { promises as fs } from "node:fs";
 import { publicDocument, type DocumentJob } from "@/lib/documents";
 import { AppError, createSchema, sniffMime } from "@/server/validation";
 import { filePath, lock, readJob, updateJob, writeJob } from "@/server/store";
-import { modelName } from "@/server/analysis";
+import { modelName, normalizeImage } from "@/server/analysis";
 import { listLibraryJobs, readLibraryJob } from "@/server/library";
 import { enqueue } from "@/server/dispatch";
 import {
@@ -13,8 +13,10 @@ import {
   authorizeBlobUpload,
   completeBlobUpload,
   openSource,
+  readSourceFile,
 } from "@/server/source-files";
 
+import { renderPdfPage, cropPage } from "@/server/page-images";
 import { preparePack } from "@/server/generation";
 import {
   learningView,
@@ -298,7 +300,7 @@ async function handler(request: NextRequest, context: Context) {
     } else if (
       parts.length === 2 &&
       method === "POST" &&
-      ["start", "retry"].includes(parts[1])
+      ["start", "retry", "reanalyze"].includes(parts[1])
     ) {
       const execution = randomUUID();
       const job = await updateJob(
@@ -307,7 +309,9 @@ async function handler(request: NextRequest, context: Context) {
           const allowed =
             parts[1] === "start"
               ? ["uploading"]
-              : ["failed", "partial", "waiting_config"];
+              : parts[1] === "reanalyze"
+                ? ["complete", "partial", "failed", "waiting_config"]
+                : ["failed", "partial", "waiting_config"];
           if (!allowed.includes(j.status))
             throw new AppError(
               "Tài liệu đã được xử lý hoặc đang trong hàng chờ.",
@@ -315,6 +319,20 @@ async function handler(request: NextRequest, context: Context) {
             );
           if (j.files.some((f) => !f.uploaded))
             throw new AppError("Chưa tải đủ tệp. Hãy quay lại tải tài liệu.");
+          if (parts[1] === "reanalyze") {
+            if (
+              j.learning &&
+              ["queued", "generating"].includes(j.learning.status)
+            )
+              throw new AppError(
+                "Chờ lượt chuẩn bị hiện tại hoàn tất trước khi cập nhật đề.",
+                409,
+              );
+            j.batches = [];
+            j.completedPages = [];
+            delete j.learning;
+            delete j.learningExecution;
+          }
           j.analysisExecution = execution;
           j.status = "queued";
           j.message = "Đã lưu tài liệu. Đang chờ nhận diện…";
@@ -326,6 +344,48 @@ async function handler(request: NextRequest, context: Context) {
       response = NextResponse.json(
         publicDocument(await readJob(job.id, session.owner), session.owner),
       );
+    } else if (
+      parts.length === 4 &&
+      parts[1] === "pages" &&
+      parts[3] === "image" &&
+      method === "GET"
+    ) {
+      const job = await readLibraryJob(parts[0], session.owner);
+      const page = Number(parts[2]);
+      if (!Number.isSafeInteger(page) || !job.selectedPages.includes(page))
+        throw new AppError("Không tìm thấy trang.", 404);
+      const bytes = await readSourceFile(
+        job,
+        job.files[0].mime === "application/pdf" ? 0 : page - 1,
+      );
+      const image =
+        job.files[0].mime === "application/pdf"
+          ? await renderPdfPage(bytes, page)
+          : await normalizeImage(bytes);
+      const params = request.nextUrl.searchParams;
+      const region = params.has("x")
+        ? {
+            x: Number(params.get("x")),
+            y: Number(params.get("y")),
+            width: Number(params.get("width")),
+            height: Number(params.get("height")),
+          }
+        : undefined;
+      if (
+        region &&
+        ["x", "y", "width", "height"].some((key) => !params.has(key))
+      )
+        throw new AppError("Thiếu vùng hình.");
+      const result = await cropPage(image, region);
+      response = new NextResponse(new Uint8Array(result), {
+        headers: {
+          "Content-Type":
+            region || job.files[0].mime === "application/pdf"
+              ? "image/png"
+              : "image/jpeg",
+          "X-Content-Type-Options": "nosniff",
+        },
+      });
     } else if (
       parts.length === 4 &&
       parts[1] === "files" &&

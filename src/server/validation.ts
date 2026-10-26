@@ -146,6 +146,31 @@ export const batchSchema = z
             sourcePages: z.array(z.number().int().positive()).min(1).max(2),
             hasFigure: z.boolean(),
             figureDescription: z.string().max(2000),
+            figureRegions: z
+              .array(
+                z
+                  .object({
+                    page: z.number().int().positive(),
+                    x: z.number().min(0).max(1),
+                    y: z.number().min(0).max(1),
+                    width: z.number().positive().max(1),
+                    height: z.number().positive().max(1),
+                  })
+                  .strict(),
+              )
+              .max(12)
+              .default([]),
+            answerFields: z
+              .array(
+                z
+                  .object({
+                    id: z.string().min(1).max(80),
+                    label: z.string().min(1).max(500),
+                  })
+                  .strict(),
+              )
+              .max(30)
+              .default([]),
             needsReview: z.boolean(),
             issues: z.array(z.string().max(500)).max(20),
           })
@@ -173,7 +198,18 @@ export function validateBatch(value: unknown, pages: number[]) {
       502,
     );
   for (const q of result.questions) {
-    if (!q.prompt.trim() || q.issues.length) q.needsReview = true;
+    if (!q.prompt.trim()) q.needsReview = true;
+    if (
+      q.figureRegions.some(
+        (r) =>
+          !q.sourcePages.includes(r.page) ||
+          r.x + r.width > 1.001 ||
+          r.y + r.height > 1.001,
+      )
+    )
+      throw new AppError("Vùng hình chưa khớp trang gốc.", 502);
+    if (new Set(q.answerFields.map((f) => f.id)).size !== q.answerFields.length)
+      throw new AppError("Các ô trả lời bị trùng mã.", 502);
     if (!q.prompt.trim() && !q.issues.length)
       q.issues.push("Không đọc rõ nội dung câu hỏi.");
   }

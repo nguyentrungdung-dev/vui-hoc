@@ -5,11 +5,13 @@ import path from "node:path";
 import { publicDocument, type DocumentJob } from "../lib/documents";
 import {
   emptyLearningAttempt,
+  protectLegacyRun,
   isCorrect,
   learningResult,
   runView,
   type LearningRun,
   type LearningView,
+  type AnswerAssessment,
 } from "../lib/learning";
 import { jobDir, lock } from "./store";
 import {
@@ -18,6 +20,8 @@ import {
   readLibraryJob,
 } from "./library";
 import { AppError } from "./validation";
+import { sourceQuestion } from "./generation";
+import { assessWrittenAnswer } from "./answer-grading";
 import { runActionSchema, startRunRequest } from "./learning-validation";
 function runPath(docId: string, id: string) {
   if (
@@ -57,10 +61,10 @@ export async function readRun(docId: string, id: string, viewer: string) {
     const row = result.rows[0];
     if (!row || !canReadLibraryDocument(row, viewer))
       throw new AppError("Không tìm thấy bài làm.", 404);
-    return row.data;
+    return protectLegacyRun(row.data);
   }
   await readLibraryJob(docId, viewer);
-  return readRunFile(docId, id);
+  return protectLegacyRun(await readRunFile(docId, id));
 }
 type LibraryRunRow = Pick<DocumentJob, "owner" | "files" | "revision"> & {
   data: LearningRun;
@@ -138,10 +142,19 @@ export async function learningView(
           createdAt: p.createdAt,
           updatedAt: p.updatedAt,
           model: p.model,
+          contentVersion: p.contentVersion,
           message: p.message,
-          originalCount: p.parts
-            .filter((x) => x.kind === "original")
-            .flatMap((x) => x.questions).length,
+          originalCount:
+            !job.revision && publicDocument(job).questions.length
+              ? publicDocument(job).questions.length
+              : p.parts
+                  .filter((x) => x.kind === "original")
+                  .flatMap((x) => x.questions).length,
+          verifiedOriginalCount: p.parts
+            .filter((part) => part.kind === "original")
+            .flatMap((part) => part.questions)
+            .filter((q) => q.contentVersion === 2 && q.grading !== "ungraded")
+            .length,
           practiceCount: p.parts
             .filter((x) => x.kind === "practice")
             .flatMap((x) => x.questions).length,
@@ -188,6 +201,23 @@ export async function startLearningRun(
           x.kind === (request.kind === "original" ? "original" : "practice"),
       )
       .map((x) => x.q);
+    if (request.kind === "original") {
+      if (["queued", "generating"].includes(pack.status))
+        throw new AppError(
+          "Chờ chuẩn bị xong đáp án và gợi ý trước khi vào bài nhé.",
+          409,
+        );
+      const sources = publicDocument(job).questions;
+      if (sources.length)
+        qs = sources.map(
+          (src) =>
+            qs.find((q) => q.id === src.id) ||
+            sourceQuestion(
+              src,
+              "Đáp án/gợi ý chưa được xác minh. Em vẫn có thể làm bài; câu này chưa tính đúng/sai.",
+            ),
+        );
+    }
     if (request.topic) qs = qs.filter((q) => q.topic === request.topic);
     if (request.kind === "similar") {
       const from = pool.find((x) => x.q.id === request.sourceId)?.q;
@@ -215,7 +245,7 @@ export async function startLearningRun(
           JSON.stringify(r.questions.map((q) => q.id)) ===
             JSON.stringify(qs.map((q) => q.id)),
       );
-      if (existing) return runView(existing);
+      if (existing) return runView(protectLegacyRun(existing));
     }
     const now = new Date().toISOString();
     const run: LearningRun = {
@@ -233,14 +263,16 @@ export async function startLearningRun(
       updatedAt: now,
       eventIds: [],
     };
-    await saveRun(run);
-    return runView(run);
+    const safeRun = protectLegacyRun(run);
+    await saveRun(safeRun);
+    return runView(safeRun);
   });
 }
 export function applyRunAction(
   run: LearningRun,
   input: unknown,
   now = Date.now(),
+  assessment?: AnswerAssessment,
 ) {
   const parsed = runActionSchema.safeParse(input);
   if (!parsed.success) throw new AppError("Thao tác bài làm chưa hợp lệ.");
@@ -273,8 +305,8 @@ export function applyRunAction(
     const a = run.attempts[q.id] ?? emptyLearningAttempt();
     run.attempts[q.id] = a;
     if (action.action === "answer") {
-      if (q.grading === "self_review")
-        throw new AppError("Câu mở được tự đối chiếu, không chấm tự động.");
+      if (q.grading === "self_review" && !assessment && !a.solved)
+        throw new AppError("Câu tự luận cần được chấm theo từng tiêu chí.");
       if (!action.answer)
         throw new AppError("Em nhập hoặc chọn đáp án trước nhé.");
       if (
@@ -284,15 +316,49 @@ export function applyRunAction(
         throw new AppError("Chọn một đáp án trong câu hỏi.");
       if (!a.solved) {
         closeHints();
-        if (a.first === undefined) {
-          a.first = action.answer;
-          a.firstCorrect = !a.guided && isCorrect(q, action.answer);
+        if (q.grading === "ungraded") {
+          a.first ??= action.answer;
+          a.last = action.answer;
+          a.tries++;
+          a.assessment = {
+            status: "ungraded",
+            feedback:
+              q.ungradableReason ||
+              "Chưa có căn cứ chấm đúng/sai. Bài làm đã được lưu.",
+            points: 0,
+            maxPoints: 0,
+            parts: [],
+          };
+        } else {
+          const correct = assessment
+            ? assessment.status === "graded" &&
+              assessment.points === assessment.maxPoints
+            : isCorrect(q, action.answer);
+          if (
+            a.first === undefined ||
+            (a.firstCorrect === undefined && assessment?.status === "graded")
+          ) {
+            a.first = action.answer;
+            if (!assessment || assessment.status === "graded") {
+              a.firstCorrect = !a.guided && correct;
+              a.firstCredit = a.guided
+                ? 0
+                : assessment
+                  ? assessment.points / assessment.maxPoints
+                  : correct
+                    ? 1
+                    : 0;
+            }
+          }
+          a.last = action.answer;
+          a.tries++;
+          a.solved = correct;
+          if (assessment) a.assessment = assessment;
         }
-        a.last = action.answer;
-        a.tries++;
-        a.solved = isCorrect(q, action.answer);
       }
     } else if (action.action === "hint") {
+      if (q.grading === "ungraded" || !q.hints.length)
+        throw new AppError("Chưa có gợi ý đã xác minh cho câu này.", 409);
       if (!a.solved && a.hintOpenedAt === undefined) {
         a.hintOpens++;
         a.hintLevel = Math.min(3, a.hintLevel + 1);
@@ -300,6 +366,8 @@ export function applyRunAction(
       }
     } else if (action.action === "close_hint") closeHints();
     else if (action.action === "guide") {
+      if (q.grading === "ungraded")
+        throw new AppError("Chưa có lời giải đã xác minh cho câu này.", 409);
       closeHints();
       if (!a.solved) a.guided = true;
     } else if (action.action === "understood") {
@@ -318,7 +386,39 @@ export async function changeRun(
   runPath(docId, id);
   return lock(`run:${docId}:${id}`, async () => {
     const run = await readRun(docId, id, owner);
-    applyRunAction(run, input);
+    const parsed = runActionSchema.safeParse(input);
+    if (!parsed.success) throw new AppError("Thao tác bài làm chưa hợp lệ.");
+    const action = parsed.data;
+    // Validate navigation/state before spending an AI request; event retries reuse the saved result.
+    if (run.eventIds.includes(action.eventId)) return runView(run);
+    let assessment: AnswerAssessment | undefined;
+    if (action.action === "answer") {
+      const q = run.questions[run.index];
+      if (run.finished || !q || q.id !== action.questionId || !action.answer)
+        throw new AppError("Bài làm hoặc câu đang trả lời đã thay đổi.", 409);
+      if (q.answerFields?.length) {
+        let fields: Record<string, unknown>;
+        try {
+          fields = JSON.parse(action.answer);
+        } catch {
+          throw new AppError("Hãy nhập đáp án vào các ô của bài.");
+        }
+        if (
+          !fields ||
+          typeof fields !== "object" ||
+          Array.isArray(fields) ||
+          Object.keys(fields).some(
+            (key) => !q.answerFields!.some((f) => f.id === key),
+          ) ||
+          Object.values(fields).some((v) => typeof v !== "string") ||
+          !Object.values(fields).some((v) => typeof v === "string" && v.trim())
+        )
+          throw new AppError("Em nhập ít nhất một ý trước khi nộp bài nhé.");
+      }
+      if (q.grading === "self_review" && !run.attempts[q.id]?.solved)
+        assessment = await assessWrittenAnswer(q, action.answer);
+    }
+    applyRunAction(run, input, Date.now(), assessment);
     await saveRun(run);
     return runView(run);
   });

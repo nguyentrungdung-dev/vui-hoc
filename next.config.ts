@@ -9,6 +9,15 @@ import { assertProductionConfig } from "./src/server/runtime-config.mjs";
 const config: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
   devIndicators: false,
+  serverExternalPackages: ["@napi-rs/canvas", "pdfjs-dist"],
+  outputFileTracingIncludes: {
+    "/*": [
+      "./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
+      "./node_modules/pdfjs-dist/standard_fonts/**/*",
+      "./node_modules/pdfjs-dist/cmaps/**/*",
+      "./node_modules/pdfjs-dist/wasm/**/*",
+    ],
+  },
   outputFileTracingExcludes: {
     "/*": [".data/**/*", ".test-data/**/*", ".env*"],
   },

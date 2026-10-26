@@ -319,6 +319,17 @@ test("Generated revision questions keep grounding, hide answers, support hints/s
           ),
           skipped: [],
         };
+      } else if (
+        body.response_format.json_schema.name === "teaching_consistency"
+      ) {
+        const payload = JSON.parse(text);
+        result = {
+          reviews: payload.questions.map((q: { id: string }) => ({
+            id: q.id,
+            valid: true,
+            reason: "",
+          })),
+        };
       } else {
         const payload = JSON.parse(text);
         assert.ok(payload.questions.every((q: object) => !("answer" in q)));
@@ -348,7 +359,7 @@ test("Generated revision questions keep grounding, hide answers, support hints/s
     if (previousKey === undefined) delete process.env.OPENROUTER_API_KEY;
     else process.env.OPENROUTER_API_KEY = previousKey;
   }
-  assert.equal(calls, 4);
+  assert.equal(calls, 6);
   assert.deepEqual(seenSources, new Set([source.id, second.id]));
   assert.equal((await readJob(set.id)).learning?.status, "ready");
   const run = await startLearningRun(set.id, viewer, { kind: "practice" });

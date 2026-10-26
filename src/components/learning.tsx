@@ -20,6 +20,7 @@ import {
   type LearningResult,
 } from "@/lib/learning";
 import { ButtonLink, Character, Modal, PageTitle } from "./ui";
+import { QuestionSourceImages } from "./question-source-images";
 import { HintHelpActions } from "./hint-help-actions";
 import { GuidanceDialog, startGuidance } from "./guidance-player";
 import type { GuidanceView } from "@/lib/guidance";
@@ -47,7 +48,13 @@ const titles = {
   failed: "Cần thử lại",
   waiting_config: "Chờ cấu hình AI",
 };
-export function LearningPanel({ document: doc }: { document: PublicDocument }) {
+export function LearningPanel({
+  document: doc,
+  topic = "",
+}: {
+  document: PublicDocument;
+  topic?: string;
+}) {
   const router = useRouter();
   const [view, setView] = useState<LearningView | null>(null);
   const [countInput, setCountInput] = useState(String(doc.practiceCount || 25));
@@ -74,7 +81,7 @@ export function LearningPanel({ document: doc }: { document: PublicDocument }) {
         if (!hydrated.current) {
           hydrated.current = true;
           if (next.pack) {
-            setCountInput(String(next.pack.count));
+            setCountInput(String(next.pack.count || doc.practiceCount || 25));
             setTopics(next.pack.topics);
           }
         }
@@ -89,17 +96,29 @@ export function LearningPanel({ document: doc }: { document: PublicDocument }) {
       active = false;
       clearTimeout(timer);
     };
-  }, [doc.id, revision]);
+  }, [doc.id, doc.status, revision]);
   const pack = view?.pack;
   const working = !!pack && ["queued", "generating"].includes(pack.status);
-  async function generate(retry = false) {
+  async function generate(retry = false, original = false) {
     setBusy(true);
     setError("");
     try {
+      if (original) {
+        await request(`/${doc.id}/reanalyze`, {});
+        window.location.reload();
+        return;
+      }
       setView(
         await request<LearningView>(`/${doc.id}/generate`, {
-          count: retry ? pack!.count : count,
-          topics: retry ? pack!.topics : topics,
+          count: retry ? pack!.count : original ? 0 : count,
+          scope: retry
+            ? pack!.count === 0
+              ? "original"
+              : "practice"
+            : original
+              ? "original"
+              : "practice",
+          topics: retry ? pack!.topics : original ? [] : topics,
           retry,
         }),
       );
@@ -114,7 +133,10 @@ export function LearningPanel({ document: doc }: { document: PublicDocument }) {
     setBusy(true);
     setError("");
     try {
-      const run = await request<RunView>(`/${doc.id}/runs`, { kind });
+      const run = await request<RunView>(`/${doc.id}/runs`, {
+        kind,
+        ...(kind === "original" && topic ? { topic } : {}),
+      });
       router.push(`/luyen-tap/${doc.id}/${run.id}`);
     } catch (e) {
       setError((e as Error).message);
@@ -125,10 +147,10 @@ export function LearningPanel({ document: doc }: { document: PublicDocument }) {
   return (
     <section className="card learning-panel">
       <span className="eyebrow">TỪ TÀI LIỆU → CÙNG EM LUYỆN TẬP</span>
-      <h2>Lời giải và bài luyện của em</h2>
+      <h2>Làm bài trong tài liệu</h2>
       <p>
-        Mỗi câu có gợi ý từng mức và lời giải từng bước. Mình sẽ kiểm tra nội
-        dung trước khi giao bài.
+        Đáp án, gợi ý và lời giải được kiểm tra trước khi làm bài. Câu chưa đủ
+        căn cứ chấm vẫn được giữ lại. Video chỉ được tạo khi em yêu cầu.
       </p>
       {doc.status === "partial" && (
         <p className="notice">
@@ -136,76 +158,109 @@ export function LearningPanel({ document: doc }: { document: PublicDocument }) {
           diện; các trang lỗi chưa được đưa vào.
         </p>
       )}
-      {doc.canManage ? (
-        <fieldset
-          className="generation-options"
-          disabled={busy || working || !view}
-        >
-          <label htmlFor={`practice-count-${doc.id}`}>Số câu luyện mới</label>
-          <input
-            id={`practice-count-${doc.id}`}
-            className="question-count-input"
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            value={countInput}
-            onChange={(e) => {
-              const value = e.target.value;
-              if (/^\d*$/.test(value)) {
-                setCountInput(value.replace(/^0+(?=\d)/, ""));
-              }
-            }}
-          />
-          <details>
-            <summary>
-              Chọn chủ đề ·{" "}
-              {topics.length
-                ? `${topics.length}/${available.length}`
-                : "Tất cả"}
-            </summary>
-            <p className="micro">
-              Để trống lựa chọn nghĩa là học tất cả chủ đề đã nhận diện.
-            </p>
-            <div className="topic-checklist">
-              {available.map((t) => (
-                <label key={t}>
-                  <input
-                    type="checkbox"
-                    checked={topics.includes(t)}
-                    onChange={(e) =>
-                      setTopics((ts) =>
-                        e.target.checked
-                          ? [...ts, t]
-                          : ts.filter((x) => x !== t),
-                      )
-                    }
-                  />
-                  {t}
-                </label>
-              ))}
-            </div>
-            <button
-              type="button"
-              className="text-button"
-              onClick={() => setTopics([])}
-            >
-              Chọn tất cả chủ đề
-            </button>
-          </details>
+      {doc.canManage &&
+        view &&
+        !pack &&
+        ["complete", "partial"].includes(doc.status) && (
           <button
             className="button"
-            disabled={!Number.isInteger(count) || count < 5 || count > 50}
-            onClick={() => generate()}
+            disabled={busy}
+            onClick={() => generate(false, true)}
           >
-            <Rocket size={18} />
-            {pack ? "Tạo theo lựa chọn" : "Tạo lời giải và bộ luyện"}
+            Chuẩn bị bài gốc và gợi ý
           </button>
-        </fieldset>
-      ) : (
+        )}
+      {doc.canManage && pack && pack.contentVersion !== 2 && (
+        <button
+          className="button secondary"
+          disabled={busy || working}
+          onClick={() => generate(false, true)}
+        >
+          Cập nhật bài gốc, hình và tiêu chí chấm
+        </button>
+      )}
+      {doc.canManage && pack ? (
+        <details>
+          <summary>Luyện thêm với câu hỏi mới (tùy chọn)</summary>
+          <fieldset
+            className="generation-options"
+            disabled={busy || working || !view}
+          >
+            <label htmlFor={`practice-count-${doc.id}`}>Số câu luyện mới</label>
+            <input
+              id={`practice-count-${doc.id}`}
+              className="question-count-input"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={countInput}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (/^\d*$/.test(value)) {
+                  setCountInput(value.replace(/^0+(?=\d)/, ""));
+                }
+              }}
+            />
+            <details>
+              <summary>
+                Chọn chủ đề ·{" "}
+                {topics.length
+                  ? `${topics.length}/${available.length}`
+                  : "Tất cả"}
+              </summary>
+              <p className="micro">
+                Để trống lựa chọn nghĩa là học tất cả chủ đề đã nhận diện.
+              </p>
+              <div className="topic-checklist">
+                {available.map((t) => (
+                  <label key={t}>
+                    <input
+                      type="checkbox"
+                      checked={topics.includes(t)}
+                      onChange={(e) =>
+                        setTopics((ts) =>
+                          e.target.checked
+                            ? [...ts, t]
+                            : ts.filter((x) => x !== t),
+                        )
+                      }
+                    />
+                    {t}
+                  </label>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => setTopics([])}
+              >
+                Chọn tất cả chủ đề
+              </button>
+            </details>
+            <button
+              className="button"
+              disabled={!Number.isInteger(count) || count < 5 || count > 50}
+              onClick={() => generate()}
+            >
+              <Rocket size={18} />
+              Tạo bài luyện thêm
+            </button>
+          </fieldset>
+        </details>
+      ) : !doc.canManage ? (
         <p className="notice">
           {pack
             ? "Em có thể tiếp tục các bài bên dưới. Bài làm, điểm và lịch sử dùng chung trên mọi trình duyệt, thiết bị."
-            : "Người tải tài liệu đang chuẩn bị bài luyện. Em có thể xem nội dung nhận diện và tài liệu gốc trước nhé."}
+            : "Bài gốc và gợi ý đang được chuẩn bị. Em có thể mở tài liệu gốc trong lúc chờ."}
+        </p>
+      ) : null}
+      {pack?.status === "ready" && pack.originalCount === 0 && (
+        <p className="notice">
+          Chưa có câu gốc đủ dữ kiện để làm bài. Em có thể mở tài liệu gốc
+          {pack.skipped.length
+            ? " và xem các câu cần kiểm tra bên dưới"
+            : " hoặc chọn luyện thêm theo chủ đề"}
+          .
         </p>
       )}
       {pack && (
@@ -217,19 +272,26 @@ export function LearningPanel({ document: doc }: { document: PublicDocument }) {
           <p role="status">{pack.message}</p>
           <progress value={pack.completedParts} max={pack.totalParts || 1} />
           <p>
-            {pack.originalCount} câu nguồn có lời giải · {pack.practiceCount}/
-            {pack.count} câu luyện đã kiểm tra
+            {pack.originalCount} câu gốc · {pack.verifiedOriginalCount} câu có
+            đáp án và gợi ý đã kiểm tra
+            {pack.count > 0
+              ? ` · ${pack.practiceCount}/${pack.count} câu luyện thêm`
+              : ""}
           </p>
           <div className="actions">
-            {pack.originalCount > 0 && (
-              <button
-                className="button secondary"
-                disabled={busy}
-                onClick={() => start("original")}
-              >
-                Làm {pack.originalCount} câu gốc
-              </button>
-            )}
+            {pack.originalCount > 0 &&
+              !working &&
+              !["queued", "preparing", "analyzing"].includes(doc.status) && (
+                <button
+                  className="button secondary"
+                  disabled={busy}
+                  onClick={() => start("original")}
+                >
+                  {topic
+                    ? `Làm bài gốc · ${topic}`
+                    : `Làm ${pack.originalCount} câu gốc`}
+                </button>
+              )}
             {pack.practiceCount > 0 && (
               <button
                 className="button"
@@ -536,9 +598,9 @@ export function RealPracticePage({
                 : `${run.result.score}/10`}
             </h2>
             <p>
-              {run.result.firstCorrect}/{run.result.gradable} câu chấm tự động
-              đúng ngay lần đầu · {run.result.total - run.result.gradable} câu
-              tự đối chiếu
+              {run.result.firstCorrect}/{run.result.gradable} câu đạt trọn điểm
+              lần đầu · {run.result.total - run.result.gradable} câu chưa đủ căn
+              cứ chấm
             </p>
             <p>
               {run.result.hints} lượt gợi ý ·{" "}
@@ -546,8 +608,8 @@ export function RealPracticePage({
               {run.result.independent} câu đúng độc lập
             </p>
             <p className="micro">
-              Gợi ý không trừ điểm. Câu bỏ qua tính chưa đúng; câu tự đối chiếu
-              không nằm trong điểm /10.
+              Gợi ý không trừ điểm. Tự luận được ghi nhận điểm từng ý ở lần nộp
+              đầu. Câu chưa đủ căn cứ chấm không nằm trong điểm /10.
             </p>
           </div>
         </section>
@@ -584,6 +646,27 @@ export function RealPracticePage({
                     : "Cùng ôn lại"}
               </summary>
               <p className="source-text">{item.prompt}</p>
+              {item.grading === "ungraded" && (
+                <p className="notice">{item.ungradableReason}</p>
+              )}
+              {run.attempts[item.id]?.assessment && (
+                <div className="answer-assessment">
+                  <p>{run.attempts[item.id].assessment!.feedback}</p>
+                  {run.attempts[item.id].assessment!.parts.map((part) => (
+                    <p key={part.id}>
+                      {part.label}: {part.points}/{part.maxPoints} ·{" "}
+                      {part.feedback}
+                    </p>
+                  ))}
+                </div>
+              )}
+              {item.hasFigure && (
+                <QuestionSourceImages
+                  documentId={documentId}
+                  document={doc}
+                  question={item}
+                />
+              )}
               {item.passage && <p className="source-passage">{item.passage}</p>}
               <p>
                 Đáp án:{" "}
@@ -694,7 +777,10 @@ export function RealPracticePage({
               {q.advanced ? "Thử thách nâng cao" : "Củng cố kiến thức"}
             </span>
           </div>
-          <h1 className="question-text">{q.prompt}</h1>
+          <h1 className="question-text">
+            {q.prompt ||
+              "Không đọc rõ câu hỏi. Em có thể xem trang gốc ngay bên dưới."}
+          </h1>
           {q.passage && q.passage !== q.prompt && (
             <p className="source-passage">{q.passage}</p>
           )}
@@ -709,20 +795,31 @@ export function RealPracticePage({
               {translation && <p className="source-passage">{q.translation}</p>}
             </>
           )}
-          {q.hasFigure && (
-            <div className="figure-notice">
-              <p>{q.figureDescription}</p>
-              {doc?.files[0]?.mime.startsWith("image/") &&
-                q.sourcePages.map((p) => (
-                  <img key={p} src={source(p)} alt={`Hình trong trang ${p}`} />
+          {!!q.warnings?.length && (
+            <div className="notice">
+              <strong>Lưu ý khi đọc đề</strong>
+              <ul>
+                {q.warnings.map((warning, i) => (
+                  <li key={i}>{warning}</li>
                 ))}
-              {q.sourcePages.map((p) => (
-                <a href={source(p)} key={p} target="_blank" rel="noreferrer">
-                  Mở hình gốc · Trang {p} ↗{" "}
-                </a>
-              ))}
+              </ul>
             </div>
           )}
+          {q.grading === "ungraded" && (
+            <p className="notice" role="status">
+              {q.ungradableReason ||
+                "Chưa có căn cứ chắc chắn để chấm đúng/sai."}{" "}
+              Em vẫn có thể nhập và lưu bài làm. Câu này không tính vào điểm.
+            </p>
+          )}
+          {q.hasFigure ? (
+            <QuestionSourceImages
+              key={q.id}
+              documentId={documentId}
+              document={doc}
+              question={q}
+            />
+          ) : null}
           <form
             onSubmit={async (e) => {
               e.preventDefault();
@@ -733,13 +830,15 @@ export function RealPracticePage({
               });
               if (next)
                 setFeedback(
-                  next.attempts[q.id]?.solved
-                    ? "Đúng rồi! Em đã tìm ra đáp án."
-                    : "Chưa đúng rồi. Em thử lại nhé, hoặc mở một gợi ý nhỏ.",
+                  next.attempts[q.id]?.assessment?.feedback ||
+                    (next.attempts[q.id]?.solved
+                      ? "Đúng rồi! Em đã tìm ra đáp án."
+                      : "Chưa đúng rồi. Em thử lại nhé, hoặc mở một gợi ý nhỏ."),
                 );
             }}
           >
-            {q.grading === "choice" ? (
+            {q.grading === "choice" ||
+            (q.grading === "ungraded" && q.inputKind === "multiple_choice") ? (
               <div className="answer-grid">
                 {q.options.map((o) => (
                   <button
@@ -755,28 +854,65 @@ export function RealPracticePage({
                   </button>
                 ))}
               </div>
-            ) : q.grading === "exact" ? (
+            ) : q.answerFields?.length ? (
+              <fieldset
+                className="written-answer-fields"
+                disabled={busy || a.solved || a.guided}
+              >
+                <legend>Bài làm của em</legend>
+                {q.answerFields.map((field) => {
+                  let values: Record<string, string> = {};
+                  try {
+                    const parsed = JSON.parse(entry || "{}");
+                    if (
+                      parsed &&
+                      typeof parsed === "object" &&
+                      !Array.isArray(parsed)
+                    )
+                      values = parsed;
+                  } catch {}
+                  return (
+                    <label className="field" key={field.id}>
+                      {field.label}
+                      <textarea
+                        rows={2}
+                        maxLength={Math.floor(11000 / q.answerFields!.length)}
+                        value={
+                          typeof values[field.id] === "string"
+                            ? values[field.id]
+                            : ""
+                        }
+                        onChange={(e) =>
+                          setEntry(
+                            JSON.stringify({
+                              ...values,
+                              [field.id]: e.target.value,
+                            }),
+                          )
+                        }
+                        placeholder="Nhập đáp án hoặc cách làm cho ý này"
+                      />
+                    </label>
+                  );
+                })}
+              </fieldset>
+            ) : (
               <label className="field numeric-answer">
-                Đáp án của em
-                <input
+                {q.grading === "exact"
+                  ? "Đáp án của em"
+                  : "Bài làm và cách giải của em"}
+                <textarea
+                  rows={q.grading === "exact" ? 2 : 5}
                   value={entry}
                   disabled={busy || a.solved || a.guided}
                   onChange={(e) => setEntry(e.target.value)}
-                  maxLength={4000}
-                  placeholder="Nhập đáp án ở đây"
+                  maxLength={12000}
+                  placeholder="Em nhập đáp án và các bước làm ở đây"
                 />
               </label>
-            ) : (
-              <div className="notice">
-                <strong>Câu này có nhiều cách trả lời.</strong>
-                <p>
-                  Em làm trên giấy hoặc tự nói câu trả lời, rồi mở hướng dẫn để
-                  đối chiếu. Câu này không tính vào điểm /10.
-                </p>
-              </div>
             )}
             <div
-              className={`answer-feedback ${a.solved ? "success" : feedback ? "retry" : ""}`}
+              className={`answer-feedback ${a.solved ? "success" : feedback && a.assessment?.status !== "ungraded" ? "retry" : ""}`}
               role="status"
             >
               {a.solved
@@ -785,38 +921,65 @@ export function RealPracticePage({
                   : "Đúng rồi! Em đã tìm ra đáp án."
                 : feedback}
             </div>
+            {a.assessment && (
+              <div className="answer-assessment" aria-live="polite">
+                <strong>
+                  {a.assessment.status === "graded"
+                    ? `Điểm bài làm: ${a.assessment.points}/${a.assessment.maxPoints}`
+                    : "Đã lưu bài làm · Chưa chấm đúng/sai"}
+                </strong>
+                <p>{a.assessment.feedback}</p>
+                {a.assessment.parts.map((part) => (
+                  <p key={part.id}>
+                    <b>
+                      {part.label}: {part.points}/{part.maxPoints}
+                    </b>{" "}
+                    · {part.feedback}
+                  </p>
+                ))}
+              </div>
+            )}
             <div
               className={`question-actions${a.solved ? " solved-question-actions" : ""}`}
             >
               {!a.solved && !a.guided ? (
                 <>
-                  {q.grading !== "self_review" && (
+                  {
                     <button
                       className="button"
                       disabled={busy || !entry.trim()}
                       type="submit"
                     >
-                      Kiểm tra đáp án <CheckCircle2 size={18} />
+                      {busy
+                        ? "Đang kiểm tra…"
+                        : q.grading === "ungraded"
+                          ? "Lưu bài làm"
+                          : q.grading === "self_review"
+                            ? "Nộp bài · Chấm từng ý"
+                            : "Kiểm tra đáp án"}{" "}
+                      <CheckCircle2 size={18} />
+                    </button>
+                  }
+                  {q.grading !== "ungraded" && (
+                    <button
+                      type="button"
+                      className="hint-button"
+                      disabled={busy}
+                      onClick={async () => {
+                        const next = await act({
+                          action: "hint",
+                          questionId: q.id,
+                        });
+                        if (next) {
+                          setHint(true);
+                          hintVisible.current = true;
+                        }
+                      }}
+                    >
+                      <Lightbulb size={20} /> Gợi ý nhỏ
                     </button>
                   )}
-                  <button
-                    type="button"
-                    className="hint-button"
-                    disabled={busy}
-                    onClick={async () => {
-                      const next = await act({
-                        action: "hint",
-                        questionId: q.id,
-                      });
-                      if (next) {
-                        setHint(true);
-                        hintVisible.current = true;
-                      }
-                    }}
-                  >
-                    <Lightbulb size={20} /> Gợi ý nhỏ
-                  </button>
-                  {q.grading === "self_review" && (
+                  {q.grading === "self_review" && a.tries > 0 && (
                     <button
                       type="button"
                       className="button secondary"
@@ -1128,7 +1291,7 @@ export function LearningHistory() {
         </div>
       ) : (
         <div className="card empty-state">
-          <p>Chọn một tài liệu đã nhận diện để tạo bài học đầu tiên nhé.</p>
+          <p>Chọn một tài liệu đã sẵn sàng để bắt đầu làm bài nhé.</p>
           <ButtonLink href="/thu-vien">Đến thư viện</ButtonLink>
         </div>
       )}

@@ -4165,3 +4165,44 @@ progress::-webkit-progress-value {
 .guidance-understood {
   margin-top: 20px;
 }
+
+.source-figure {
+  margin: 1rem 0;
+}
+.source-figure img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+  border-radius: 12px;
+  border: 1px solid var(--border, #dce4e1);
+}
+.source-figure figcaption {
+  font-size: 0.8rem;
+  color: #62716d;
+  margin-top: 0.4rem;
+}
+.written-answer-fields {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+  display: grid;
+  gap: 1rem;
+}
+.written-answer-fields textarea,
+.numeric-answer textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 80px;
+  padding: 1rem;
+  border: 1px solid #dce4e1;
+  border-radius: 12px;
+  font: inherit;
+  box-sizing: border-box;
+}
+.answer-assessment {
+  padding: 1rem;
+  margin: 1rem 0;
+  background: #f3f7fb;
+  border-radius: 12px;
+}

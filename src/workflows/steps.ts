@@ -7,6 +7,7 @@ import {
   prepareLearning,
   generatePart,
   finishLearning,
+  preparePack,
 } from "../server/generation";
 import { updateJob } from "../server/store";
 import { AppError } from "../server/validation";
@@ -36,7 +37,33 @@ export async function readDocumentBatch(
 }
 export async function finishDocument(id: string, execution: string) {
   "use step";
-  await finishAnalysis(id, execution);
+  await finishAnalysis(id, execution, (j) => {
+    if (
+      j.analysisExecution !== execution ||
+      !["complete", "partial"].includes(j.status)
+    )
+      return;
+    if (j.learningExecution === execution) return;
+    const previous = j.learning;
+    // Analysis retries can add source questions. Rebuild against the final extraction.
+    j.learning = preparePack(
+      { ...j, learning: undefined },
+      { count: 0, scope: "original" },
+    );
+    // Retain successful batches when retrying unread pages or interrupted preparation.
+    for (const part of j.learning.parts) {
+      const cached = previous?.parts.find(
+        (p) =>
+          previous?.contentVersion === 2 &&
+          p.kind === "original" &&
+          p.done &&
+          p.key === part.key &&
+          JSON.stringify(p.sourceIds) === JSON.stringify(part.sourceIds),
+      );
+      if (cached && part.key !== "excluded") Object.assign(part, cached);
+    }
+    j.learningExecution = execution;
+  });
 }
 export async function prepareLesson(id: string, execution: string) {
   "use step";

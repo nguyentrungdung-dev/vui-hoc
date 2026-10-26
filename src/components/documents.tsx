@@ -309,7 +309,7 @@ export function UploadPage({
   const [previews, setPreviews] = useState<string[]>([]);
   const [subject, setSubject] = useState<Subject>(initialSubject);
   const [title, setTitle] = useState("");
-  const [count, setCount] = useState(25);
+  const count = 25;
   const [range, setRange] = useState("");
   const [pages, setPages] = useState("");
   const [busy, setBusy] = useState(false);
@@ -648,26 +648,6 @@ export function UploadPage({
                   />
                 </label>
               )}
-              <label>
-                Số câu luyện tập mong muốn
-                <select
-                  value={count}
-                  onChange={(e) => {
-                    setCount(Number(e.target.value));
-                    changed();
-                  }}
-                >
-                  {[5, 10, 15, 20, 25, 30, 40, 50].map((n) => (
-                    <option key={n} value={n}>
-                      {n} câu
-                    </option>
-                  ))}
-                </select>
-                <small>
-                  Lưu lựa chọn cho bộ luyện. Nhận diện giữ nguyên số câu có
-                  trong tài liệu.
-                </small>
-              </label>
             </section>
           </div>
           <aside className="card upload-summary">
@@ -677,6 +657,7 @@ export function UploadPage({
               <li>Đọc chữ, câu hỏi và các lựa chọn</li>
               <li>Nhận diện dạng bài, chủ đề</li>
               <li>Giữ trang gốc để đối chiếu</li>
+              <li>Chuẩn bị đáp án, lời giải và gợi ý</li>
               <li>Đánh dấu phần cần kiểm tra</li>
             </ul>
             <p>Em có thể chọn bất kỳ chủ đề nào sau khi nhận diện xong.</p>
@@ -685,10 +666,11 @@ export function UploadPage({
               thông tin cá nhân không cần thiết.
             </p>
             <button className="button full" type="submit">
-              <Upload size={18} /> Gửi và nhận diện
+              <Upload size={18} /> Gửi và chuẩn bị bài
             </button>
             <p className="micro">
-              Nhận diện xong, em có thể tạo lời giải và bộ luyện từ tài liệu.
+              Xử lý xong, em có thể làm bài gốc ngay với gợi ý có sẵn. Luyện
+              thêm là lựa chọn riêng.
             </p>
           </aside>
         </fieldset>
@@ -720,36 +702,7 @@ export function DocumentPage({ id }: { id: string }) {
   const [topic, setTopic] = useState("");
   const [busy, setBusy] = useState(false);
   const [version, setVersion] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [answersReady, setAnswersReady] = useState(false);
-  const [saveError, setSaveError] = useState(false);
   const config = useConfig();
-  useEffect(() => {
-    setAnswersReady(false);
-    setAnswers({});
-    try {
-      const raw = localStorage.getItem(`vuihoc-responses-${id}`);
-      const value = raw ? JSON.parse(raw) : {};
-      if (
-        value &&
-        typeof value === "object" &&
-        !Array.isArray(value) &&
-        Object.values(value).every((v) => typeof v === "string")
-      )
-        setAnswers(value);
-    } catch {
-      setSaveError(true);
-    }
-    setAnswersReady(true);
-  }, [id]);
-  useEffect(() => {
-    if (answersReady)
-      try {
-        localStorage.setItem(`vuihoc-responses-${id}`, JSON.stringify(answers));
-      } catch {
-        setSaveError(true);
-      }
-  }, [answers, answersReady, id]);
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
@@ -783,10 +736,6 @@ export function DocumentPage({ id }: { id: string }) {
       setBusy(false);
     }
   }
-  function sourceUrl(page: number) {
-    const pdf = document?.files[0].mime === "application/pdf";
-    return `/api/documents/${id}/files/${pdf ? 0 : page - 1}${pdf ? `#page=${page}` : ""}`;
-  }
   if (!document)
     return (
       <>
@@ -815,11 +764,11 @@ export function DocumentPage({ id }: { id: string }) {
       ...doc.pages.flatMap((p) => p.topics),
     ]),
   ];
-  const questions = doc.questions.filter((q) => !topic || q.topic === topic);
   const pending = ["queued", "preparing", "analyzing"].includes(doc.status);
-  const retryable = ["waiting_config", "partial", "failed"].includes(
-    doc.status,
-  );
+  const retryable =
+    ["waiting_config", "failed"].includes(doc.status) ||
+    (doc.status === "partial" &&
+      doc.completedPages.length < doc.selectedPages.length);
   return (
     <>
       <Link className="back-link" href={subjects[doc.subject].path}>
@@ -944,7 +893,7 @@ export function DocumentPage({ id }: { id: string }) {
           <p>Trang đã chọn: {doc.selectedPages.join(", ")}</p>
         )}
       </details>
-      {doc.pages.length > 0 && <LearningPanel key={doc.id} document={doc} />}
+
       {doc.pages.length > 0 && (
         <>
           <section className="section">
@@ -953,8 +902,8 @@ export function DocumentPage({ id }: { id: string }) {
                 <span className="eyebrow">EM MUỐN HỌC GÌ HÔM NAY?</span>
                 <h2>Chọn một chủ đề nhỏ</h2>
                 <p>
-                  Câu hỏi dưới đây được đọc từ tài liệu em gửi. Em có thể ghi
-                  lại câu trả lời để tự học.
+                  Chọn chủ đề để làm các câu trong tài liệu. Đáp án và gợi ý
+                  được chuẩn bị cùng tài liệu.
                 </p>
               </div>
             </div>
@@ -981,158 +930,8 @@ export function DocumentPage({ id }: { id: string }) {
                 </button>
               ))}
             </div>
-            <p className="notice">
-              Nhận diện AI có thể có sai sót; em hãy đối chiếu trang gốc khi
-              cần. Câu trả lời được lưu ở trình duyệt này, chưa chấm điểm. Để
-              làm bài có gợi ý và lời giải, hãy mở bộ học ở phía trên.
-            </p>
-            {saveError && (
-              <p className="notice error" role="alert">
-                Trình duyệt chưa lưu được câu trả lời. Hãy giữ trang này mở hoặc
-                ghi lại bài làm.
-              </p>
-            )}
-            <div className="extracted-questions">
-              {questions.map((q, index) => (
-                <article className="card extracted-question" key={q.id}>
-                  <div className="question-topline">
-                    <span className="badge">
-                      {q.label || `Câu ${index + 1}`}
-                    </span>
-                    <span>{q.topic}</span>
-                    <div>
-                      {q.sourcePages.map((p) => (
-                        <a
-                          href={sourceUrl(p)}
-                          target="_blank"
-                          rel="noreferrer"
-                          key={p}
-                        >
-                          Trang {p} ↗
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                  {q.needsReview && (
-                    <div className="notice">
-                      Cần đối chiếu:{" "}
-                      {q.issues.join(" ") || "Nội dung chưa đọc rõ."} Em có thể
-                      bỏ qua câu này.
-                    </div>
-                  )}
-                  {q.passage && (
-                    <blockquote className="source-passage">
-                      {q.passage}
-                    </blockquote>
-                  )}
-                  <h3 className="question-text">
-                    {q.prompt || "Câu hỏi chưa đọc rõ — hãy mở trang gốc."}
-                  </h3>
-                  {q.hasFigure && (
-                    <div className="figure-notice">
-                      <p>
-                        🖼 Câu này có hình/bảng:{" "}
-                        {q.figureDescription ||
-                          "Xem hình trong tài liệu gốc để làm bài."}
-                      </p>
-                      {doc.files[0].mime.startsWith("image/") &&
-                        q.sourcePages.map((p) => (
-                          <a
-                            key={p}
-                            href={sourceUrl(p)}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            <img
-                              src={sourceUrl(p)}
-                              alt={`Trang ${p} chứa hình minh họa của câu hỏi`}
-                              loading="lazy"
-                            />
-                          </a>
-                        ))}
-                      <a
-                        href={sourceUrl(q.sourcePages[0])}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Mở trang gốc có hình ↗
-                      </a>
-                    </div>
-                  )}
-                  {q.options.length > 0 && (
-                    <div className="extracted-options">
-                      {q.options.map((o, i) => (
-                        <div key={i}>
-                          <b>{o.label}</b>
-                          <span>{o.text}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {q.skill && <p className="micro">Cùng luyện: {q.skill}</p>}
-                  <label className="answer-label">
-                    Câu trả lời của em
-                    <textarea
-                      rows={2}
-                      maxLength={4000}
-                      disabled={!answersReady}
-                      value={answers[q.id] || ""}
-                      placeholder="Em ghi câu trả lời hoặc cách làm ở đây…"
-                      onChange={(e) =>
-                        setAnswers((a) => ({ ...a, [q.id]: e.target.value }))
-                      }
-                    />
-                  </label>
-                  <small>
-                    {answers[q.id]
-                      ? "✎ Đã ghi câu trả lời · Chưa chấm điểm"
-                      : "Em có thể làm bài trên giấy rồi ghi lại kết quả."}
-                  </small>
-                </article>
-              ))}
-            </div>
-            {!questions.length && (
-              <div className="card empty-state">
-                <h3>
-                  {doc.questions.length
-                    ? "Chủ đề này là nội dung bài học"
-                    : "Tài liệu này chưa có câu hỏi nhận diện được"}
-                </h3>
-                <p>
-                  Em có thể đọc nội dung theo trang ở bên dưới. Hệ thống không
-                  tự thêm câu hỏi vào đề gốc.
-                </p>
-              </div>
-            )}
           </section>
-          <section className="section">
-            <h2>Nội dung đã đọc theo trang</h2>
-            {doc.pages
-              .filter(
-                (p) =>
-                  !topic ||
-                  p.topics.includes(topic) ||
-                  doc.questions.some(
-                    (q) => q.topic === topic && q.sourcePages.includes(p.page),
-                  ),
-              )
-              .map((p) => (
-                <details className="card source-details" key={p.page}>
-                  <summary>
-                    Trang {p.page} {p.issues.length ? "· Cần kiểm tra" : ""}
-                  </summary>
-                  {p.issues.length > 0 && (
-                    <p className="notice">{p.issues.join(" ")}</p>
-                  )}
-                  <p className="source-text">
-                    {p.text || "Trang này không có chữ đọc được."}
-                  </p>
-                  <a href={sourceUrl(p.page)} target="_blank" rel="noreferrer">
-                    Đối chiếu trang gốc ↗
-                  </a>
-                </details>
-              ))}
-          </section>
+          <LearningPanel key={doc.id} document={doc} topic={topic} />
         </>
       )}
       <div className="actions">

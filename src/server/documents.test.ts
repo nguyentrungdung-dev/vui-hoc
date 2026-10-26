@@ -372,7 +372,7 @@ test("Background processing retains successful pages and retries only failed bat
   try {
     globalThis.fetch = async () => {
       calls++;
-      return calls === 1
+      return calls <= 2
         ? Response.json({
             choices: [
               {
@@ -394,7 +394,7 @@ test("Background processing retains successful pages and retries only failed bat
     let result = await readJob(id);
     assert.equal(result.status, "partial");
     assert.deepEqual(result.completedPages, [1, 2]);
-    assert.equal(calls, 2);
+    assert.equal(calls, 3);
     await updateJob(id, (j) => {
       j.status = "queued";
     });
@@ -413,7 +413,7 @@ test("Background processing retains successful pages and retries only failed bat
     await processJob(id);
     result = await readJob(id);
     assert.equal(result.status, "complete");
-    assert.equal(calls, 1);
+    assert.equal(calls, 2);
     assert.deepEqual(result.completedPages, [1, 2, 3]);
     assert.equal(publicDocument(result).questions.length, 2);
   } finally {
