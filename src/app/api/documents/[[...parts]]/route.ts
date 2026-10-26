@@ -26,6 +26,15 @@ import {
 import { runView } from "@/lib/learning";
 import { createRevision, revisionCatalog } from "@/server/revision";
 
+import {
+  requestGuidance,
+  authorizedGuidance,
+  guidanceView,
+  openGuidanceAudio,
+  audioByteRange,
+  sliceAudio,
+} from "@/server/guidance";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -179,6 +188,69 @@ async function handler(request: NextRequest, context: Context) {
           session.owner,
           await jsonBody(request),
         ),
+      );
+    } else if (
+      parts.length === 4 &&
+      parts[1] === "runs" &&
+      parts[3] === "guidance" &&
+      method === "POST"
+    ) {
+      response = NextResponse.json(
+        await requestGuidance(
+          parts[0],
+          parts[2],
+          session.owner,
+          await jsonBody(request),
+        ),
+      );
+    } else if (
+      parts.length === 5 &&
+      parts[1] === "runs" &&
+      parts[3] === "guidance" &&
+      method === "GET"
+    ) {
+      response = NextResponse.json({
+        guidance: guidanceView(
+          await authorizedGuidance(parts[0], parts[2], session.owner, parts[4]),
+          parts[2],
+        ),
+      });
+    } else if (
+      parts.length === 6 &&
+      parts[1] === "runs" &&
+      parts[3] === "guidance" &&
+      /^\d+$/.test(parts[5]) &&
+      method === "GET"
+    ) {
+      const job = await authorizedGuidance(
+        parts[0],
+        parts[2],
+        session.owner,
+        parts[4],
+      );
+      const index = Number(parts[5]);
+      const size = job.audio[index]?.size;
+      if (!size) throw new AppError("Giọng đọc chưa sẵn sàng.", 404);
+      const range = audioByteRange(request.headers.get("range"), size);
+      const stream = await openGuidanceAudio(job, index);
+      response = new NextResponse(
+        range ? sliceAudio(stream, range.start, range.end) : stream,
+        {
+          status: range ? 206 : 200,
+          headers: {
+            "Content-Type": job.audio[index]?.path.endsWith(".wav")
+              ? "audio/wav"
+              : "audio/mpeg",
+            "Content-Length": String(
+              range ? range.end - range.start + 1 : size,
+            ),
+            "Accept-Ranges": "bytes",
+            ...(range
+              ? { "Content-Range": `bytes ${range.start}-${range.end}/${size}` }
+              : {}),
+            "X-Content-Type-Options": "nosniff",
+          },
+        },
       );
     } else if (!parts.length && method === "GET") {
       response = NextResponse.json({

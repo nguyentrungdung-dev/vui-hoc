@@ -6,9 +6,11 @@ import { Play } from "lucide-react";
 export function HintHelpActions({
   disabled = false,
   onGuide,
+  onVideo,
 }: {
   disabled?: boolean;
   onGuide: () => void;
+  onVideo?: () => void;
 }) {
   const [videoNotice, setVideoNotice] = useState(false);
 
@@ -27,7 +29,7 @@ export function HintHelpActions({
           type="button"
           className="button secondary hint-video-button"
           disabled={disabled}
-          onClick={() => setVideoNotice(true)}
+          onClick={onVideo || (() => setVideoNotice(true))}
         >
           <Play size={18} aria-hidden="true" />
           <span>Xem video hướng dẫn chi tiết</span>

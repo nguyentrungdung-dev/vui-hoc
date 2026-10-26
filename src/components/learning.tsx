@@ -21,6 +21,8 @@ import {
 } from "@/lib/learning";
 import { ButtonLink, Character, Modal, PageTitle } from "./ui";
 import { HintHelpActions } from "./hint-help-actions";
+import { GuidanceDialog, startGuidance } from "./guidance-player";
+import type { GuidanceView } from "@/lib/guidance";
 async function request<T>(path: string, body?: unknown): Promise<T> {
   const r = await fetch(`/api/documents${path}`, {
     cache: "no-store",
@@ -324,6 +326,11 @@ export function RealPracticePage({
   const [busy, setBusy] = useState(false);
   const [entry, setEntry] = useState("");
   const [hint, setHint] = useState(false);
+  const [video, setVideo] = useState(false);
+  const [videoView, setVideoView] = useState<GuidanceView | null>(null);
+  const [videoError, setVideoError] = useState("");
+  const [videoStarting, setVideoStarting] = useState(false);
+  const videoRequest = useRef(false);
   const [explain, setExplain] = useState(false);
   const [finish, setFinish] = useState(false);
   const [translation, setTranslation] = useState(false);
@@ -415,6 +422,42 @@ export function RealPracticePage({
       failedAction.current = { payload: sent, after };
       setError((e as Error).message);
     } finally {
+      setBusy(false);
+    }
+  }
+  async function openVideo(questionId: string, retry = false) {
+    if (videoRequest.current) return;
+    videoRequest.current = true;
+    setVideo(true);
+    setVideoStarting(true);
+    setVideoError("");
+    setVideoView(null);
+    setHint(false);
+    hintVisible.current = false;
+    setExplain(false);
+    setBusy(true);
+    try {
+      const result = await startGuidance(endpoint, questionId, retry);
+      if (result.run) {
+        setRun(result.run);
+        current.current = result.run;
+      }
+      setVideoView(result.guidance);
+    } catch (e) {
+      setVideoError((e as Error).message);
+      // A configuration failure may precede the server's guide action. Close the hint timer.
+      try {
+        const latest = await request<RunView>(endpoint, {
+          action: "close_hint",
+          questionId,
+          eventId: crypto.randomUUID(),
+        });
+        setRun(latest);
+        current.current = latest;
+      } catch {}
+    } finally {
+      videoRequest.current = false;
+      setVideoStarting(false);
       setBusy(false);
     }
   }
@@ -908,6 +951,7 @@ export function RealPracticePage({
             </button>
             <HintHelpActions
               disabled={busy}
+              onVideo={() => void openVideo(q.id)}
               onGuide={() =>
                 act({ action: "guide", questionId: q.id }, () => {
                   setHint(false);
@@ -918,6 +962,32 @@ export function RealPracticePage({
             />
           </div>
         </Modal>
+      )}
+      {video && (
+        <GuidanceDialog
+          endpoint={endpoint}
+          initial={videoView}
+          initialError={videoError}
+          starting={videoStarting || busy}
+          onUnderstood={
+            a.guided && !a.solved
+              ? () =>
+                  void act({ action: "understood", questionId: q.id }, () =>
+                    setVideo(false),
+                  )
+              : undefined
+          }
+          onRetry={() => void openVideo(q.id, true)}
+          onClose={() => setVideo(false)}
+          onReadSolution={() => {
+            setVideo(false);
+            if (q.solution) setExplain(true);
+            else
+              void act({ action: "guide", questionId: q.id }, () =>
+                setExplain(true),
+              );
+          }}
+        />
       )}
       {explain && q.solution && (
         <Modal
@@ -943,6 +1013,14 @@ export function RealPracticePage({
             ))}
           </ol>
           <p>{q.solution.explanation}</p>
+          <button
+            type="button"
+            className="button secondary guidance-from-solution"
+            disabled={busy}
+            onClick={() => void openVideo(q.id)}
+          >
+            Xem video hướng dẫn chi tiết
+          </button>
           {q.solution.englishSteps.length > 0 && (
             <div className="english-solution" lang="en">
               <strong>English explanation</strong>

@@ -11,6 +11,7 @@ export async function teachingAI<T extends z.ZodType>(
   system: string,
   content: AIContent[],
   signal?: AbortSignal,
+  modelOverride?: string,
 ): Promise<z.infer<T>> {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key?.trim())
@@ -19,7 +20,7 @@ export async function teachingAI<T extends z.ZodType>(
       503,
     );
   const { $schema: _, ...jsonSchema } = z.toJSONSchema(schema);
-  const model = modelName();
+  const model = modelOverride || modelName();
   const body = {
     model,
     ...(model.startsWith("anthropic/claude-haiku-5.5")

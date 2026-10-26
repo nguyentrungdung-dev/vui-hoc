@@ -58,6 +58,13 @@ export async function ensureDatabase() {
           updated_at timestamptz NOT NULL DEFAULT now()
         );
         CREATE INDEX IF NOT EXISTS vuihoc_runs_document ON vuihoc_runs(document_id);
+        CREATE TABLE IF NOT EXISTS vuihoc_guidance (
+          id text PRIMARY KEY,
+          document_id uuid NOT NULL REFERENCES vuihoc_documents(id) ON DELETE CASCADE,
+          data jsonb NOT NULL,
+          updated_at timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS vuihoc_guidance_document ON vuihoc_guidance(document_id);
       `);
         await client.query("COMMIT");
       } catch (error) {

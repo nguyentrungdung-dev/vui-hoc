@@ -18,3 +18,7 @@ coverage/
 .vercel/
 src/app/.well-known/workflow/
 /.swc
+
+# Internal project documentation (keep local)
+/docs/
+/MVP_SPEC.md

@@ -52,6 +52,7 @@ import { PracticeMenu } from "./practice-menu";
 import { RevisionPage, RevisionSetPage } from "./revision";
 import { WorldsSection } from "./worlds";
 import { TimoPage } from "./timo";
+import { HeroCompanions } from "./hero-companions";
 
 export type Shared = {
   state: State;
@@ -303,27 +304,15 @@ export default function VuiHocApp({ path }: { path: string }) {
                   riêng cho từng môn
                 </p>
               </div>
-              <div
-                className="hero-art"
-                aria-label="Những người bạn hoạt hình đồng hành"
-              >
-                <div className="orbit">
-                  <Character
-                    index={state.profile.character}
-                    className="main-character"
-                  />
-                </div>
-                <Character index={0} className="floating f1" />
-                <Character index={1} className="floating f2" />
-                <Character index={2} className="floating f3" />
-                <span className="twinkle t1">✦</span>
-                <span className="twinkle t2">✧</span>
-                <div className="character-label">
-                  Bạn đồng hành của em
-                  <br />
-                  <strong>{characters[state.profile.character]}</strong>
-                </div>
-              </div>
+              <HeroCompanions
+                selected={state.profile.character}
+                onSelect={(character) =>
+                  setState((s) => ({
+                    ...s,
+                    profile: { ...s.profile, character },
+                  }))
+                }
+              />
             </section>
             <section className="stats-strip" aria-label="Thống kê học tập">
               <div>

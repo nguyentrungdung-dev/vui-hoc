@@ -389,3 +389,173 @@ test(
     }
   },
 );
+
+test(
+  "Guidance uses a database claim across runs, stores private audio and reuses persisted results after reconnect",
+  integration,
+  async () => {
+    const {
+      requestGuidance,
+      guidanceDispatcher,
+      guidanceStorage,
+      authorizedGuidance,
+      openGuidanceAudio,
+    } = await import("./guidance");
+    const { readGuidance } = await import("./guidance-store");
+    const { generateGuidanceWorkflow } = await import("../workflows/guidance");
+    const j = document();
+    j.files[0].uploaded = true;
+    j.status = "complete";
+    const now = new Date().toISOString();
+    j.learning = {
+      id: randomUUID(),
+      status: "ready",
+      count: 1,
+      topics: [],
+      createdAt: now,
+      updatedAt: now,
+      model: "test",
+      message: "",
+      parts: [
+        {
+          key: "p1",
+          kind: "original",
+          sourceIds: [],
+          count: 1,
+          done: true,
+          questions: [structuredClone(question)],
+          skipped: [],
+        },
+      ],
+    };
+    await writeJob(j);
+    const r1 = await startLearningRun(j.id, j.owner, {
+      kind: "original",
+      resume: false,
+    });
+    const r2 = await startLearningRun(j.id, "another-viewer", {
+      kind: "original",
+      resume: false,
+    });
+    const previous = {
+      key: process.env.OPENROUTER_API_KEY,
+      tts: process.env.OPENROUTER_TTS_MODEL,
+      voice: process.env.OPENROUTER_TTS_VOICE,
+      blob: process.env.BLOB_READ_WRITE_TOKEN,
+    };
+    process.env.OPENROUTER_API_KEY = "test-only";
+    process.env.OPENROUTER_TTS_MODEL = "google/gemini-3.8-flash-lite-tts";
+    process.env.OPENROUTER_TTS_VOICE = "Aoede";
+    process.env.BLOB_READ_WRITE_TOKEN = "test-only";
+    let dispatches = 0,
+      aiCalls = 0,
+      uploads = 0;
+    const dispatch = mock.method(guidanceDispatcher, "start", async () => {
+      dispatches++;
+    });
+    const fetchStub = mock.method(
+      globalThis,
+      "fetch",
+      async (url: string | URL | Request, options?: RequestInit) => {
+        aiCalls++;
+        const body = JSON.parse(String(options?.body));
+        if (String(url).endsWith("chat/completions")) {
+          const scripts = JSON.parse(body.messages[1].content[0].text)
+            .scripts as string[];
+          return Response.json({
+            choices: [
+              {
+                finish_reason: "stop",
+                message: {
+                  content: JSON.stringify({
+                    scenes: scripts.map((text) => ({
+                      tiles: [
+                        {
+                          text,
+                          slot: 0,
+                          appearAt: 0,
+                          highlightAt: 0.5,
+                          moveTo: null,
+                        },
+                      ],
+                    })),
+                  }),
+                },
+              },
+            ],
+          });
+        }
+        const bytes = Buffer.alloc(212);
+        return new Response(bytes, {
+          headers: { "content-type": "audio/pcm;rate=24000;channels=1" },
+        });
+      },
+    );
+    const putStub = mock.method(
+      guidanceStorage,
+      "put",
+      async (
+        ...[pathname, _body, options]: Parameters<typeof guidanceStorage.put>
+      ) => {
+        uploads++;
+        assert.equal(options.access, "private");
+        assert.ok(String(pathname).startsWith(`guidance/${j.id}/`));
+        return {} as Awaited<ReturnType<typeof guidanceStorage.put>>;
+      },
+    );
+    const getStub = mock.method(
+      guidanceStorage,
+      "get",
+      async (
+        ...[_pathname, options]: Parameters<typeof guidanceStorage.get>
+      ) => {
+        assert.equal(options.access, "private");
+        return {
+          statusCode: 200,
+          stream: new Response(Buffer.alloc(256)).body!,
+        } as Awaited<ReturnType<typeof guidanceStorage.get>>;
+      },
+    );
+    try {
+      const results = await Promise.all(
+        Array.from({ length: 8 }, (_, i) =>
+          requestGuidance(j.id, i % 2 ? r1.id : r2.id, "another-viewer", {
+            questionId: question.id,
+          }),
+        ),
+      );
+      assert.equal(dispatches, 1);
+      assert.equal(new Set(results.map((r) => r.guidance.id)).size, 1);
+      const id = results[0].guidance.id;
+      const saved = (await readGuidance(j.id, id))!;
+      await generateGuidanceWorkflow(j.id, id, saved.execution);
+      assert.equal((await readGuidance(j.id, id))!.status, "ready");
+      assert.equal(uploads, 3);
+      assert.equal(aiCalls, 4);
+      await closeDatabase();
+      const result = await requestGuidance(j.id, r1.id, "another-viewer", {
+        questionId: question.id,
+      });
+      assert.equal(result.guidance.status, "ready");
+      assert.equal(dispatches, 1);
+      const asset = await authorizedGuidance(j.id, r2.id, "another-viewer", id);
+      assert.equal(asset.audio[0]!.storage, "blob");
+      const stream = await openGuidanceAudio(asset, 0);
+      assert.equal((await new Response(stream).arrayBuffer()).byteLength, 256);
+    } finally {
+      dispatch.mock.restore();
+      fetchStub.mock.restore();
+      putStub.mock.restore();
+      getStub.mock.restore();
+      for (const [name, value] of Object.entries({
+        OPENROUTER_API_KEY: previous.key,
+        OPENROUTER_TTS_MODEL: previous.tts,
+        OPENROUTER_TTS_VOICE: previous.voice,
+        BLOB_READ_WRITE_TOKEN: previous.blob,
+      })) {
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
+    }
+  },
+);

@@ -1,0 +1,306 @@
+{
+  "collection": "vui-hoc-current-kids-corner-2026-10-26",
+  "projectExclusivePerOwner": true,
+  "source": "/characters/source/characters-original.webp",
+  "sourceGrid": {
+    "rows": 4,
+    "columns": 4
+  },
+  "processing": {
+    "tool": "built-in imagegen",
+    "mode": "background-extraction",
+    "transparentBackground": true,
+    "identityReference": "source/characters-original.webp"
+  },
+  "characters": [
+    {
+      "id": "01-meo-may-xanh",
+      "src": "/characters/01-meo-may-xanh.png",
+      "sourceIndex": 0,
+      "sourceRow": 1,
+      "sourceColumn": 1,
+      "currentCodeName": "Mèo máy Bim",
+      "visualDescription": "blue robot cat with cyan antenna and headphones",
+      "nameStatus": "Current code label may differ from depicted character; filename describes appearance.",
+      "width": 1254,
+      "height": 1254,
+      "format": "png",
+      "hasTransparency": true,
+      "alphaRange": [
+        0,
+        255
+      ]
+    },
+    {
+      "id": "02-chuot-vang",
+      "src": "/characters/02-chuot-vang.png",
+      "sourceIndex": 1,
+      "sourceRow": 1,
+      "sourceColumn": 2,
+      "currentCodeName": "Chuột Nắng",
+      "visualDescription": "golden yellow mouse wearing yellow sun bandana",
+      "nameStatus": "Current code label may differ from depicted character; filename describes appearance.",
+      "width": 1254,
+      "height": 1254,
+      "format": "png",
+      "hasTransparency": true,
+      "alphaRange": [
+        0,
+        255
+      ]
+    },
+    {
+      "id": "03-cun-xanh-trang",
+      "src": "/characters/03-cun-xanh-trang.png",
+      "sourceIndex": 2,
+      "sourceRow": 1,
+      "sourceColumn": 3,
+      "currentCodeName": "Cún Bầu Trời",
+      "visualDescription": "blue and white puppy with blue paw collar",
+      "nameStatus": "Current code label may differ from depicted character; filename describes appearance.",
+      "width": 1254,
+      "height": 1254,
+      "format": "png",
+      "hasTransparency": true,
+      "alphaRange": [
+        0,
+        255
+      ]
+    },
+    {
+      "id": "04-cao-tuyet",
+      "src": "/characters/04-cao-tuyet.png",
+      "sourceIndex": 3,
+      "sourceRow": 1,
+      "sourceColumn": 4,
+      "currentCodeName": "Cáo Tuyết",
+      "visualDescription": "white arctic fox with ornate blue snowflake tiara",
+      "nameStatus": "Current code label may differ from depicted character; filename describes appearance.",
+      "width": 1254,
+      "height": 1254,
+      "format": "png",
+      "hasTransparency": true,
+      "alphaRange": [
+        0,
+        255
+      ]
+    },
+    {
+      "id": "05-cun-cuu-ho",
+      "src": "/characters/05-cun-cuu-ho.png",
+      "sourceIndex": 4,
+      "sourceRow": 2,
+      "sourceColumn": 1,
+      "currentCodeName": "Cún Cứu Hộ",
+      "visualDescription": "brown rescue puppy in orange rescue uniform",
+      "nameStatus": "Current code label may differ from depicted character; filename describes appearance.",
+      "width": 1254,
+      "height": 1254,
+      "format": "png",
+      "hasTransparency": true,
+      "alphaRange": [
+        0,
+        255
+      ]
+    },
+    {
+      "id": "06-tho-phi-cong",
+      "src": "/characters/06-tho-phi-cong.png",
+      "sourceIndex": 5,
+      "sourceRow": 2,
+      "sourceColumn": 2,
+      "currentCodeName": "Thỏ Mây",
+      "visualDescription": "white rabbit with pink scarf and brown aviator cap and goggles",
+      "nameStatus": "Current code label may differ from depicted character; filename describes appearance.",
+      "width": 1254,
+      "height": 1254,
+      "format": "png",
+      "hasTransparency": true,
+      "alphaRange": [
+        0,
+        255
+      ]
+    },
+    {
+      "id": "07-gau-rung",
+      "src": "/characters/07-gau-rung.png",
+      "sourceIndex": 6,
+      "sourceRow": 2,
+      "sourceColumn": 3,
+      "currentCodeName": "Gấu Mật",
+      "visualDescription": "gray bear wearing leaf hat and green leaf cape",
+      "nameStatus": "Current code label may differ from depicted character; filename describes appearance.",
+      "width": 1254,
+      "height": 1254,
+      "format": "png",
+      "hasTransparency": true,
+      "alphaRange": [
+        0,
+        255
+      ]
+    },
+    {
+      "id": "08-ban-sao-xanh",
+      "src": "/characters/08-ban-sao-xanh.png",
+      "sourceIndex": 7,
+      "sourceRow": 2,
+      "sourceColumn": 4,
+      "currentCodeName": "Bạn Sao Xanh",
+      "visualDescription": "mint green alien with three green antenna tips and fin ears",
+      "nameStatus": "Current code label may differ from depicted character; filename describes appearance.",
+      "width": 1254,
+      "height": 1254,
+      "format": "png",
+      "hasTransparency": true,
+      "alphaRange": [
+        0,
+        255
+      ]
+    },
+    {
+      "id": "09-meo-trang",
+      "src": "/characters/09-meo-trang.png",
+      "sourceIndex": 8,
+      "sourceRow": 3,
+      "sourceColumn": 1,
+      "currentCodeName": "Mèo Cam",
+      "visualDescription": "white kitten with coral scarf and teal eyes",
+      "nameStatus": "Current code label may differ from depicted character; filename describes appearance.",
+      "width": 1254,
+      "height": 1254,
+      "format": "png",
+      "hasTransparency": true,
+      "alphaRange": [
+        0,
+        254
+      ]
+    },
+    {
+      "id": "10-gau-yem-xanh",
+      "src": "/characters/10-gau-yem-xanh.png",
+      "sourceIndex": 9,
+      "sourceRow": 3,
+      "sourceColumn": 2,
+      "currentCodeName": "Gấu Trúc",
+      "visualDescription": "golden bear wearing green gardening overalls",
+      "nameStatus": "Current code label may differ from depicted character; filename describes appearance.",
+      "width": 1254,
+      "height": 1254,
+      "format": "png",
+      "hasTransparency": true,
+      "alphaRange": [
+        0,
+        255
+      ]
+    },
+    {
+      "id": "11-gau-truc-tham-hiem",
+      "src": "/characters/11-gau-truc-tham-hiem.png",
+      "sourceIndex": 10,
+      "sourceRow": 3,
+      "sourceColumn": 3,
+      "currentCodeName": "Khủng Long",
+      "visualDescription": "panda explorer wearing tan safari hat green scarf and backpack",
+      "nameStatus": "Current code label may differ from depicted character; filename describes appearance.",
+      "width": 1254,
+      "height": 1254,
+      "format": "png",
+      "hasTransparency": true,
+      "alphaRange": [
+        0,
+        255
+      ]
+    },
+    {
+      "id": "12-koala-hoa-si",
+      "src": "/characters/12-koala-hoa-si.png",
+      "sourceIndex": 11,
+      "sourceRow": 3,
+      "sourceColumn": 4,
+      "currentCodeName": "Cánh Cụt",
+      "visualDescription": "pink koala artist with red beret paintbrush and paint palette",
+      "nameStatus": "Current code label may differ from depicted character; filename describes appearance.",
+      "width": 1254,
+      "height": 1254,
+      "format": "png",
+      "hasTransparency": true,
+      "alphaRange": [
+        0,
+        255
+      ]
+    },
+    {
+      "id": "13-ban-bien-vang",
+      "src": "/characters/13-ban-bien-vang.png",
+      "sourceIndex": 12,
+      "sourceRow": 4,
+      "sourceColumn": 1,
+      "currentCodeName": "Sư Tử",
+      "visualDescription": "yellow sea creature with green seaweed hair starfish and shell necklace",
+      "nameStatus": "Current code label may differ from depicted character; filename describes appearance.",
+      "width": 1254,
+      "height": 1254,
+      "format": "png",
+      "hasTransparency": true,
+      "alphaRange": [
+        0,
+        255
+      ]
+    },
+    {
+      "id": "14-heo-lam-vuon",
+      "src": "/characters/14-heo-lam-vuon.png",
+      "sourceIndex": 13,
+      "sourceRow": 4,
+      "sourceColumn": 2,
+      "currentCodeName": "Kỳ Lân",
+      "visualDescription": "pink pig gardener wearing straw daisy hat green overalls and holding sunflower",
+      "nameStatus": "Current code label may differ from depicted character; filename describes appearance.",
+      "width": 1254,
+      "height": 1254,
+      "format": "png",
+      "hasTransparency": true,
+      "alphaRange": [
+        0,
+        255
+      ]
+    },
+    {
+      "id": "15-robot-khoa-hoc",
+      "src": "/characters/15-robot-khoa-hoc.png",
+      "sourceIndex": 14,
+      "sourceRow": 4,
+      "sourceColumn": 3,
+      "currentCodeName": "Sóc Nâu",
+      "visualDescription": "yellow scientist robot wearing square blue glasses and white coat holding blue flask",
+      "nameStatus": "Current code label may differ from depicted character; filename describes appearance.",
+      "width": 1254,
+      "height": 1254,
+      "format": "png",
+      "hasTransparency": true,
+      "alphaRange": [
+        0,
+        255
+      ]
+    },
+    {
+      "id": "16-robot-y-te",
+      "src": "/characters/16-robot-y-te.png",
+      "sourceIndex": 15,
+      "sourceRow": 4,
+      "sourceColumn": 4,
+      "currentCodeName": "Cú Thông Thái",
+      "visualDescription": "white medical robot with cyan smiling face display nurse cap blue cross and heart chest",
+      "nameStatus": "Current code label may differ from depicted character; filename describes appearance.",
+      "width": 1254,
+      "height": 1254,
+      "format": "png",
+      "hasTransparency": true,
+      "alphaRange": [
+        0,
+        255
+      ]
+    }
+  ],
+  "sourceSha256": "28bcb3dbe40d6edb9dfc01a2431e25e03533a1aca83823f99b90cb0997ddafda"
+}
