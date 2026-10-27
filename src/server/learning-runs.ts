@@ -32,7 +32,8 @@ function runPath(docId: string, id: string) {
     throw new AppError("Không tìm thấy bài làm.", 404);
   return path.join(jobDir(docId), "runs", `${id}.json`);
 }
-async function saveRun(run: LearningRun) {
+// Internal persistence; callers must authorize and hold the run lock when updating.
+export async function saveRun(run: LearningRun) {
   if (databaseEnabled()) {
     run.updatedAt = new Date().toISOString();
     await query(
@@ -296,6 +297,14 @@ export function applyRunAction(
     closeHints();
     run.index = action.index;
   } else if (action.action === "finish") {
+    if (
+      run.similar &&
+      (run.similar.status !== "ready" || run.questions.length !== 5)
+    )
+      throw new AppError(
+        "Chờ đủ 5 câu được kiểm tra trước khi kết thúc bộ luyện nhé.",
+        409,
+      );
     closeHints();
     run.finished = true;
   } else {
@@ -331,29 +340,63 @@ export function applyRunAction(
           };
         } else {
           const correct = assessment
-            ? assessment.status === "graded" &&
+            ? assessment.status !== "ungraded" &&
+              assessment.parts
+                .filter((p) => p.kind !== "method")
+                .every((p) => p.status !== "ungraded") &&
               assessment.points === assessment.maxPoints
             : isCorrect(q, action.answer);
+          a.first ??= action.answer;
           if (
-            a.first === undefined ||
-            (a.firstCorrect === undefined && assessment?.status === "graded")
+            assessment &&
+            a.first === action.answer &&
+            assessment.maxPoints > 0
           ) {
-            a.first = action.answer;
-            if (!assessment || assessment.status === "graded") {
-              a.firstCorrect = !a.guided && correct;
-              a.firstCredit = a.guided
+            // Rechecks of the same first submission resolve only pending criteria;
+            // changing the answer cannot replace the original earned credit.
+            const previous = a.firstAssessment;
+            const parts = assessment.parts.map((p) => {
+              const old = previous?.parts.find((x) => x.id === p.id);
+              return old && old.status !== "ungraded" ? old : p;
+            });
+            a.firstAssessment = { ...assessment, parts };
+            const results = parts.filter((p) => p.kind !== "method");
+            const known = results.filter((p) => p.status !== "ungraded");
+            const newlyKnown = known.filter(
+              (p) =>
+                !previous?.parts.some(
+                  (old) => old.id === p.id && old.status !== "ungraded",
+                ),
+            );
+            a.firstCredit =
+              (previous ? (a.firstCredit ?? 0) : 0) +
+              (a.guided
                 ? 0
-                : assessment
-                  ? assessment.points / assessment.maxPoints
-                  : correct
-                    ? 1
-                    : 0;
-            }
+                : newlyKnown.reduce((n, p) => n + p.points, 0) /
+                  assessment.maxPoints);
+            a.firstGradedWeight =
+              known.reduce((n, p) => n + p.maxPoints, 0) / assessment.maxPoints;
+            a.firstCorrect =
+              known.length === results.length
+                ? Math.abs(a.firstCredit - 1) < 1e-8
+                : undefined;
+          } else if (!assessment && a.firstCorrect === undefined) {
+            a.firstCorrect = !a.guided && correct;
+            a.firstCredit = a.firstCorrect ? 1 : 0;
           }
           a.last = action.answer;
           a.tries++;
-          a.solved = correct;
-          if (assessment) a.assessment = assessment;
+          a.solved =
+            correct &&
+            assessment?.parts.every((p) => p.status !== "ungraded") !== false;
+          if (assessment) {
+            a.assessment = assessment;
+            (a.assessmentHistory ??= []).push({
+              answer: action.answer,
+              assessment,
+              at: new Date().toISOString(),
+            });
+          }
         }
       }
     } else if (action.action === "hint") {
@@ -384,42 +427,62 @@ export async function changeRun(
   input: unknown,
 ) {
   runPath(docId, id);
-  return lock(`run:${docId}:${id}`, async () => {
-    const run = await readRun(docId, id, owner);
-    const parsed = runActionSchema.safeParse(input);
-    if (!parsed.success) throw new AppError("Thao tác bài làm chưa hợp lệ.");
-    const action = parsed.data;
-    // Validate navigation/state before spending an AI request; event retries reuse the saved result.
-    if (run.eventIds.includes(action.eventId)) return runView(run);
-    let assessment: AnswerAssessment | undefined;
-    if (action.action === "answer") {
-      const q = run.questions[run.index];
-      if (run.finished || !q || q.id !== action.questionId || !action.answer)
-        throw new AppError("Bài làm hoặc câu đang trả lời đã thay đổi.", 409);
-      if (q.answerFields?.length) {
-        let fields: Record<string, unknown>;
-        try {
-          fields = JSON.parse(action.answer);
-        } catch {
-          throw new AppError("Hãy nhập đáp án vào các ô của bài.");
-        }
-        if (
-          !fields ||
-          typeof fields !== "object" ||
-          Array.isArray(fields) ||
-          Object.keys(fields).some(
-            (key) => !q.answerFields!.some((f) => f.id === key),
-          ) ||
-          Object.values(fields).some((v) => typeof v !== "string") ||
-          !Object.values(fields).some((v) => typeof v === "string" && v.trim())
-        )
-          throw new AppError("Em nhập ít nhất một ý trước khi nộp bài nhé.");
+  const parsed = runActionSchema.safeParse(input);
+  if (!parsed.success) throw new AppError("Thao tác bài làm chưa hợp lệ.");
+  const action = parsed.data;
+  const validateAnswer = (run: LearningRun) => {
+    const q = run.questions[run.index];
+    if (run.finished || !q || q.id !== action.questionId || !action.answer)
+      throw new AppError("Bài làm hoặc câu đang trả lời đã thay đổi.", 409);
+    if (q.answerFields?.length) {
+      let fields: Record<string, unknown>;
+      try {
+        fields = JSON.parse(action.answer);
+      } catch {
+        throw new AppError("Hãy nhập đáp án vào các ô của bài.");
       }
-      if (q.grading === "self_review" && !run.attempts[q.id]?.solved)
-        assessment = await assessWrittenAnswer(q, action.answer);
+      if (
+        !fields ||
+        typeof fields !== "object" ||
+        Array.isArray(fields) ||
+        Object.keys(fields).some(
+          (key) => !q.answerFields!.some((f) => f.id === key),
+        ) ||
+        Object.values(fields).some((v) => typeof v !== "string") ||
+        !Object.values(fields).some((v) => typeof v === "string" && v.trim())
+      )
+        throw new AppError("Em nhập ít nhất một ý trước khi nộp bài nhé.");
     }
-    applyRunAction(run, input, Date.now(), assessment);
-    await saveRun(run);
-    return runView(run);
-  });
+    return q;
+  };
+  const commit = (assessment?: AnswerAssessment) =>
+    lock(`run:${docId}:${id}`, async () => {
+      // Read again after AI completes: background generation may have appended a
+      // question, or another browser may have navigated/submitted in the meantime.
+      const run = await readRun(docId, id, owner);
+      if (run.eventIds.includes(action.eventId)) return runView(run);
+      if (action.action === "answer") validateAnswer(run);
+      applyRunAction(run, input, Date.now(), assessment);
+      await saveRun(run);
+      return runView(run);
+    });
+  if (action.action === "answer") {
+    const snapshot = await readRun(docId, id, owner);
+    if (snapshot.eventIds.includes(action.eventId)) return runView(snapshot);
+    const q = validateAnswer(snapshot);
+    if (q.grading === "self_review" && !snapshot.attempts[q.id]?.solved) {
+      // Deduplicate this submission without holding the run lock across AI calls.
+      // The next reviewed question can be published while the child is graded.
+      return lock(`grade:${docId}:${id}:${action.eventId}`, async () => {
+        const latest = await readRun(docId, id, owner);
+        if (latest.eventIds.includes(action.eventId)) return runView(latest);
+        const currentQuestion = validateAnswer(latest);
+        const assessment = latest.attempts[currentQuestion.id]?.solved
+          ? undefined
+          : await assessWrittenAnswer(currentQuestion, action.answer!);
+        return commit(assessment);
+      });
+    }
+  }
+  return commit();
 }

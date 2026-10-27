@@ -4206,3 +4206,61 @@ progress::-webkit-progress-value {
   background: #f3f7fb;
   border-radius: 12px;
 }
+
+.similar-difficulty {
+  border: 0;
+  padding: 0;
+  margin: 1rem 0;
+  display: grid;
+  gap: 0.55rem;
+}
+.similar-difficulty legend {
+  font-weight: 700;
+  margin-bottom: 0.6rem;
+}
+.similar-difficulty label {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--line, #e7e8f1);
+  border-radius: 16px;
+  cursor: pointer;
+}
+.similar-difficulty label.selected {
+  border-color: var(--blue, #4772b8);
+  background: #f1f5fc;
+}
+.similar-difficulty input {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  accent-color: #4772b8;
+}
+.similar-difficulty small {
+  display: block;
+  color: var(--muted, #7c8495);
+  margin-top: 0.2rem;
+}
+.similar-five-button {
+  white-space: normal;
+  text-align: left;
+}
+.similar-progress {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.similar-progress > div {
+  flex: 1 1 240px;
+}
+.similar-progress p {
+  margin: 0.35rem 0 0;
+}
+@media (max-width: 600px) {
+  .similar-five-button {
+    width: 100%;
+    justify-content: center;
+  }
+}

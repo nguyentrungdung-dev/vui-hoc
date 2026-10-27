@@ -26,6 +26,7 @@ import {
   learningHistory,
 } from "@/server/learning-runs";
 import { runView } from "@/lib/learning";
+import { requestSimilar, retrySimilar } from "@/server/similar";
 import { createRevision, revisionCatalog } from "@/server/revision";
 
 import {
@@ -190,6 +191,31 @@ async function handler(request: NextRequest, context: Context) {
           session.owner,
           await jsonBody(request),
         ),
+      );
+    } else if (
+      parts.length === 4 &&
+      parts[1] === "runs" &&
+      parts[3] === "similar" &&
+      method === "POST"
+    ) {
+      response = NextResponse.json(
+        await requestSimilar(
+          parts[0],
+          parts[2],
+          session.owner,
+          await jsonBody(request),
+        ),
+        { status: 201 },
+      );
+    } else if (
+      parts.length === 5 &&
+      parts[1] === "runs" &&
+      parts[3] === "similar" &&
+      parts[4] === "retry" &&
+      method === "POST"
+    ) {
+      response = NextResponse.json(
+        await retrySimilar(parts[0], parts[2], session.owner),
       );
     } else if (
       parts.length === 4 &&

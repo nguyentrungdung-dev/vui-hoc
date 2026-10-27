@@ -11,6 +11,7 @@ import {
   RefreshCw,
   Rocket,
 } from "lucide-react";
+import { similarDifficulties, type SimilarDifficulty } from "@/lib/similar";
 import type { PublicDocument } from "@/lib/documents";
 import { sourceUrl } from "@/lib/revision";
 import {
@@ -383,6 +384,14 @@ export function RealPracticePage({
 }) {
   const router = useRouter();
   const [run, setRun] = useState<RunView | null>(null);
+  const [similarOpen, setSimilarOpen] = useState(false);
+  const [difficulty, setDifficulty] =
+    useState<SimilarDifficulty>("progressive");
+  const [similarError, setSimilarError] = useState("");
+  const [similarBusy, setSimilarBusy] = useState(false);
+  const similarRequest = useRef<{ key: string; id: string } | null>(null);
+  const busyRef = useRef(false);
+
   const [doc, setDoc] = useState<PublicDocument | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -404,8 +413,18 @@ export function RealPracticePage({
     after?: () => void;
   } | null>(null);
   const endpoint = `/${documentId}/runs/${runId}`;
+  busyRef.current = busy;
   useEffect(() => {
     let active = true;
+    setRun(null);
+    current.current = null;
+    setError("");
+    setEntry("");
+    setFeedback("");
+    setSimilarOpen(false);
+    setHint(false);
+    setExplain(false);
+    setVideo(false);
     Promise.all([
       request<RunView>(endpoint),
       request<PublicDocument>(`/${documentId}`),
@@ -424,7 +443,11 @@ export function RealPracticePage({
         }
         if (active) {
           setRun(r);
-          setEntry(r.attempts[r.questions[r.index].id]?.last || "");
+          setEntry(
+            r.questions[r.index]
+              ? r.attempts[r.questions[r.index].id]?.last || ""
+              : "",
+          );
           current.current = r;
           setDoc(d);
         }
@@ -523,6 +546,76 @@ export function RealPracticePage({
       setBusy(false);
     }
   }
+  useEffect(() => {
+    if (
+      !run?.similar ||
+      run.similar.status === "ready" ||
+      run.similar.status === "failed"
+    )
+      return;
+    let active = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      try {
+        if (!busyRef.current) {
+          const next = await request<RunView>(endpoint);
+          if (
+            active &&
+            !busyRef.current &&
+            (!current.current || next.updatedAt >= current.current.updatedAt)
+          ) {
+            current.current = next;
+            setRun(next);
+          }
+        }
+      } catch (e) {
+        if (active) setError((e as Error).message);
+      }
+      if (active) timer = setTimeout(poll, 2000);
+    };
+    timer = setTimeout(poll, 1500);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [endpoint, run?.similar?.status]);
+  async function createFiveSimilar() {
+    if (!run || similarBusy) return;
+    const question = run.questions[run.index];
+    if (!question) return;
+    setSimilarBusy(true);
+    setSimilarError("");
+    const key = `${endpoint}:${question.id}:${difficulty}`;
+    if (similarRequest.current?.key !== key)
+      similarRequest.current = { key, id: crypto.randomUUID() };
+    try {
+      const next = await request<RunView>(`${endpoint}/similar`, {
+        questionId: question.id,
+        difficulty,
+        requestId: similarRequest.current.id,
+      });
+      setSimilarOpen(false);
+      similarRequest.current = null;
+      router.push(`/luyen-tap/${documentId}/${next.id}`);
+    } catch (e) {
+      setSimilarError((e as Error).message);
+    } finally {
+      setSimilarBusy(false);
+    }
+  }
+  async function retryFiveSimilar() {
+    setBusy(true);
+    setError("");
+    try {
+      const next = await request<RunView>(`${endpoint}/similar/retry`, {});
+      current.current = next;
+      setRun(next);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   async function similar() {
     setBusy(true);
     setError("");
@@ -546,7 +639,40 @@ export function RealPracticePage({
       </div>
     );
   const q = run.questions[run.index];
+  if (!q)
+    return (
+      <section className="card empty-state" aria-live="polite">
+        <Rocket size={32} />
+        <h2>Chuẩn bị 5 câu tương tự cho em</h2>
+        <p>{run.similar?.message || "Đang chuẩn bị câu đầu tiên…"}</p>
+        <p>Em sẽ vào làm ngay khi câu đầu có đủ đáp án và gợi ý đã kiểm tra.</p>
+        {error && <p role="alert">{error}</p>}
+        {run.similar?.status === "failed" && (
+          <button
+            className="button"
+            disabled={busy}
+            onClick={() => void retryFiveSimilar()}
+          >
+            Thử lại phần chưa xong
+          </button>
+        )}
+        <ButtonLink
+          href={
+            run.similar
+              ? `/luyen-tap/${documentId}/${run.similar.sourceRunId}`
+              : `/tai-lieu/${documentId}`
+          }
+          secondary
+        >
+          Về bài đang học
+        </ButtonLink>
+      </section>
+    );
   const a = run.attempts[q.id] || emptyLearningAttempt();
+  const preparingSimilar = !!run.similar && run.similar.status !== "ready";
+  const waitingForNext =
+    preparingSimilar && run.index === run.questions.length - 1;
+  const targetCount = run.similar?.target || run.questions.length;
   function navigate(index: number) {
     void act({ action: "go", index }, () => {
       const latest = current.current;
@@ -654,8 +780,11 @@ export function RealPracticePage({
                   <p>{run.attempts[item.id].assessment!.feedback}</p>
                   {run.attempts[item.id].assessment!.parts.map((part) => (
                     <p key={part.id}>
-                      {part.label}: {part.points}/{part.maxPoints} ·{" "}
-                      {part.feedback}
+                      {part.label}:{" "}
+                      {part.status === "ungraded"
+                        ? "Chưa chấm"
+                        : `${part.points}/${part.maxPoints}`}{" "}
+                      · {part.feedback}
                     </p>
                   ))}
                 </div>
@@ -730,7 +859,7 @@ export function RealPracticePage({
         </span>
         <button
           className="text-button"
-          disabled={busy}
+          disabled={busy || preparingSimilar}
           onClick={() => setFinish(true)}
         >
           Kết thúc bài
@@ -753,18 +882,38 @@ export function RealPracticePage({
           )}
         </div>
       )}
+      {run.similar && (
+        <div className="notice similar-progress" role="status">
+          <div>
+            <strong>{run.questions.length}/5 câu đã sẵn sàng</strong>
+            <p>{run.similar.message}</p>
+          </div>
+          {run.similar.status === "failed" && (
+            <button
+              className="button secondary"
+              disabled={busy}
+              onClick={() => void retryFiveSimilar()}
+            >
+              Thử lại phần chưa xong
+            </button>
+          )}
+          <Link href={`/luyen-tap/${documentId}/${run.similar.sourceRunId}`}>
+            Về câu gốc
+          </Link>
+        </div>
+      )}
       <div className="practice-progress">
         <div>
           <strong>
             Câu {run.index + 1}
-            <span> / {run.questions.length}</span>
+            <span> / {targetCount}</span>
           </strong>
           <span>{run.result.solved} câu đã hoàn thành</span>
         </div>
         <div className="progress-track">
           <span
             style={{
-              width: `${(run.result.solved / run.questions.length) * 100}%`,
+              width: `${(run.result.solved / targetCount) * 100}%`,
             }}
           />
         </div>
@@ -912,7 +1061,7 @@ export function RealPracticePage({
               </label>
             )}
             <div
-              className={`answer-feedback ${a.solved ? "success" : feedback && a.assessment?.status !== "ungraded" ? "retry" : ""}`}
+              className={`answer-feedback ${a.solved ? "success" : feedback && (!a.assessment || a.assessment.status === "graded") ? "retry" : ""}`}
               role="status"
             >
               {a.solved
@@ -924,15 +1073,18 @@ export function RealPracticePage({
             {a.assessment && (
               <div className="answer-assessment" aria-live="polite">
                 <strong>
-                  {a.assessment.status === "graded"
-                    ? `Điểm bài làm: ${a.assessment.points}/${a.assessment.maxPoints}`
+                  {a.assessment.status !== "ungraded"
+                    ? `Điểm kết quả${a.assessment.status === "partial" ? " đã ghi nhận" : ""}: ${a.assessment.points}/${a.assessment.maxPoints}`
                     : "Đã lưu bài làm · Chưa chấm đúng/sai"}
                 </strong>
                 <p>{a.assessment.feedback}</p>
                 {a.assessment.parts.map((part) => (
                   <p key={part.id}>
                     <b>
-                      {part.label}: {part.points}/{part.maxPoints}
+                      {part.label}:{" "}
+                      {part.status === "ungraded"
+                        ? "Chưa chấm"
+                        : `${part.points}/${part.maxPoints}`}
                     </b>{" "}
                     · {part.feedback}
                   </p>
@@ -1004,7 +1156,7 @@ export function RealPracticePage({
                   >
                     <Lightbulb size={18} /> Vì sao? Xem giải thích
                   </button>
-                  {a.solved && (
+                  {a.solved && !run.similar && (
                     <button
                       type="button"
                       className="button secondary"
@@ -1018,21 +1170,35 @@ export function RealPracticePage({
                     <button
                       type="button"
                       className="button"
-                      disabled={busy}
+                      disabled={busy || waitingForNext}
                       onClick={() =>
                         run.index < run.questions.length - 1
                           ? navigate(run.index + 1)
                           : setFinish(true)
                       }
                     >
-                      {run.index < run.questions.length - 1
-                        ? "Câu tiếp theo"
-                        : "Xem kết quả"}{" "}
+                      {waitingForNext
+                        ? "Đang chuẩn bị câu tiếp theo…"
+                        : run.index < run.questions.length - 1
+                          ? "Câu tiếp theo"
+                          : "Xem kết quả"}{" "}
                       <ArrowRight size={18} />
                     </button>
                   )}
                 </>
               )}
+              <button
+                type="button"
+                className="button secondary similar-five-button"
+                disabled={busy || q.grading === "ungraded"}
+                onClick={() => {
+                  setDifficulty("progressive");
+                  setSimilarError("");
+                  setSimilarOpen(true);
+                }}
+              >
+                <Rocket size={18} /> Làm thêm 5 câu tương tự để luyện tập nhé
+              </button>
             </div>
           </form>
           <div className="question-bottom">
@@ -1046,14 +1212,16 @@ export function RealPracticePage({
             {!a.solved && (
               <button
                 className="text-button"
-                disabled={busy}
+                disabled={busy || waitingForNext}
                 onClick={() =>
                   run.index < run.questions.length - 1
                     ? navigate(run.index + 1)
                     : setFinish(true)
                 }
               >
-                Để sau, mình thử câu khác →
+                {waitingForNext
+                  ? "Câu tiếp theo đang được chuẩn bị…"
+                  : "Để sau, mình thử câu khác →"}
               </button>
             )}
           </div>
@@ -1094,11 +1262,77 @@ export function RealPracticePage({
                   )}
                 </button>
               ))}
+              {Array.from(
+                { length: targetCount - run.questions.length },
+                (_, i) => (
+                  <button
+                    key={`pending-${i}`}
+                    disabled
+                    aria-label={`Câu ${run.questions.length + i + 1} đang chuẩn bị`}
+                  >
+                    {run.questions.length + i + 1}
+                  </button>
+                ),
+              )}
             </div>
             <small>Xanh: đã hoàn thành · Viền xanh: đang làm</small>
           </div>
         </aside>
       </div>
+      {similarOpen && (
+        <Modal
+          title="Em muốn luyện ở mức nào?"
+          onClose={() => {
+            if (!similarBusy) setSimilarOpen(false);
+          }}
+        >
+          <p>
+            {q.answerFields && q.answerFields.length > 1
+              ? `5 câu lớn mới, mỗi câu có ${q.answerFields.length} ý giống cấu trúc câu này.`
+              : q.grading === "self_review"
+                ? "5 bài tự luận mới cùng dạng với bài này, có đáp án và gợi ý riêng."
+                : "5 bài mới cùng dạng với câu em đang học, có đáp án và gợi ý riêng."}
+          </p>
+          <fieldset className="similar-difficulty" disabled={similarBusy}>
+            <legend>Chọn độ khó · Mặc định tăng dần</legend>
+            {similarDifficulties.map((option) => (
+              <label
+                key={option.value}
+                className={difficulty === option.value ? "selected" : ""}
+              >
+                <input
+                  type="radio"
+                  name="similar-difficulty"
+                  value={option.value}
+                  checked={difficulty === option.value}
+                  onChange={() => setDifficulty(option.value)}
+                />
+                <span>
+                  <strong>{option.label}</strong>
+                  <small>{option.description}</small>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+          <p className="micro">
+            Câu đầu sẵn sàng là em có thể làm ngay. Các câu sau tiếp tục được
+            chuẩn bị.
+          </p>
+          {similarError && (
+            <p className="notice error" role="alert">
+              {similarError}
+            </p>
+          )}
+          <button
+            className="button full"
+            disabled={similarBusy}
+            onClick={() => void createFiveSimilar()}
+          >
+            {similarBusy ? "Đang mở bộ luyện…" : "Bắt đầu luyện 5 câu"}{" "}
+            <ArrowRight size={18} />
+          </button>
+        </Modal>
+      )}
       {hint && (
         <Modal
           title="Một gợi ý nhỏ cho em 💡"

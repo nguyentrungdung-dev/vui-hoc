@@ -1,3 +1,4 @@
+import type { SimilarDifficulty } from "./similar";
 import type {
   DocumentJob,
   ExtractedQuestion,
@@ -6,13 +7,21 @@ import type {
 } from "./documents";
 
 export type RubricItem = {
+  kind?: "result" | "method";
   id: string;
   label: string;
   criteria: string;
   maxPoints: number;
 };
 export type AnswerAssessment = {
-  status: "graded" | "ungraded";
+  status: "graded" | "partial" | "ungraded";
+  audit?: {
+    version: string;
+    model?: string;
+    at: string;
+    first: unknown;
+    second: unknown;
+  };
   feedback: string;
   points: number;
   maxPoints: number;
@@ -22,6 +31,9 @@ export type AnswerAssessment = {
     points: number;
     maxPoints: number;
     feedback: string;
+    status?: "graded" | "ungraded";
+    kind?: "result" | "method";
+    reason?: string;
   }[];
 };
 export type LearningQuestion = {
@@ -82,7 +94,14 @@ export type LearningAttempt = {
   first?: string;
   firstCorrect?: boolean;
   firstCredit?: number;
+  firstAssessment?: AnswerAssessment;
+  firstGradedWeight?: number;
   assessment?: AnswerAssessment;
+  assessmentHistory?: {
+    answer: string;
+    assessment: AnswerAssessment;
+    at: string;
+  }[];
   last?: string;
   tries: number;
   solved: boolean;
@@ -92,7 +111,22 @@ export type LearningAttempt = {
   hintOpenedAt?: number;
   hintLevel: number;
 };
+export type SimilarGeneration = {
+  sourceRunId: string;
+  source: LearningQuestion;
+  difficulty: SimilarDifficulty;
+  status: "queued" | "generating" | "ready" | "failed";
+  execution: string;
+  requestId: string;
+  lastError?: string;
+  model: string;
+  message: string;
+  updatedAt: string;
+  target: 5;
+};
 export type LearningRun = {
+  similar?: SimilarGeneration;
+  similarRequests?: Record<string, string>;
   /** Legacy metadata only. Demo runs are shared; this field never grants access. */
   owner?: string;
   id: string;
@@ -149,7 +183,14 @@ export type LearningResult = {
     hints: number;
   }[];
 };
-export type RunView = Omit<LearningRun, "questions" | "eventIds" | "owner"> & {
+export type RunView = Omit<
+  LearningRun,
+  "questions" | "eventIds" | "owner" | "similar" | "similarRequests"
+> & {
+  similar?: Omit<
+    SimilarGeneration,
+    "source" | "execution" | "requestId" | "model" | "lastError"
+  >;
   questions: QuestionView[];
   result: LearningResult;
 };
@@ -240,7 +281,14 @@ export function canGrade(q: Pick<LearningQuestion, "grading" | "rubric">) {
 }
 export function learningResult(run: LearningRun): LearningResult {
   const gradable = run.questions.filter(
-    (q) => canGrade(q) && run.attempts[q.id]?.assessment?.status !== "ungraded",
+    (q) =>
+      canGrade(q) &&
+      (run.attempts[q.id]?.assessment?.status !== "ungraded" ||
+        (run.attempts[q.id]?.firstGradedWeight ?? 0) > 0),
+  );
+  const scoreWeight = gradable.reduce(
+    (n, q) => n + (run.attempts[q.id]?.firstGradedWeight ?? 1),
+    0,
   );
   const firstCorrect = gradable.filter(
     (q) => run.attempts[q.id]?.firstCorrect === true,
@@ -263,7 +311,7 @@ export function learningResult(run: LearningRun): LearningResult {
     }).length,
     hints: attempts.reduce((n, a) => n + a.hintOpens, 0),
     hintMs: attempts.reduce((n, a) => n + a.hintMs, 0),
-    score: gradable.length
+    score: scoreWeight
       ? Math.round(
           (gradable.reduce(
             (n, q) =>
@@ -272,7 +320,7 @@ export function learningResult(run: LearningRun): LearningResult {
                 (run.attempts[q.id]?.firstCorrect ? 1 : 0)),
             0,
           ) /
-            gradable.length) *
+            scoreWeight) *
             100,
         ) / 10
       : null,
@@ -298,9 +346,52 @@ export function learningResult(run: LearningRun): LearningResult {
   };
 }
 export function runView(run: LearningRun): RunView {
-  const { eventIds: _events, owner: _owner, questions, ...rest } = run;
+  const {
+    eventIds: _events,
+    owner: _owner,
+    questions,
+    similar,
+    similarRequests: _similarRequests,
+    ...rest
+  } = run;
+  const publicSimilar = similar
+    ? (() => {
+        const {
+          source: _source,
+          execution: _execution,
+          requestId: _request,
+          model: _model,
+          lastError: _error,
+          ...safe
+        } = similar;
+        return {
+          ...safe,
+          ...(Date.now() - Date.parse(safe.updatedAt) > 10 * 60 * 1000 &&
+          ["queued", "generating"].includes(safe.status)
+            ? {
+                status: "failed" as const,
+                message: "Chuẩn bị bị gián đoạn. Em nhấn Thử lại để tiếp tục.",
+              }
+            : {}),
+        };
+      })()
+    : undefined;
   return {
     ...rest,
+    ...(publicSimilar ? { similar: publicSimilar } : {}),
+    attempts: Object.fromEntries(
+      Object.entries(run.attempts).map(([id, a]) => {
+        const {
+          assessmentHistory: _history,
+          firstAssessment: _first,
+          assessment,
+          ...safe
+        } = a;
+        if (!assessment) return [id, safe];
+        const { audit: _audit, ...publicAssessment } = assessment;
+        return [id, { ...safe, assessment: publicAssessment }];
+      }),
+    ),
     result: learningResult(run),
     questions: questions.map((q) => {
       const {

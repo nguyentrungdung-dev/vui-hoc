@@ -27,6 +27,7 @@ export const learningQuestionSchema = z
             id: z.string().min(1).max(80),
             label: z.string().min(1).max(500),
             criteria: z.string().min(1).max(2000),
+            kind: z.enum(["result", "method"]).default("result"),
             maxPoints: z.number().positive().max(10),
           })
           .strict(),
@@ -279,13 +280,14 @@ export const assessmentSchema = z
       .array(
         z
           .object({
-            id: z.string().max(80),
+            id: z.string().max(100),
+            confident: z.boolean(),
             points: z.number().nonnegative().max(10),
             feedback: z.string().max(1500),
           })
           .strict(),
       )
-      .max(30),
+      .max(60),
   })
   .strict();
 
