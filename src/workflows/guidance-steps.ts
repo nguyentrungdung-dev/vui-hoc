@@ -27,8 +27,8 @@ export async function guidanceAudioStep(
   "use step";
   try {
     return await createGuidanceAudio(docId, id, index, execution);
-  } catch (error) {
-    await failGuidance(docId, id, execution, error);
+  } catch {
+    // Let the batch finish saving successful clips before fencing this worker.
     return false;
   }
 }
@@ -38,7 +38,11 @@ export async function guidanceFinishStep(
   execution: string,
 ) {
   "use step";
-  await finishGuidance(docId, id, execution);
+  try {
+    await finishGuidance(docId, id, execution);
+  } catch (error) {
+    await failGuidance(docId, id, execution, error);
+  }
 }
 export async function guidanceFailedStep(
   docId: string,

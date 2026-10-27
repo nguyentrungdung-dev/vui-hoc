@@ -8,7 +8,29 @@ export type MotionTile = {
   moveTo: number | null;
 };
 export type MotionScene = { tiles: MotionTile[] };
+export type MotionEvent = {
+  action: string;
+  phrase: string;
+  screenText: string;
+  time: number;
+};
+export type MotionLesson = {
+  title: string;
+  segments: {
+    id: string;
+    narration: string;
+    learningGoal: string;
+    cues: Omit<MotionEvent, "time">[];
+  }[];
+};
+export type GuidanceMotion = {
+  template: "carry-45-38";
+  duration: number;
+  events: MotionEvent[];
+  clips: { start: number; end: number; seconds: number; narration: string }[];
+};
 export type GuidanceView = {
+  motion?: GuidanceMotion;
   id: string;
   status: "queued" | "generating" | "ready" | "failed";
   message: string;

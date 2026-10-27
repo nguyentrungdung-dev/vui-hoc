@@ -10,6 +10,14 @@ import { modelName } from "./analysis";
 import { storageMode, requireStorage } from "./source-files";
 import { jobDir } from "./store";
 import { AppError } from "./validation";
+import {
+  supportsCarryMotion,
+  createCarryLesson,
+  assembleLesson,
+  alignMotion,
+  transcribeMotion,
+  motionVersion,
+} from "./guidance-motion";
 import { createScenes } from "./guidance-ai";
 import { synthesizeSpeech, speechConfig } from "./speech";
 import {
@@ -74,7 +82,14 @@ export function guidanceSource(q: LearningQuestion) {
     answer: q.answer,
     options: q.options,
   });
-  return { scripts, prompt, sourceHash };
+  return {
+    scripts,
+    prompt,
+    sourceHash,
+    ...(supportsCarryMotion(q)
+      ? { motionTemplate: "carry-45-38" as const }
+      : {}),
+  };
 }
 function question(run: LearningRun, questionId: string) {
   const q = run.questions.find((q) => q.id === questionId);
@@ -97,6 +112,7 @@ export function guidanceView(job: GuidanceJob, runId: string): GuidanceView {
     completed: job.audio.filter(Boolean).length,
     total: job.scripts.length,
     prompt: job.prompt,
+    ...(job.status === "ready" && job.motion ? { motion: job.motion } : {}),
     segments: job.scripts.map((text, i) => ({
       text,
       scene: job.scenes?.[i] ?? null,
@@ -131,7 +147,10 @@ export async function requestGuidance(
   if (run.questions[run.index]?.id !== q.id)
     throw new AppError("Câu đang làm đã thay đổi. Hãy mở lại câu hỏi.", 409);
   const source = guidanceSource(q);
-  const config = guidanceConfig();
+  const config = {
+    ...guidanceConfig(),
+    ...(source.motionTemplate ? { version: motionVersion } : {}),
+  };
   const id = hash({ docId, sourceHash: source.sourceHash, config });
   // Record full-solution exposure before returning any scene/script, including cache hits.
   const nextRun = await changeRun(docId, runId, viewer, {
@@ -162,6 +181,7 @@ export async function requestGuidance(
       status: "queued",
       message: "Đang chuẩn bị hướng dẫn…",
       execution,
+      generationStartedAt: Date.now(),
       updatedAt: new Date().toISOString(),
     };
     job.execution = execution;
@@ -241,6 +261,23 @@ export async function prepareGuidance(
     j.status = "generating";
     j.message = "Đang tạo cảnh minh họa…";
   });
+  if (job.motionTemplate) {
+    if (!job.lesson) {
+      const lesson = await createCarryLesson(
+        job.prompt,
+        job.scripts,
+        job.config.model,
+      );
+      await updateGuidance(docId, id, execution, (j) => {
+        j.lesson = lesson;
+        j.scripts = lesson.segments.map((s) => s.narration);
+        j.scenes = j.scripts.map(() => ({ tiles: [] }));
+        j.audio = j.scripts.map(() => null);
+      });
+      return lesson.segments.length;
+    }
+    return job.scripts.length;
+  }
   if (!job.scenes) {
     const scenes = await createScenes(
       job.prompt,
@@ -280,7 +317,20 @@ export async function createGuidanceAudio(
     job.config.ttsInstructions,
   );
   // Execution-specific paths prevent an obsolete worker from overwriting a later retry.
-  const relative = `guidance/${docId}/${id}/${execution}/${index}.wav`;
+  const asset = await saveAudio(docId, id, execution, `${index}`, bytes);
+  await updateGuidance(docId, id, execution, (j) => {
+    j.audio[index] = asset;
+  });
+  return true;
+}
+async function saveAudio(
+  docId: string,
+  id: string,
+  execution: string,
+  name: string,
+  bytes: Buffer,
+) {
+  const relative = `guidance/${docId}/${id}/${execution}/${name}.wav`;
   const storage = storageMode();
   if (storage === "blob") {
     await guidanceStorage.put(relative, bytes, {
@@ -296,20 +346,124 @@ export async function createGuidanceAudio(
     await fs.writeFile(temp, bytes, { mode: 0o600 });
     await fs.rename(temp, target);
   }
-  await updateGuidance(docId, id, execution, (j) => {
-    j.audio[index] = { path: relative, storage, size: bytes.length };
+  return { path: relative, storage, size: bytes.length };
+}
+async function readAudio(
+  docId: string,
+  asset: NonNullable<GuidanceJob["audio"][number]>,
+) {
+  if (asset.storage === "local")
+    return fs.readFile(path.join(jobDir(docId), asset.path));
+  const file = await guidanceStorage.get(asset.path, {
+    access: "private",
+    abortSignal: AbortSignal.timeout(30000),
   });
-  return true;
+  if (!file || file.statusCode !== 200)
+    throw new AppError("Chưa đọc được âm thanh để căn lời.", 502);
+  return Buffer.from(await new Response(file.stream).arrayBuffer());
 }
 export async function finishGuidance(
   docId: string,
   id: string,
   execution: string,
 ) {
+  let job = await readGuidance(docId, id);
+  if (
+    !job ||
+    job.execution !== execution ||
+    job.status === "failed" ||
+    job.status === "ready"
+  )
+    return;
+  if (!job.scenes || job.audio.some((a) => !a))
+    throw new AppError("Hướng dẫn chưa tạo đủ. Em hãy thử lại.");
+  if (job.motionTemplate && job.lesson && !job.motion) {
+    await updateGuidance(docId, id, execution, (j) => {
+      j.message = "Đang căn chuyển động theo lời đọc…";
+    });
+    if (!job.motionPrepared) {
+      const raw = await Promise.all(job.audio.map((a) => readAudio(docId, a!)));
+      let assembled: ReturnType<typeof assembleLesson>;
+      try {
+        assembled = assembleLesson(raw);
+      } catch {
+        // Clips outside the duration contract must not trap every retry on the
+        // same invalid audio. Keep the rejected assets for diagnosis only.
+        await updateGuidance(docId, id, execution, (j) => {
+          j.rawAudio = j.audio;
+          j.audio = j.scripts.map(() => null);
+          delete j.wordTimestamps;
+        });
+        throw new AppError(
+          "Lời đọc chưa đạt thời lượng khoảng 50 giây. Em có thể xem lời giải chữ và thử lại.",
+          502,
+        );
+      }
+      const audio: GuidanceJob["audio"] = [];
+      for (const [i, clip] of assembled.clips.entries())
+        audio.push(
+          await saveAudio(docId, id, execution, `clean-${i}`, clip.wav),
+        );
+      const combined = await saveAudio(
+        docId,
+        id,
+        execution,
+        "aligned",
+        assembled.wav,
+      );
+      const clips = assembled.clips.map((c, i) => ({
+        start: c.start,
+        end: c.end,
+        seconds: c.seconds,
+        narration: job!.scripts[i],
+      }));
+      await updateGuidance(docId, id, execution, (j) => {
+        j.rawAudio = j.audio;
+        j.motionPrepared = {
+          audio,
+          combined,
+          clips,
+          duration: assembled.duration,
+          removedSilenceSeconds: assembled.removedSilenceSeconds,
+        };
+      });
+      job = (await readGuidance(docId, id))!;
+      if (job.execution !== execution || !job.motionPrepared) return;
+    }
+    const prepared = job.motionPrepared;
+    const wav = await readAudio(docId, prepared.combined);
+    const words = job.wordTimestamps ?? (await transcribeMotion(wav));
+    if (!job.wordTimestamps)
+      await updateGuidance(docId, id, execution, (j) => {
+        j.wordTimestamps = words;
+      });
+    let events;
+    try {
+      events = alignMotion(job.lesson!, prepared.clips, words);
+    } catch (error) {
+      // Retrying alignment reuses TTS but must be able to replace a bad ASR result.
+      await updateGuidance(docId, id, execution, (j) => {
+        delete j.wordTimestamps;
+      });
+      throw error;
+    }
+    await updateGuidance(docId, id, execution, (j) => {
+      j.audio = prepared.audio;
+      j.motion = {
+        template: "carry-45-38",
+        duration: prepared.duration,
+        events,
+        clips: prepared.clips,
+      };
+    });
+  }
   await updateGuidance(docId, id, execution, (j) => {
-    if (!j.scenes || j.audio.some((a) => !a))
-      throw new AppError("Hướng dẫn chưa tạo đủ. Em hãy thử lại.");
+    if (j.motionTemplate && !j.motion)
+      throw new AppError("Chuyển động chưa được kiểm tra.");
     j.status = "ready";
+    j.generationSeconds = j.generationStartedAt
+      ? (Date.now() - j.generationStartedAt) / 1000
+      : undefined;
     j.message = "Hướng dẫn đã sẵn sàng.";
   });
 }

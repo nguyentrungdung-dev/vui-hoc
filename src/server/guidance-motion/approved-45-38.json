@@ -1,0 +1,132 @@
+{
+  "title": "Cùng tính 45 + 38 nhé!",
+  "segments": [
+    {
+      "id": "intro",
+      "narration": "Cùng mình giải bài toán bốn mươi lăm cộng ba mươi tám nhé.",
+      "learningGoal": "intro",
+      "cues": [
+        {
+          "action": "show_problem",
+          "phrase": "bốn mươi lăm",
+          "screenText": "45 + 38"
+        }
+      ]
+    },
+    {
+      "id": "units",
+      "narration": "Trước hết mình cộng hàng đơn vị: năm cộng tám bằng mười ba đơn vị.",
+      "learningGoal": "units",
+      "cues": [
+        {
+          "action": "show_units_left",
+          "phrase": "năm",
+          "screenText": "5 đơn vị"
+        },
+        {
+          "action": "show_units_right",
+          "phrase": "tám",
+          "screenText": "8 đơn vị"
+        },
+        {
+          "action": "combine_units",
+          "phrase": "mười ba",
+          "screenText": "5 + 8 = 13"
+        }
+      ]
+    },
+    {
+      "id": "regroup",
+      "narration": "Mình gom mười ô thành một chục, còn ba ô để ở hàng đơn vị.",
+      "learningGoal": "regroup",
+      "cues": [
+        {
+          "action": "group_ten",
+          "phrase": "gom mười ô",
+          "screenText": "Gom 10 đơn vị"
+        },
+        {
+          "action": "exchange_ten",
+          "phrase": "thành một chục",
+          "screenText": "10 đơn vị = 1 chục"
+        }
+      ]
+    },
+    {
+      "id": "carry",
+      "narration": "Mình viết số ba ở hàng đơn vị, chuyển một chục lên hàng chục làm số nhớ một.",
+      "learningGoal": "carry",
+      "cues": [
+        {
+          "action": "write_units",
+          "phrase": "viết số ba",
+          "screenText": "Viết 3 ở hàng đơn vị"
+        },
+        {
+          "action": "carry_ten",
+          "phrase": "chuyển một chục",
+          "screenText": "Chuyển 1 chục sang cột chục"
+        },
+        {
+          "action": "emphasize_carry",
+          "phrase": "số nhớ một",
+          "screenText": "Số nhớ 1 là một chục"
+        },
+        {
+          "action": "sticker_aha",
+          "phrase": "số nhớ một",
+          "screenText": ""
+        }
+      ]
+    },
+    {
+      "id": "tens",
+      "narration": "Bốn chục cộng ba chục cộng một chục nhớ bằng tám chục, nên mình viết số tám.",
+      "learningGoal": "tens",
+      "cues": [
+        {
+          "action": "show_tens_left",
+          "phrase": "Bốn chục",
+          "screenText": "4 chục"
+        },
+        {
+          "action": "show_tens_right",
+          "phrase": "ba chục",
+          "screenText": "3 chục"
+        },
+        {
+          "action": "add_carry_ten",
+          "phrase": "một chục nhớ",
+          "screenText": "Thêm 1 chục nhớ"
+        },
+        {
+          "action": "sum_tens",
+          "phrase": "bằng tám chục",
+          "screenText": "4 + 3 + 1 = 8 chục"
+        },
+        {
+          "action": "write_tens",
+          "phrase": "viết số tám",
+          "screenText": "Viết 8 ở hàng chục"
+        }
+      ]
+    },
+    {
+      "id": "conclusion",
+      "narration": "Vậy kết quả là tám mươi ba.",
+      "learningGoal": "conclusion",
+      "cues": [
+        {
+          "action": "conclude",
+          "phrase": "tám mươi ba",
+          "screenText": "45 + 38 = 83"
+        },
+        {
+          "action": "sticker_celebrate",
+          "phrase": "tám mươi ba",
+          "screenText": ""
+        }
+      ]
+    }
+  ]
+}

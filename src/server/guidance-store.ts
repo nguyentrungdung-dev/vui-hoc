@@ -4,13 +4,32 @@ import { randomUUID } from "node:crypto";
 import { databaseEnabled, query } from "./database";
 import { jobDir, lock } from "./store";
 import { AppError } from "./validation";
-import type { MotionScene, GuidanceView } from "../lib/guidance";
+import type {
+  MotionScene,
+  GuidanceView,
+  MotionLesson,
+  GuidanceMotion,
+} from "../lib/guidance";
 
 export type GuidanceJob = {
   id: string;
   documentId: string;
   questionId: string;
   sourceHash: string;
+  motionTemplate?: "carry-45-38";
+  lesson?: MotionLesson;
+  motion?: GuidanceMotion;
+  rawAudio?: GuidanceJob["audio"];
+  motionPrepared?: {
+    clips: GuidanceMotion["clips"];
+    audio: GuidanceJob["audio"];
+    combined: NonNullable<GuidanceJob["audio"][number]>;
+    duration: number;
+    removedSilenceSeconds: number;
+  };
+  wordTimestamps?: { word: string; start: number; end: number }[];
+  generationStartedAt?: number;
+  generationSeconds?: number;
   prompt: string;
   scripts: string[];
   config: {

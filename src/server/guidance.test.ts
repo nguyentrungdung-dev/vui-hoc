@@ -36,10 +36,10 @@ const q: LearningQuestion = {
   sourcePages: [1],
   topic: "Cộng",
   label: "Câu 1",
-  prompt: "Kết quả của 45 + 38 là:",
+  prompt: "Kết quả của 46 + 38 là:",
   passage: "",
   options: [
-    { label: "A", text: "83" },
+    { label: "A", text: "84" },
     { label: "B", text: "73" },
   ],
   hasFigure: false,
@@ -52,8 +52,8 @@ const q: LearningQuestion = {
   acceptedAnswers: [],
   hints: ["Một gợi ý ngắn, không phải script."],
   steps: [
-    "5 + 8 = 13. Viết 3, nhớ 1 chục.",
-    "4 + 3 + 1 = 8 chục. Kết quả là 83.",
+    "6 + 8 = 14. Viết 4, nhớ 1 chục.",
+    "4 + 3 + 1 = 8 chục. Kết quả là 84.",
   ],
   explanation: "Cộng hàng đơn vị trước, cộng hàng chục cùng số nhớ.",
   englishSteps: [],
@@ -292,8 +292,8 @@ test("TTS failure saves completed clips; concurrent retries resume only missing 
     await generateGuidanceWorkflow(job.id, saved.id, saved.execution);
     saved = (await readGuidance(job.id, saved.id))!;
     assert.equal(saved.status, "failed");
-    assert.ok(saved.audio[0]);
-    assert.equal(saved.audio[1], null);
+    assert.equal(saved.audio.filter(Boolean).length, 2);
+    assert.equal(saved.audio.filter((a) => !a).length, 1);
     assert.ok(!saved.message.includes("private upstream"));
     const retries = await Promise.all(
       Array.from({ length: 4 }, () =>
@@ -399,7 +399,7 @@ test("API enforces origin, document access, full-solution exposure and audio bou
 });
 test("Motion rejects invented text, reordered counts and overlapping tiles; narration and timeline follow deterministic rules", () => {
   const tile = {
-    text: "5 + 8 = 13",
+    text: "6 + 8 = 14",
     slot: 0,
     appearAt: 0.1,
     highlightAt: 0.2,
@@ -424,8 +424,8 @@ test("Motion rejects invented text, reordered counts and overlapping tiles; narr
     tile.text,
   );
   assert.equal(
-    speechText("5 + 8 = 13. Viết 3, nhớ 1 chục."),
-    "năm cộng tám bằng mười ba. Viết ba, nhớ một chục.",
+    speechText("6 + 8 = 14. Viết 4, nhớ 1 chục."),
+    "sáu cộng tám bằng mười bốn. Viết bốn, nhớ một chục.",
   );
   assert.equal(
     speechText("45 + 38 = 83"),

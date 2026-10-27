@@ -26,7 +26,13 @@ export async function teachingAI<T extends z.ZodType>(
     ...(model.startsWith("anthropic/claude-haiku-5.5")
       ? {}
       : { temperature: 0.2 }),
-    max_tokens: name === "teaching_review" ? 5000 : 16000,
+    max_tokens:
+      name === "guidance_narration"
+        ? 1800
+        : name === "teaching_review"
+          ? 5000
+          : 16000,
+    ...(name === "guidance_narration" ? { reasoning: { enabled: false } } : {}),
     provider: { require_parameters: true },
     ...(content.some((c) => c.type === "file")
       ? { plugins: [{ id: "file-parser", pdf: { engine: "native" } }] }

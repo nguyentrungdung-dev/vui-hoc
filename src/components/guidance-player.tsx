@@ -14,6 +14,7 @@ import {
   type GuidanceResponse,
   type GuidanceView,
 } from "@/lib/guidance";
+import { GuidanceMotionStage } from "./guidance-motion-stage";
 import { Modal } from "./ui";
 
 async function readResponse(response: Response): Promise<GuidanceResponse> {
@@ -173,8 +174,13 @@ export function GuidancePlayer({ view }: { view: GuidanceView }) {
   const [error, setError] = useState("");
   const audioRef = useRef<HTMLAudioElement>(null);
   const playAttempt = useRef(0);
+  const pendingSeek = useRef<number | null>(null);
   const segment = view.segments[index];
   const count = view.segments.length;
+  const motionTime = view.motion
+    ? view.motion.clips[index].start +
+      progress * (duration || view.motion.clips[index].seconds)
+    : 0;
   const [completed, setCompleted] = useState(false);
   // The audio clock is the sole timeline for scenes, including pause and seeking.
   useEffect(() => {
@@ -230,6 +236,7 @@ export function GuidancePlayer({ view }: { view: GuidanceView }) {
   }
   function go(next: number, shouldPlay = playing) {
     pause();
+    pendingSeek.current = null;
     setIndex(next);
     setProgress(0);
     setDuration(0);
@@ -257,35 +264,39 @@ export function GuidancePlayer({ view }: { view: GuidanceView }) {
         </span>
         <span>Nhìn kỹ · Nghe chậm · Cùng hiểu</span>
       </div>
-      <div className="guidance-stage" aria-hidden="true">
-        {segment.scene?.tiles.map((tile, i) => {
-          const frame = tileFrame(tile, progress);
-          return (
-            <div
-              key={`${index}-${i}`}
-              className={`motion-tile${frame.highlighted ? " highlighted" : ""}`}
-              style={{
-                left: `${4 + frame.x * 32}%`,
-                top: `${6 + frame.y * 47}%`,
-                opacity: frame.visible ? 1 : 0,
-                transform: frame.visible ? "scale(1)" : "scale(.9)",
-              }}
+      {view.motion ? (
+        <GuidanceMotionStage motion={view.motion} time={motionTime} />
+      ) : (
+        <div className="guidance-stage" aria-hidden="true">
+          {segment.scene?.tiles.map((tile, i) => {
+            const frame = tileFrame(tile, progress);
+            return (
+              <div
+                key={`${index}-${i}`}
+                className={`motion-tile${frame.highlighted ? " highlighted" : ""}`}
+                style={{
+                  left: `${4 + frame.x * 32}%`,
+                  top: `${6 + frame.y * 47}%`,
+                  opacity: frame.visible ? 1 : 0,
+                  transform: frame.visible ? "scale(1)" : "scale(.9)",
+                }}
+              >
+                {tile.text}
+              </div>
+            );
+          })}
+          {!playing && progress === 0 && (
+            <button
+              type="button"
+              className="guidance-stage-play"
+              tabIndex={-1}
+              onClick={() => void play()}
             >
-              {tile.text}
-            </div>
-          );
-        })}
-        {!playing && progress === 0 && (
-          <button
-            type="button"
-            className="guidance-stage-play"
-            tabIndex={-1}
-            onClick={() => void play()}
-          >
-            <Play size={26} />
-          </button>
-        )}
-      </div>
+              <Play size={26} />
+            </button>
+          )}
+        </div>
+      )}
       <p className="guidance-caption" aria-live="polite">
         {segment.text}
       </p>
@@ -297,6 +308,12 @@ export function GuidancePlayer({ view }: { view: GuidanceView }) {
         onLoadedMetadata={(e) => {
           const d = e.currentTarget.duration;
           setDuration(Number.isFinite(d) ? d : 0);
+          if (pendingSeek.current !== null && Number.isFinite(d) && d > 0) {
+            const seek = Math.min(d, pendingSeek.current);
+            e.currentTarget.currentTime = seek;
+            setProgress(seek / d);
+            pendingSeek.current = null;
+          }
         }}
         onDurationChange={(e) => {
           const d = e.currentTarget.duration;
@@ -332,23 +349,44 @@ export function GuidancePlayer({ view }: { view: GuidanceView }) {
         }}
       />
       <div className="guidance-seek">
-        <span>{clock(progress * duration)}</span>
+        <span>{clock(view.motion ? motionTime : progress * duration)}</span>
         <input
           type="range"
           min="0"
           max="1000"
-          value={Math.round(progress * 1000)}
+          value={Math.round(
+            (view.motion ? motionTime / view.motion.duration : progress) * 1000,
+          )}
           disabled={!duration}
           aria-label="Tua đoạn hướng dẫn"
           onChange={(e) => {
             const next = Number(e.target.value) / 1000;
+            if (view.motion) {
+              const time = next * view.motion.duration;
+              const target = view.motion.clips.findIndex(
+                (c, i) => time < c.end || i === count - 1,
+              );
+              const localTime = time - view.motion.clips[target].start;
+              if (target !== index) {
+                go(target, playing);
+                pendingSeek.current = localTime;
+                setProgress(localTime / view.motion.clips[target].seconds);
+              } else if (audioRef.current) {
+                audioRef.current.currentTime = localTime;
+                setProgress(
+                  localTime / (duration || view.motion.clips[target].seconds),
+                );
+              }
+              setCompleted(false);
+              return;
+            }
             if (audioRef.current && duration)
               audioRef.current.currentTime = next * duration;
             setProgress(next);
             setCompleted(false);
           }}
         />
-        <span>{clock(duration)}</span>
+        <span>{clock(view.motion?.duration ?? duration)}</span>
       </div>
       <div className="guidance-controls">
         <button

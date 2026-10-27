@@ -86,3 +86,13 @@ Sao và đồ trang trí gắn với phiên trình duyệt qua cookie hiện có
 Sau khi đổi và đặt đồ, chọn **Sắp xếp vật phẩm** rồi kéo bằng chuột, bút hoặc ngón tay. Chọn **Xong** để kết thúc. Chế độ sắp xếp giữ cử chỉ cảm ứng trong bản đồ; vùng ngoài bản đồ vẫn cuộn trang bình thường. Có thể dùng Tab để chọn đồ và các phím mũi tên để di chuyển (Shift để đi xa hơn).
 
 Vị trí lưu khi thả, dùng tọa độ tỷ lệ nên giữ cách sắp xếp khi xoay iPad hoặc đổi kích thước cửa sổ. Mỗi vật phẩm được giới hạn trong bản đồ, giữ vị trí khi cất rồi đặt lại. **Về vị trí ban đầu** chỉ khôi phục bố cục của bản đồ đang mở. Dữ liệu trước tính năng này tiếp tục dùng bố cục mặc định. Mất kết nối khi lưu sẽ hiện lỗi và trả vật phẩm về vị trí đã lưu.
+
+## Video lời giải khoảng 50 giây (mẫu đã duyệt)
+
+Nút **Xem video hướng dẫn chi tiết** trong lời giải dùng luồng mới cho phép tính **45 + 38** khi đề, đáp án 83 và các bước cộng có nhớ khớp mẫu đã kiểm tra. Claude biên soạn riêng sáu đoạn lời dẫn, không lấy hint làm script; nếu câu chữ vượt hợp đồng cue thì dùng lời dẫn mẫu đã duyệt. Giữ cấu hình Gemini TTS/Aoede và tốc độ đọc hiện tại. Chuyển động thể hiện gom 10 ô thành một chục, chuyển chục nhớ, cộng hàng chục và robot phản ứng đúng bước.
+
+Workflow tạo tối đa ba đoạn giọng đọc cùng lúc, lưu từng đoạn, xử lý WAV PCM bằng Node (không cần FFmpeg), cắt khoảng yên lặng dài và kiểm thời lượng 45–55 giây. Những khoảng quan sát thêm không quá hai giây mỗi đoạn. Nhận dạng từng từ căn cue trên audio đã xử lý; không dùng chữ nhận dạng làm lời dẫn. Không xuất MP4 trên đường chờ của học sinh. Player dùng đồng hồ audio để phát/dừng/tua cả bài; cache và audio riêng tư tiếp tục được phân quyền theo luồng hiện có.
+
+Mẫu hình này hiện chỉ bật cho 45 + 38. Các bài khác tiếp tục dùng renderer cũ; chưa áp hình ô/chục vào mọi phép tính hoặc môn học. Dữ liệu hướng dẫn cũ vẫn phát được. Thay đổi chỉ thêm trường JSONB, không cần migration bảng.
+
+`node --import tsx scripts/check-guidance-live.ts` chạy nghiệm thu có tính phí trên một tài liệu mẫu trong thư mục tạm, không đọc/ghi database sản phẩm: Claude → sáu đoạn Aoede → xử lý âm thanh → căn từ → kiểm cache. Lượt nghiệm thu ngày 27/10/2026 đạt trạng thái ready sau khoảng 17 giây, video khoảng 50 giây; đây là một lần đo local, chưa phải cam kết thời gian khi có nhiều người dùng. Kiểm thử tự động còn bao gồm cue sai, ASR thêm chữ, thử lại không tạo lại TTS, phân quyền, cache và tua tiến/lùi.

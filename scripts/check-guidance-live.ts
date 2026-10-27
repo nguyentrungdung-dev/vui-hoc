@@ -25,6 +25,7 @@ async function main() {
   process.env.VUIHOC_DATA_DIR = root;
   const q: LearningQuestion = {
     id: "sample-addition",
+    contentVersion: 2,
     sourceIds: [],
     sourcePages: [1],
     topic: "Cộng có nhớ",
@@ -129,6 +130,8 @@ async function main() {
     status: saved.status,
     message: saved.message,
     scenes: saved.scenes,
+    motion: saved.motion,
+    removedSilenceSeconds: saved.motionPrepared?.removedSilenceSeconds,
     completedAudio: saved.audio.filter(Boolean).length,
     elapsedSeconds: Math.round((Date.now() - startedAt) / 1000),
   };

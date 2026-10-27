@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vui Học · Cộng có nhớ</title>
+<script src="assets/gsap.min.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#edf3ff;color:#202b3d;font-family:'Be Vietnam Pro',sans-serif}button,input{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible{outline:3px solid #8371bc;outline-offset:3px}.screen{width:100%;aspect-ratio:16/9;position:relative;overflow:hidden;background:#faf9f6}.canvas{width:1280px;height:720px;transform-origin:top left;position:absolute;inset:0;background:#faf9f6;overflow:hidden}.scene-content{width:100%;height:100%;padding:32px 48px;display:flex;flex-direction:column;gap:16px}.header{display:flex;align-items:center;gap:12px;height:44px;font-size:24px;font-weight:700}.header img{width:38px;height:38px;border-radius:10px;object-fit:cover}.header small{margin-left:auto;font-size:17px;font-weight:400;color:#596579}.title{font-size:42px;font-weight:800;margin:4px 0 0;letter-spacing:-1px}.subtitle{font-size:22px;color:#596579}.dot{position:absolute;border-radius:50%;background:#f2edfb;pointer-events:none}.dot.a{width:340px;height:340px;left:-170px;top:290px}.dot.b{width:280px;height:280px;right:-140px;top:70px;background:#edf3ff}.stage-note{position:absolute;top:174px;left:80px;font-size:24px;font-weight:600;color:#416bb0}.unit{position:absolute;width:30px;height:30px;border-radius:7px;background:#416bb0;box-shadow:inset 0 -4px 0 #31558e;border:2px solid #faf9f6}.unit.second{background:#8371bc;box-shadow:inset 0 -4px 0 #6a589b}.ten-rod{position:absolute;width:30px;height:200px;display:flex;flex-direction:column;border-radius:7px;background:#416bb0;overflow:hidden;box-shadow:0 6px 16px #416bb01a}.ten-rod span{height:20px;flex:none;border-bottom:2px solid #faf9f6aa}.ten-rod.second{background:#8371bc}.ten-rod.carried{background:#416bb0;outline:3px solid #8371bc;outline-offset:4px}.group-label{position:absolute;top:415px;font-size:23px;font-weight:600}.group-ring{position:absolute;left:176px;top:210px;width:76px;height:228px;border:3px dashed #8371bc;border-radius:18px}.conversion{position:absolute;left:90px;top:472px;font-size:26px;font-weight:600;color:#31558e}.result-label{position:absolute;left:100px;top:472px;font-size:28px;font-weight:700}.math-panel{position:absolute;left:855px;top:170px;width:300px;height:340px;border-radius:28px;background:#edf3ff}.column-glow{position:absolute;left:1050px;top:216px;width:80px;height:268px;background:#fff1e5;border-radius:18px}.column-label{position:absolute;top:187px;font-size:22px;font-weight:600;color:#31558e}.digit{position:absolute;font-size:80px;font-weight:600;width:80px;text-align:center;font-variant-numeric:tabular-nums;line-height:1.2}.small-carry{font-size:36px;color:#6a589b;top:216px;left:971px}.plus{font-size:60px;left:863px;top:331px}.math-line{position:absolute;left:899px;top:407px;width:236px;height:4px;background:#416bb0;transform-origin:left}.digit.result{top:420px}.carry-path{position:absolute;left:253px;top:223px;width:705px;height:45px;border-top:3px dashed #8371bc;border-radius:50%;transform-origin:left}.carry-label{position:absolute;left:555px;top:196px;font-size:23px;color:#6a589b;font-weight:600}.mascot{position:absolute;left:1080px;top:510px;width:175px;height:175px;object-fit:contain;transform-origin:50% 80%;filter:drop-shadow(0 8px 12px #202b3d15)}.bubble{position:absolute;left:937px;top:530px;padding:12px 18px;border-radius:24px 24px 4px 24px;background:#f2edfb;color:#594581;font-size:22px;font-weight:600;max-width:205px}.spark{position:absolute;font-size:34px;color:#8371bc}.caption-area{position:absolute;left:48px;top:552px;width:862px;height:128px;padding:22px 26px;background:#edf3ff;border-radius:22px;display:flex;align-items:center}.caption{position:absolute;left:26px;right:26px;font-size:27px;line-height:1.55;font-weight:500;margin:0}.chapter{position:absolute;left:48px;top:690px;width:1184px;height:5px;background:#e9e9ec;border-radius:3px;overflow:hidden}.chapter-fill{height:100%;background:#8371bc;transform-origin:left}.controls{max-width:1100px;margin:0 auto;padding:16px 22px 22px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}.controls button{border:0;border-radius:14px;padding:11px 18px;background:#faf9f6;color:#31558e;font-weight:600}.controls .main{background:#416bb0;color:#fff}.controls input{flex:1;min-width:110px;accent-color:#8371bc}.time{font-variant-numeric:tabular-nums;font-size:14px}.steps{width:100%;display:flex;flex-wrap:wrap;gap:8px}.steps button{font-size:13px;padding:9px 12px}.steps button.active{background:#f2edfb;color:#594581}.review-note{font-size:13px;color:#596579;margin-left:auto}.carry-proof{position:absolute;left:100px;top:505px;font-size:23px;color:#6a589b}.answer-ring{position:absolute;left:964px;top:420px;width:170px;height:99px;border:4px solid #8371bc;border-radius:25px}
+@media(prefers-reduced-motion:reduce){.controls::after{content:'Có thể dùng các nút từng bước để xem hình tĩnh.';font-size:13px;color:#596579}}
+</style>
+</head>
+<body>
+<main class="screen" data-composition-id="addition" data-start="0" data-duration="49.99995833333333" data-width="1280" data-height="720" aria-label="Cộng 45 và 38, minh họa đổi mười đơn vị thành một chục">
+<div id="addition" class="canvas">
+<div class="dot a" data-layout-ignore></div><div class="dot b" data-layout-ignore></div>
+<div class="scene-content">
+<div class="header"><img src="assets/brand.png" alt="">Vui Học <small>Cùng hiểu cách giải</small></div>
+<h1 class="title">Cùng tính 45 + 38 nhé!</h1><div class="subtitle" style="display:none">Cộng hàng đơn vị trước, rồi đến hàng chục.</div>
+</div>
+
+
+
+
+<div id="units"></div><div id="sceneLabels"></div><div class="group-ring" id="groupRing"></div>
+<div class="group-label" id="fiveLabel" style="left:203px">5 đơn vị</div><div class="group-label" id="eightLabel" style="left:482px">8 đơn vị</div>
+
+
+<div class="carry-path" id="carryPath"></div>
+<div id="rods"></div><div class="ten-rod carried" id="carriedRod" style="left:199px;top:225px"></div>
+<div class="group-label" id="fourLabel" style="left:153px;top:438px">4 chục</div><div class="group-label" id="threeLabel" style="left:392px;top:438px">3 chục</div><div class="group-label" id="oneLabel" style="left:572px;top:438px">1 chục nhớ</div>
+
+
+
+<div class="math-panel"></div><div class="column-glow" id="columnGlow"></div>
+<div class="column-label" style="left:977px">Chục</div><div class="column-label" style="left:1056px">Đơn vị</div>
+<div class="digit small-carry" id="carry">1</div>
+<div class="digit" id="d4" style="left:971px;top:263px">4</div><div class="digit" id="d5" style="left:1050px;top:263px">5</div>
+<div class="digit plus">+</div><div class="digit" id="d3" style="left:971px;top:330px">3</div><div class="digit" id="d8" style="left:1050px;top:330px">8</div>
+<div class="math-line"></div><div class="digit result" id="answer8" style="left:971px">8</div><div class="digit result" id="answer3" style="left:1050px">3</div><div class="answer-ring" id="answerRing"></div>
+<img class="mascot" id="robot" src="assets/robot.png" alt="Robot khoa học Vui Học">
+<div class="bubble" id="aha">À, đổi được 1 chục!</div><div class="bubble" id="hooray">Đúng rồi, 83!</div>
+<div id="sparks" aria-hidden="true"></div>
+<div class="caption-area" id="captions"></div>
+<div class="chapter"><div class="chapter-fill" id="progressFill"></div></div>
+</div>
+</main>
+<script type="module">
+import {createMotionTimeline} from './renderer-core.mjs';
+const root=document.getElementById('addition');let motion;let clock=0;
+function fit(){root.style.transform='scale('+(root.parentElement.clientWidth/1280)+')'}
+new ResizeObserver(fit).observe(root.parentElement);fit();
+addEventListener('message',event=>{
+ if(event.source!==parent||event.origin!==location.origin)return;
+ const msg=event.data;
+ if(msg?.type==='guidance-init'&&!motion){motion=createMotionTimeline({root,data:msg.data,gsap});motion.timeline.time(clock);}
+ if(msg?.type==='guidance-time'&&Number.isFinite(msg.time)){clock=Math.max(0,msg.time);motion?.timeline.time(clock);}
+});
+parent.postMessage({type:'guidance-stage-ready'},location.origin);
+</script></body></html>
