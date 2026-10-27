@@ -52,6 +52,7 @@ import { PracticeMenu } from "./practice-menu";
 import { RevisionPage, RevisionSetPage } from "./revision";
 import { WorldsSection } from "./worlds";
 import { TimoPage } from "./timo";
+import { RewardsPage } from "./rewards";
 import { HeroCompanions } from "./hero-companions";
 
 export type Shared = {
@@ -65,7 +66,7 @@ export default function VuiHocApp({ path }: { path: string }) {
   const [state, setState] = useState<State>(initialState);
   const [ready, setReady] = useState(false);
   const [storageError, setStorageError] = useState(false);
-  const [modal, setModal] = useState<"profile" | "collection" | null>(null);
+  const [modal, setModal] = useState<"profile" | null>(null);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [learningHistory, setLearningHistory] = useState<
     LearningResult[] | null
@@ -292,12 +293,9 @@ export default function VuiHocApp({ path }: { path: string }) {
                   <ButtonLink href="/#worlds">
                     Cùng học thôi <Rocket size={20} />
                   </ButtonLink>
-                  <button
-                    className="button secondary"
-                    onClick={() => setModal("profile")}
-                  >
-                    🎨 Góc của em
-                  </button>
+                  <ButtonLink href="/phan-thuong" secondary>
+                    🎨 Góc của con
+                  </ButtonLink>
                 </div>
                 <p className="micro">
                   <span className="status-dot" /> 4 không gian học · Tài liệu
@@ -340,7 +338,7 @@ export default function VuiHocApp({ path }: { path: string }) {
                   ).length ?? "—"}
                   <span>✦</span>
                 </b>
-                <small>Ngôi sao chăm học</small>
+                <small>Bài đạt từ 8 điểm</small>
               </div>
             </section>
             <WorldsSection />
@@ -421,12 +419,7 @@ export default function VuiHocApp({ path }: { path: string }) {
           <RevisionSetPage key={revisionSetId} id={revisionSetId} />
         )}
         {isTimoBank && <TimoPage gradeId={timoGradeId} />}
-        {path === "/phan-thuong" && (
-          <section className="card empty-state rewards-placeholder">
-            <Gift size={48} />
-            <PageTitle eyebrow="PHẦN THƯỞNG" title="Coming soon" />
-          </section>
-        )}
+        {path === "/phan-thuong" && <RewardsPage />}
         {realRun && (
           <RealPracticePage
             key={realRun[2]}
@@ -495,12 +488,6 @@ export default function VuiHocApp({ path }: { path: string }) {
           setState={setState}
           onClose={() => setModal(null)}
         />
-      )}
-      {modal === "collection" && (
-        <Modal title="Bộ sưu tập của em" onClose={() => setModal(null)}>
-          <p>Mỗi buổi học đạt từ 8 điểm, em nhận một ngôi sao chăm học.</p>
-          <div className="large-emoji">⭐</div>
-        </Modal>
       )}
     </div>
   );
@@ -957,7 +944,7 @@ function HistoryPage({ state, startRun }: Shared) {
         </div>
         <div>
           <b>{state.history.filter((h) => h.score >= 8).length} ⭐</b>
-          <small>Ngôi sao chăm học</small>
+          <small>Bài đạt từ 8 điểm</small>
         </div>
       </div>
       {state.run && !state.run.finished && (

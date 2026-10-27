@@ -38,6 +38,9 @@ import {
   sliceAudio,
 } from "@/server/guidance";
 
+import { readRewards, recordRewards, changeRewards } from "@/server/rewards";
+import { rewardView } from "@/lib/rewards";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -107,7 +110,22 @@ async function handler(request: NextRequest, context: Context) {
     const method = request.method;
     if (method !== "GET") sameOrigin(request);
     let response: NextResponse;
-    if (method === "GET" && parts.join("/") === "config") {
+    if (parts.length === 1 && parts[0] === "rewards" && method === "GET") {
+      response = NextResponse.json(
+        rewardView(
+          await readRewards(session.owner),
+          request.nextUrl.searchParams.get("runId") || undefined,
+        ),
+      );
+    } else if (
+      parts.length === 1 &&
+      parts[0] === "rewards" &&
+      method === "POST"
+    ) {
+      response = NextResponse.json(
+        await changeRewards(session.owner, await jsonBody(request)),
+      );
+    } else if (method === "GET" && parts.join("/") === "config") {
       response = NextResponse.json({
         configured: !!process.env.OPENROUTER_API_KEY?.trim(),
         storage: storageMode(),
@@ -184,14 +202,21 @@ async function handler(request: NextRequest, context: Context) {
         runView(await readRun(parts[0], parts[2], session.owner)),
       );
     } else if (parts.length === 3 && parts[1] === "runs" && method === "POST") {
-      response = NextResponse.json(
-        await changeRun(
-          parts[0],
-          parts[2],
-          session.owner,
-          await jsonBody(request),
-        ),
+      const result = await changeRun(
+        parts[0],
+        parts[2],
+        session.owner,
+        await jsonBody(request),
       );
+      if (result.finished) {
+        const job = await readLibraryJob(parts[0], session.owner);
+        await recordRewards(
+          session.owner,
+          await readRun(parts[0], parts[2], session.owner),
+          !!job.revision,
+        );
+      }
+      response = NextResponse.json(result);
     } else if (
       parts.length === 4 &&
       parts[1] === "runs" &&

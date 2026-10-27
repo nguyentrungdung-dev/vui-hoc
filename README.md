@@ -70,3 +70,19 @@ npm run prod         # Kiểm tra cấu hình, build và chạy production local
 `node --import tsx scripts/verify-repaired-worksheet.mts <document-id>` kiểm tra các lựa chọn, hint và lời giải của bộ đề đã lưu qua luồng làm bài và PostgreSQL JSONB thật. Các lượt kiểm thử nằm trong một transaction được rollback để không thêm lịch sử học.
 
 Bộ học cũ cần được chủ tài liệu cập nhật bằng nút **Cập nhật bài gốc, hình và tiêu chí chấm**. Các lượt đang làm dùng nội dung cũ vẫn giữ bài đã nhập nhưng tạm không chấm đúng/sai; kết quả lịch sử đã kết thúc được giữ lại.
+
+## Phần thưởng và góc học tập
+
+Mở `/phan-thuong` để xem thử, đổi sao, đặt/cất 40 vật phẩm thuộc 5 bản đồ và xem lịch sử nhận sao. Desktop dùng hai cột, điện thoại xếp góc học tập trước danh sách vật phẩm. Bàn, ghế và kệ cơ bản được cung cấp sẵn. Ngoài Góc học tập còn có Trạm vũ trụ, Sở thú hoang dã, Lâu đài cổ tích và Thành phố robot, mỗi nơi có 8 vật phẩm riêng với giá 3–15 sao. Chuyển bản đồ miễn phí, dùng chung ví sao; đồ đã đặt ở từng bản đồ được giữ lại. Bản đồ đang chọn cũng được tự lưu. Dữ liệu cũ tự mở ở Góc học tập, giữ nguyên sao và đồ đã đổi.
+
+Bài học thật hoàn thành nhận 2 sao; bộ ôn nhận 2 sao thay cho thưởng bài học; mỗi chặng 3 bài khác nhau nhận thêm 2 sao. Ba câu từng sai được tự sửa đúng nhận 1 sao, tích lũy qua các bài; câu đã mở lời giải không tính. Các mục tiêu được kiểm tra và cộng sao khi kết thúc bài, sau khi mọi câu đã hoàn thành (câu chưa chấm được cần có câu trả lời). Kết thúc sớm và bài mẫu trong khu trải nghiệm không nhận sao.
+
+Thưởng hoàn thành được chống trùng theo tài liệu và tập câu hỏi, kể cả khi tạo lượt làm mới. Câu sửa sai chỉ được tính một lần. Đổi vật phẩm được khóa đồng thời ở máy chủ, không thể tiêu quá số sao; cất và đặt lại miễn phí. Không có chuỗi ngày học hoặc sao hết hạn.
+
+Sao và đồ trang trí gắn với phiên trình duyệt qua cookie hiện có; lưu PostgreSQL ở production, file JSON trong thư mục dữ liệu khi phát triển local. Chưa có tài khoản để đồng bộ giữa các thiết bị. Các bài và lịch sử học chung của thư viện không tự động cộng sao cho mọi phiên; sao được ghi cho phiên thao tác kết thúc bài. Lịch sử cũ trước tính năng này không được cộng sao hồi tố.
+
+### Tự sắp xếp vật phẩm
+
+Sau khi đổi và đặt đồ, chọn **Sắp xếp vật phẩm** rồi kéo bằng chuột, bút hoặc ngón tay. Chọn **Xong** để kết thúc. Chế độ sắp xếp giữ cử chỉ cảm ứng trong bản đồ; vùng ngoài bản đồ vẫn cuộn trang bình thường. Có thể dùng Tab để chọn đồ và các phím mũi tên để di chuyển (Shift để đi xa hơn).
+
+Vị trí lưu khi thả, dùng tọa độ tỷ lệ nên giữ cách sắp xếp khi xoay iPad hoặc đổi kích thước cửa sổ. Mỗi vật phẩm được giới hạn trong bản đồ, giữ vị trí khi cất rồi đặt lại. **Về vị trí ban đầu** chỉ khôi phục bố cục của bản đồ đang mở. Dữ liệu trước tính năng này tiếp tục dùng bố cục mặc định. Mất kết nối khi lưu sẽ hiện lỗi và trả vật phẩm về vị trí đã lưu.

@@ -22,6 +22,7 @@ import {
 } from "@/lib/learning";
 import { ButtonLink, Character, Modal, PageTitle } from "./ui";
 import { QuestionSourceImages } from "./question-source-images";
+import { RewardCelebration } from "./rewards";
 import { HintHelpActions } from "./hint-help-actions";
 import { GuidanceDialog, startGuidance } from "./guidance-player";
 import type { GuidanceView } from "@/lib/guidance";
@@ -714,6 +715,7 @@ export function RealPracticePage({
         >
           {run.title}
         </PageTitle>
+        <RewardCelebration runId={run.id} />
         <section className="card real-results">
           <Character index={character} />
           <div>
