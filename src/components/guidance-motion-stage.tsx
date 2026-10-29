@@ -1,10 +1,11 @@
 "use client";
+import { GuidanceStoryStage } from "./guidance-story-stage";
 import { useEffect, useRef } from "react";
 import type { GuidanceMotion } from "@/lib/guidance";
 
 /** The vetted static renderer accepts data only; it never runs model code.
  * Its paused GSAP timeline is driven exclusively by the parent's audio clock. */
-export function GuidanceMotionStage({
+function CarryMotionStage({
   motion,
   time,
 }: {
@@ -77,5 +78,19 @@ export function GuidanceMotionStage({
         pointerEvents: "none",
       }}
     />
+  );
+}
+
+export function GuidanceMotionStage({
+  motion,
+  time,
+}: {
+  motion: GuidanceMotion;
+  time: number;
+}) {
+  return motion.template === "lesson-v3" ? (
+    <GuidanceStoryStage motion={motion} time={time} />
+  ) : (
+    <CarryMotionStage motion={motion} time={time} />
   );
 }

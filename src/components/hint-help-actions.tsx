@@ -19,11 +19,11 @@ export function HintHelpActions({
       <div className="hint-help-actions">
         <button
           type="button"
-          className="text-button guide-button"
+          className="button secondary guide-button"
           disabled={disabled}
           onClick={onGuide}
         >
-          Con vẫn chưa hiểu — Cùng làm từng bước
+          Làm từng bước
         </button>
         <button
           type="button"
@@ -32,13 +32,13 @@ export function HintHelpActions({
           onClick={onVideo || (() => setVideoNotice(true))}
         >
           <Play size={18} aria-hidden="true" />
-          <span>Xem video hướng dẫn chi tiết</span>
+          <span>Xem video</span>
         </button>
       </div>
       {videoNotice && (
         <div className="notice hint-video-notice" role="status">
-          Video hướng dẫn đang được chuẩn bị. Em có thể chọn “Cùng làm từng
-          bước” để xem lời giải chi tiết nhé!
+          Video hướng dẫn đang được chuẩn bị. Em có thể chọn “Làm từng bước” để
+          xem lời giải chi tiết nhé!
         </div>
       )}
     </>

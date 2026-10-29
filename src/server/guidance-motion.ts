@@ -96,13 +96,26 @@ export async function createCarryLesson(
 }
 
 type Word = { word: string; start: number; end: number };
-function tokens(text: string) {
+function tokens(text: string): string[] {
   return (
-    speechText(text)
+    speechText(
+      text
+        .replace(/(\d)(cm|mm|km|kg|ml)\b/gi, "$1 $2")
+        .replace(/\bcm\b/gi, "xăng ti mét")
+        .replace(/xen[ -]ti[ -]mét/gi, "xăng ti mét")
+        .replace(/\bmm\b/gi, "mi li mét")
+        .replace(/\bkm\b/gi, "ki lô mét")
+        .replace(/\bkg\b/gi, "ki lô gam")
+        .replace(/\bml\b/gi, "mi li lít"),
+    )
       .toLowerCase()
       .normalize("NFD")
       .replace(/đ/g, "d")
       .replace(/\p{M}/gu, "")
+      .replace(/\b(?:xang|xen|xan|cang|cen)[ -]*ti[ -]*met\b/g, "cm")
+      .replace(/\bcentimet(?:er|re)?s?\b/g, "cm")
+      .replace(/\bki[ -]*lo[ -]*met\b/g, "km")
+      .replace(/\bki[ -]*lo[ -]*gam\b/g, "kg")
       .match(/[a-z0-9]+/g) ?? []
   );
 }
@@ -122,9 +135,33 @@ export function alignMotion(
     )
   )
     throw new AppError("Chưa kiểm tra được mốc lời đọc. Em hãy thử lại.", 502);
+  // Whisper sometimes splits the Vietnamese unit into “x” + “antimét”.
+  // Merge only that recognized unit; keep mathematical x / nhân untouched.
+  words = words.flatMap((w, i, all) => {
+    const norm = (s: string) =>
+      s
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/\p{M}/gu, "")
+        .replace(/[^a-z]/g, "");
+    if (
+      norm(w.word) === "x" &&
+      all[i + 1] &&
+      /^(?:antimet|antimed|cm)$/.test(norm(all[i + 1].word))
+    )
+      return [{ word: "cm", start: w.start, end: all[i + 1].end }];
+    if (
+      i > 0 &&
+      norm(all[i - 1].word) === "x" &&
+      /^(?:antimet|antimed|cm)$/.test(norm(w.word))
+    )
+      return [];
+    return [w];
+  });
   const events: MotionEvent[] = [];
   lesson.segments.forEach((segment, segmentIndex) => {
     const clip = clips[segmentIndex];
+    const expected = tokens(segment.narration);
     const actual = words
       .filter((w) => w.start >= clip.start - 0.15 && w.start < clip.end)
       .flatMap((w) =>
@@ -137,13 +174,14 @@ export function alignMotion(
                 (n) =>
                   ({ "30": "ba chục", "40": "bốn chục", "80": "tám chục" })[n]!,
               )
-            : w.word,
+            : w.word.trim().toLowerCase() === "x" && expected.includes("nhan")
+              ? "nhân"
+              : w.word,
         ).map((text, i, all) => ({
           text,
           start: w.start + ((w.end - w.start) * i) / all.length,
         })),
       );
-    const expected = tokens(segment.narration);
     const dp = Array.from({ length: expected.length + 1 }, (_, i) =>
       Array.from({ length: actual.length + 1 }, (_, j) =>
         i === 0 ? j : j === 0 ? i : 0,
@@ -204,42 +242,55 @@ export function alignMotion(
       );
   return events;
 }
-export async function transcribeMotion(wav: Buffer): Promise<Word[]> {
-  const response = await fetch(
-    "https://openrouter.ai/api/v1/audio/transcriptions",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
+export async function transcribeMotion(
+  wav: Buffer,
+  hint?: string,
+  model = "openai/whisper-large-v3",
+): Promise<Word[]> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const response = await fetch(
+      "https://openrouter.ai/api/v1/audio/transcriptions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          input_audio: { data: wav.toString("base64"), format: "wav" },
+          language: "vi",
+          response_format: "verbose_json",
+          timestamp_granularities: ["word"],
+          word_timestamps: true,
+          temperature: 0,
+          // Provider-native vocabulary hint, documented by OpenRouter STT.
+          ...(hint
+            ? {
+                provider: {
+                  options: { groq: { prompt: hint.slice(0, 1200) } },
+                },
+              }
+            : {}),
+        }),
+        signal: AbortSignal.timeout(150000),
       },
-      body: JSON.stringify({
-        model: "openai/whisper-large-v3",
-        input_audio: { data: wav.toString("base64"), format: "wav" },
-        language: "vi",
-        response_format: "verbose_json",
-        timestamp_granularities: ["word"],
-        word_timestamps: true,
-        temperature: 0,
-      }),
-      signal: AbortSignal.timeout(150000),
-    },
-  );
-  if (!response.ok) {
-    await response.body?.cancel();
-    throw new AppError("Chưa căn được lời đọc. Em hãy thử lại.", 502);
+    );
+    if (!response.ok) {
+      await response.body?.cancel();
+      throw new AppError("Chưa căn được lời đọc. Em hãy thử lại.", 502);
+    }
+    const json = await response.json();
+    const parsed = z
+      .array(
+        z.object({
+          word: z.string(),
+          start: z.number().nonnegative(),
+          end: z.number().nonnegative(),
+        }),
+      )
+      .safeParse(json.words);
+    if (parsed.success && parsed.data.length) return parsed.data;
   }
-  const json = await response.json();
-  const parsed = z
-    .array(
-      z.object({
-        word: z.string(),
-        start: z.number().nonnegative(),
-        end: z.number().nonnegative(),
-      }),
-    )
-    .safeParse(json.words);
-  if (!parsed.success || !parsed.data.length)
-    throw new AppError("Dịch vụ chưa trả mốc từng từ. Em hãy thử lại.", 502);
-  return parsed.data;
+  throw new AppError("Dịch vụ chưa trả mốc từng từ. Em hãy thử lại.", 502);
 }

@@ -182,12 +182,15 @@ export function LecturePage({ state, startRun }: Shared) {
           <div className="notice video-notice">
             <Lightbulb size={22} />
             <div>
-              <strong>Chưa kết nối dịch vụ video</strong>
+              <strong>Trình chiếu mẫu để khám phá</strong>
               <p>
-                Đây là slide tương tác bằng dữ liệu mẫu, chưa có giọng đọc.
-                Video AI từ tài liệu tải lên sẽ được bổ sung khi tích hợp API
-                của công ty.
+                Đây là slide tương tác bằng dữ liệu mẫu, chưa có giọng đọc. Với
+                bài đang học, mở lời giải rồi chọn video hướng dẫn để nghe giọng
+                đọc và xem minh họa riêng cho bài đó.
               </p>
+              <Link href="/thu-vien" className="text-button">
+                Chọn bài trong thư viện
+              </Link>
             </div>
           </div>
           <div className="lecture-actions">

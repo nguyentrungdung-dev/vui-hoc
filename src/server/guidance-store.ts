@@ -5,6 +5,8 @@ import { databaseEnabled, query } from "./database";
 import { jobDir, lock } from "./store";
 import { AppError } from "./validation";
 import type {
+  StorySource,
+  StoryLesson,
   MotionScene,
   GuidanceView,
   MotionLesson,
@@ -16,7 +18,12 @@ export type GuidanceJob = {
   documentId: string;
   questionId: string;
   sourceHash: string;
-  motionTemplate?: "carry-45-38";
+  motionTemplate?: "carry-45-38" | "lesson-v3";
+  storySource?: StorySource;
+  story?: StoryLesson;
+  sticker?: { src: string; name: string };
+  narrationRevision?: number;
+  speechInputVersion?: string;
   lesson?: MotionLesson;
   motion?: GuidanceMotion;
   rawAudio?: GuidanceJob["audio"];

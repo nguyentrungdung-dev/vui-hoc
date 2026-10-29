@@ -118,6 +118,7 @@ export function speakNumber(raw: string): string {
 }
 export function speechText(text: string) {
   return text
+    .replace(/(\d)\s*[xX]\s*(?=\d)/g, "$1 nhân ")
     .replace(
       /(\d)[.,](\d+)/g,
       (_, a: string, b: string) =>
@@ -128,7 +129,6 @@ export function speechText(text: string) {
     .replace(/[−–]/g, " trừ ")
     .replace(/\s-\s/g, " trừ ")
     .replace(/[×*]/g, " nhân ")
-    .replace(/\b[xX]\b/g, " nhân ")
     .replace(/[÷/]/g, " chia ")
     .replace(/≥/g, " lớn hơn hoặc bằng ")
     .replace(/≤/g, " nhỏ hơn hoặc bằng ")

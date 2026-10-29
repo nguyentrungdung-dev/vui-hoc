@@ -11,15 +11,22 @@ import { storageMode, requireStorage } from "./source-files";
 import { jobDir } from "./store";
 import { AppError } from "./validation";
 import {
-  supportsCarryMotion,
   createCarryLesson,
   assembleLesson,
   alignMotion,
   transcribeMotion,
-  motionVersion,
 } from "./guidance-motion";
+import {
+  createStory,
+  storySource,
+  chooseSticker,
+  storyAsMotion,
+  storyVisuals,
+  storyVersion,
+} from "./guidance-story";
+import { trimQuiet } from "./guidance-motion/audio-postprocess.mjs";
 import { createScenes } from "./guidance-ai";
-import { synthesizeSpeech, speechConfig } from "./speech";
+import { synthesizeSpeech, speechConfig, speechInputVersion } from "./speech";
 import {
   guidanceLock,
   readGuidance,
@@ -28,7 +35,7 @@ import {
   type GuidanceJob,
 } from "./guidance-store";
 
-const version = "motion-v1-gemini-aoede-pcm24-v1";
+const version = storyVersion;
 const hash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
 export const guidanceStorage = { put, get };
@@ -81,14 +88,16 @@ export function guidanceSource(q: LearningQuestion) {
     explanation: q.explanation,
     answer: q.answer,
     options: q.options,
+    hasFigure: q.hasFigure,
+    figureDescription: q.figureDescription,
+    topic: q.topic,
   });
   return {
     scripts,
     prompt,
     sourceHash,
-    ...(supportsCarryMotion(q)
-      ? { motionTemplate: "carry-45-38" as const }
-      : {}),
+    motionTemplate: "lesson-v3" as const,
+    storySource: storySource(q),
   };
 }
 function question(run: LearningRun, questionId: string) {
@@ -147,10 +156,7 @@ export async function requestGuidance(
   if (run.questions[run.index]?.id !== q.id)
     throw new AppError("Câu đang làm đã thay đổi. Hãy mở lại câu hỏi.", 409);
   const source = guidanceSource(q);
-  const config = {
-    ...guidanceConfig(),
-    ...(source.motionTemplate ? { version: motionVersion } : {}),
-  };
+  const config = guidanceConfig();
   const id = hash({ docId, sourceHash: source.sourceHash, config });
   // Record full-solution exposure before returning any scene/script, including cache hits.
   const nextRun = await changeRun(docId, runId, viewer, {
@@ -176,6 +182,8 @@ export async function requestGuidance(
       questionId: q.id,
       ...source,
       config,
+      sticker: chooseSticker(),
+      speechInputVersion,
       scenes: null,
       audio: source.scripts.map(() => null),
       status: "queued",
@@ -220,7 +228,19 @@ export async function authorizedGuidance(
   const job = await readGuidance(docId, id);
   if (!job) throw new AppError("Không tìm thấy hướng dẫn.", 404);
   const q = question(run, job.questionId);
-  if (guidanceSource(q).sourceHash !== job.sourceHash)
+  const source = guidanceSource(q);
+  const legacyHash = hash({
+    questionId: q.id,
+    prompt: source.prompt,
+    steps: q.steps,
+    explanation: q.explanation,
+    answer: q.answer,
+    options: q.options,
+  });
+  if (
+    source.sourceHash !== job.sourceHash &&
+    !(job.config.version !== storyVersion && legacyHash === job.sourceHash)
+  )
     throw new AppError("Lời giải đã thay đổi. Em hãy tạo lại hướng dẫn.", 409);
   const attempt = run.attempts[q.id];
   if (!run.finished && !attempt?.guided && !attempt?.solved)
@@ -261,6 +281,35 @@ export async function prepareGuidance(
     j.status = "generating";
     j.message = "Đang tạo cảnh minh họa…";
   });
+  if (job.motionTemplate === "lesson-v3") {
+    if (job.story && job.speechInputVersion !== speechInputVersion) {
+      await updateGuidance(docId, id, execution, (j) => {
+        j.rawAudio = j.audio;
+        j.audio = j.scripts.map(() => null);
+        j.speechInputVersion = speechInputVersion;
+        j.narrationRevision = (j.narrationRevision ?? 0) + 1;
+        delete j.motionPrepared;
+        delete j.wordTimestamps;
+        delete j.motion;
+      });
+    }
+    if (!job.story) {
+      if (!job.storySource)
+        throw new AppError("Thiếu nguồn lời giải để tạo kịch bản.");
+      const story = await createStory(job.storySource, job.config.model);
+      await updateGuidance(docId, id, execution, (j) => {
+        j.story = story;
+        j.speechInputVersion = speechInputVersion;
+        j.lesson = storyAsMotion(story);
+        j.scripts = story.segments.map((s) => s.narration);
+        j.scenes = j.scripts.map(() => ({ tiles: [] }));
+        j.audio = j.scripts.map(() => null);
+        j.sticker ??= chooseSticker();
+      });
+      return story.segments.length;
+    }
+    return job.scripts.length;
+  }
   if (job.motionTemplate) {
     if (!job.lesson) {
       const lesson = await createCarryLesson(
@@ -278,6 +327,8 @@ export async function prepareGuidance(
     }
     return job.scripts.length;
   }
+  // Compatibility for already-dispatched historical jobs only. Every new
+  // request above is versioned lesson-v3, regardless of subject or question.
   if (!job.scenes) {
     const scenes = await createScenes(
       job.prompt,
@@ -317,9 +368,16 @@ export async function createGuidanceAudio(
     job.config.ttsInstructions,
   );
   // Execution-specific paths prevent an obsolete worker from overwriting a later retry.
-  const asset = await saveAudio(docId, id, execution, `${index}`, bytes);
+  const asset = await saveAudio(
+    docId,
+    id,
+    execution,
+    `${job.narrationRevision ?? 0}-${index}`,
+    bytes,
+  );
   await updateGuidance(docId, id, execution, (j) => {
-    j.audio[index] = asset;
+    if ((j.narrationRevision ?? 0) === (job.narrationRevision ?? 0))
+      j.audio[index] = asset;
   });
   return true;
 }
@@ -385,8 +443,44 @@ export async function finishGuidance(
       const raw = await Promise.all(job.audio.map((a) => readAudio(docId, a!)));
       let assembled: ReturnType<typeof assembleLesson>;
       try {
-        assembled = assembleLesson(raw);
+        const cleanSeconds = raw.reduce(
+          (n, wav) => n + trimQuiet(wav).seconds,
+          0,
+        );
+        const targetSeconds = Math.min(50, cleanSeconds + raw.length * 2);
+        if (targetSeconds < 45) throw new Error("Narration too short");
+        assembled = assembleLesson(raw, { targetSeconds });
       } catch {
+        if (job.storySource && (job.narrationRevision ?? 0) < 1) {
+          const seconds = raw.reduce((n, wav) => n + trimQuiet(wav).seconds, 0);
+          const story = await createStory(
+            job.storySource,
+            job.config.model,
+            `Giọng đọc thực tế dài ${seconds.toFixed(1)} giây. ${seconds > 55 ? "Rút lời còn 80–90 tiếng, bỏ lời lặp để giữ đủ bước trong 50 giây." : "Giải thích rõ hơn vì sao và kiểm tra kết quả, khoảng 105–110 tiếng, không thêm dữ kiện."}`,
+          );
+          await updateGuidance(docId, id, execution, (j) => {
+            j.rawAudio = j.audio;
+            j.story = story;
+            j.lesson = storyAsMotion(story);
+            j.scripts = story.segments.map((s) => s.narration);
+            j.scenes = j.scripts.map(() => ({ tiles: [] }));
+            j.audio = j.scripts.map(() => null);
+            j.narrationRevision = (j.narrationRevision ?? 0) + 1;
+            delete j.wordTimestamps;
+            delete j.motionPrepared;
+          });
+          for (let i = 0; i < story.segments.length; i += 3) {
+            const done = await Promise.all(
+              Array.from(
+                { length: Math.min(3, story.segments.length - i) },
+                (_, k) => createGuidanceAudio(docId, id, i + k, execution),
+              ),
+            );
+            if (done.some((x) => !x)) return;
+          }
+          await finishGuidance(docId, id, execution);
+          return;
+        }
         // Clips outside the duration contract must not trap every retry on the
         // same invalid audio. Keep the rejected assets for diagnosis only.
         await updateGuidance(docId, id, execution, (j) => {
@@ -432,7 +526,12 @@ export async function finishGuidance(
     }
     const prepared = job.motionPrepared;
     const wav = await readAudio(docId, prepared.combined);
-    const words = job.wordTimestamps ?? (await transcribeMotion(wav));
+    let words =
+      job.wordTimestamps ??
+      (await transcribeMotion(
+        wav,
+        job.story ? job.scripts.join(" ") : undefined,
+      ));
     if (!job.wordTimestamps)
       await updateGuidance(docId, id, execution, (j) => {
         j.wordTimestamps = words;
@@ -445,12 +544,50 @@ export async function finishGuidance(
       await updateGuidance(docId, id, execution, (j) => {
         delete j.wordTimestamps;
       });
-      throw error;
+      if (job.motionTemplate !== "lesson-v3") throw error;
+      // Recover from a hallucinated whole-file transcript by recognizing each
+      // actual processed clip separately. Use returned word times, never guesses.
+      const localWords: { word: string; start: number; end: number }[] = [];
+      for (let i = 0; i < prepared.audio.length; i += 3) {
+        const batch = await Promise.all(
+          Array.from(
+            { length: Math.min(3, prepared.audio.length - i) },
+            async (_, k) => {
+              const index = i + k;
+              const bytes = await readAudio(docId, prepared.audio[index]!);
+              const recognized = await transcribeMotion(
+                bytes,
+                job!.scripts[index],
+                "openai/whisper-1",
+              );
+              return recognized.map((w) => ({
+                ...w,
+                start: w.start + prepared.clips[index].start,
+                end: w.end + prepared.clips[index].start,
+              }));
+            },
+          ),
+        );
+        localWords.push(...batch.flat());
+      }
+      words = localWords;
+      events = alignMotion(job.lesson!, prepared.clips, words);
+      await updateGuidance(docId, id, execution, (j) => {
+        j.wordTimestamps = words;
+      });
     }
     await updateGuidance(docId, id, execution, (j) => {
       j.audio = prepared.audio;
       j.motion = {
-        template: "carry-45-38",
+        template:
+          j.motionTemplate === "lesson-v3" ? "lesson-v3" : "carry-45-38",
+        ...(j.story
+          ? {
+              title: j.story.title,
+              visuals: storyVisuals(j.story, j.storySource),
+              sticker: j.sticker,
+            }
+          : {}),
         duration: prepared.duration,
         events,
         clips: prepared.clips,

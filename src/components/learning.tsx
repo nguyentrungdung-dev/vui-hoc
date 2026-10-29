@@ -289,9 +289,7 @@ export function LearningPanel({
                   disabled={busy}
                   onClick={() => start("original")}
                 >
-                  {topic
-                    ? `Làm bài gốc · ${topic}`
-                    : `Làm ${pack.originalCount} câu gốc`}
+                  {topic ? "Làm bài gốc" : `Làm ${pack.originalCount} câu gốc`}
                 </button>
               )}
             {pack.practiceCount > 0 && (
@@ -1109,7 +1107,7 @@ export function RealPracticePage({
                         : q.grading === "ungraded"
                           ? "Lưu bài làm"
                           : q.grading === "self_review"
-                            ? "Nộp bài · Chấm từng ý"
+                            ? "Chấm từng ý"
                             : "Kiểm tra đáp án"}{" "}
                       <CheckCircle2 size={18} />
                     </button>
@@ -1144,7 +1142,7 @@ export function RealPracticePage({
                         )
                       }
                     >
-                      Em đã thử · Xem hướng dẫn
+                      Xem hướng dẫn
                     </button>
                   )}
                 </>
@@ -1156,7 +1154,7 @@ export function RealPracticePage({
                     disabled={busy}
                     onClick={() => setExplain(true)}
                   >
-                    <Lightbulb size={18} /> Vì sao? Xem giải thích
+                    <Lightbulb size={18} /> Giải thích
                   </button>
                   {a.solved && !run.similar && (
                     <button
@@ -1164,34 +1162,17 @@ export function RealPracticePage({
                       className="button secondary"
                       disabled={busy}
                       onClick={similar}
+                      title="Làm câu tương tự từ bộ luyện có sẵn"
                     >
-                      Làm câu tương tự từ bộ luyện <Rocket size={17} />
-                    </button>
-                  )}
-                  {a.solved && (
-                    <button
-                      type="button"
-                      className="button"
-                      disabled={busy || waitingForNext}
-                      onClick={() =>
-                        run.index < run.questions.length - 1
-                          ? navigate(run.index + 1)
-                          : setFinish(true)
-                      }
-                    >
-                      {waitingForNext
-                        ? "Đang chuẩn bị câu tiếp theo…"
-                        : run.index < run.questions.length - 1
-                          ? "Câu tiếp theo"
-                          : "Xem kết quả"}{" "}
-                      <ArrowRight size={18} />
+                      <Rocket size={17} /> Câu tương tự
                     </button>
                   )}
                 </>
               )}
               <button
                 type="button"
-                className="button secondary similar-five-button"
+                className="button secondary"
+                title="Tạo 5 câu mới cùng dạng với bài này"
                 disabled={busy || q.grading === "ungraded"}
                 onClick={() => {
                   setDifficulty("progressive");
@@ -1199,8 +1180,27 @@ export function RealPracticePage({
                   setSimilarOpen(true);
                 }}
               >
-                <Rocket size={18} /> Làm thêm 5 câu tương tự để luyện tập nhé
+                <Rocket size={18} /> Tạo thêm 5 câu
               </button>
+              {a.solved && (
+                <button
+                  type="button"
+                  className="button"
+                  disabled={busy || waitingForNext}
+                  onClick={() =>
+                    run.index < run.questions.length - 1
+                      ? navigate(run.index + 1)
+                      : setFinish(true)
+                  }
+                >
+                  {waitingForNext
+                    ? "Đang chuẩn bị…"
+                    : run.index < run.questions.length - 1
+                      ? "Câu tiếp theo"
+                      : "Xem kết quả"}{" "}
+                  <ArrowRight size={18} />
+                </button>
+              )}
             </div>
           </form>
           <div className="question-bottom">
@@ -1418,7 +1418,7 @@ export function RealPracticePage({
             disabled={busy}
             onClick={() => void openVideo(q.id)}
           >
-            Xem video hướng dẫn chi tiết
+            Xem video hướng dẫn
           </button>
           {q.solution.englishSteps.length > 0 && (
             <div className="english-solution" lang="en">
@@ -1473,7 +1473,7 @@ export function RealPracticePage({
               disabled={busy}
               onClick={() => act({ action: "finish" }, () => setFinish(false))}
             >
-              Kết thúc và xem kết quả
+              Xem kết quả
             </button>
           </div>
         </Modal>

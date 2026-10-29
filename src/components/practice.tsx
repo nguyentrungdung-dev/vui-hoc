@@ -303,7 +303,7 @@ export function PracticePage({ state, setState, startRun }: Shared) {
                     type="button"
                     onClick={() => setExplain(true)}
                   >
-                    <Lightbulb size={18} /> Vì sao? Xem giải thích
+                    <Lightbulb size={18} /> Giải thích
                   </button>
                   <button
                     className="button"
@@ -476,7 +476,7 @@ export function PracticePage({ state, setState, startRun }: Shared) {
               Làm tiếp
             </button>
             <button className="button" onClick={endRun}>
-              Kết thúc và xem kết quả
+              Xem kết quả
             </button>
           </div>
         </Modal>

@@ -1,6 +1,7 @@
+import { fixtureReply } from "./test-support/story-fixture";
 import { test, after, mock } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { mkdtempSync, promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -24,6 +25,12 @@ import {
 import { readGuidance, writeGuidance } from "./guidance-store";
 import { generateGuidanceWorkflow } from "../workflows/guidance";
 import { validateScenes, speechText } from "./guidance-ai";
+import {
+  fixtureStory,
+  fixtureWords,
+  fixturePcm,
+} from "./test-support/story-fixture";
+import { storySource } from "./guidance-story";
 import { synthesizeSpeech } from "./speech";
 import { GET, POST } from "../app/api/documents/[[...parts]]/route";
 
@@ -120,7 +127,7 @@ function configure() {
   process.env.OPENROUTER_TTS_MODEL = "google/gemini-3.8-flash-lite-tts";
   process.env.OPENROUTER_TTS_VOICE = "Aoede";
 }
-const pcm = () => Buffer.alloc(212);
+const pcm = fixturePcm;
 test("Gemini TTS refuses an omitted voice instead of silently using a default", async () => {
   configure();
   await assert.rejects(
@@ -143,34 +150,35 @@ function stubAI(failAudioAt = 0) {
       const headers = init?.headers as Record<string, string>;
       if (String(input).endsWith("chat/completions")) {
         assert.equal(headers.Authorization, "Bearer fake-unit-key");
-        scenes++;
         assert.equal(body.model, "anthropic/test-scene-model");
-        const source = JSON.parse(body.messages[1].content[0].text);
-        assert.deepEqual(source.scripts, [...q.steps, q.explanation]);
-        assert.ok(!JSON.stringify(source).includes(q.hints[0]));
+        const data = JSON.parse(body.messages[1].content[0].text);
+        assert.ok(!JSON.stringify(data).includes(q.hints[0]));
+        const review =
+          body.response_format.json_schema.name === "guidance_story_check";
+        if (body.response_format.json_schema.name === "guidance_script") {
+          scenes++;
+          assert.deepEqual(data.source.steps, q.steps);
+        }
         return Response.json({
           choices: [
             {
               finish_reason: "stop",
               message: {
-                content: JSON.stringify({
-                  scenes: source.scripts.map((s: string) => ({
-                    tiles: [
-                      {
-                        text: s.split(".")[0],
-                        slot: 0,
-                        appearAt: 0,
-                        highlightAt: 0.2,
-                        moveTo: 4,
-                      },
-                    ],
-                  })),
-                }),
+                content: JSON.stringify(
+                  fixtureReply(
+                    body.response_format.json_schema.name,
+                    data.source,
+                  ),
+                ),
               },
             },
           ],
         });
       }
+      if (String(input).endsWith("audio/transcriptions"))
+        return Response.json({
+          words: fixtureWords(fixtureStory(storySource(q))),
+        });
       assert.equal(String(input), "https://openrouter.ai/api/v1/audio/speech");
       assert.equal(headers.Authorization, "Bearer fake-unit-key");
       audio++;
@@ -212,10 +220,16 @@ test("Concurrent clicks and different runs share one generation; cache hits mark
     await generateGuidanceWorkflow(job.id, id, saved.execution);
     saved = (await readGuidance(job.id, id))!;
     assert.equal(saved.status, "ready");
-    assert.deepEqual(ai.counts(), { scenes: 1, audio: 3 });
-    assert.deepEqual(saved.scripts, [...q.steps, q.explanation]);
+    assert.deepEqual(ai.counts(), { scenes: 1, audio: 6 });
+    assert.equal(saved.motion?.template, "lesson-v3");
+    assert.ok(saved.story);
+    assert.notDeepEqual(saved.scripts, [...q.steps, q.explanation]);
+    assert.ok(saved.scripts.every((s) => !s.includes(q.hints[0])));
     const stream = await openGuidanceAudio(saved, 0);
-    assert.equal((await new Response(stream).arrayBuffer()).byteLength, 256);
+    assert.equal(
+      (await new Response(stream).arrayBuffer()).byteLength,
+      saved.audio[0]!.size,
+    );
     const audioParts = [job.id, "runs", r1.id, "guidance", id, "0"];
     const partial = await GET(
       new NextRequest("http://localhost/api/documents/test", {
@@ -226,7 +240,10 @@ test("Concurrent clicks and different runs share one generation; cache hits mark
     assert.equal(partial.status, 206);
     assert.equal(partial.headers.get("content-type"), "audio/wav");
     assert.equal(partial.headers.get("accept-ranges"), "bytes");
-    assert.equal(partial.headers.get("content-range"), "bytes 10-19/256");
+    assert.equal(
+      partial.headers.get("content-range"),
+      `bytes 10-19/${saved.audio[0]!.size}`,
+    );
     assert.equal((await partial.arrayBuffer()).byteLength, 10);
     const r3 = await startLearningRun(job.id, "new-viewer", {
       kind: "original",
@@ -293,7 +310,7 @@ test("TTS failure saves completed clips; concurrent retries resume only missing 
     saved = (await readGuidance(job.id, saved.id))!;
     assert.equal(saved.status, "failed");
     assert.equal(saved.audio.filter(Boolean).length, 2);
-    assert.equal(saved.audio.filter((a) => !a).length, 1);
+    assert.equal(saved.audio.filter((a) => !a).length, 4);
     assert.ok(!saved.message.includes("private upstream"));
     const retries = await Promise.all(
       Array.from({ length: 4 }, () =>
@@ -310,7 +327,7 @@ test("TTS failure saves completed clips; concurrent retries resume only missing 
     await generateGuidanceWorkflow(job.id, saved.id, saved.execution);
     saved = (await readGuidance(job.id, saved.id))!;
     assert.equal(saved.status, "ready");
-    assert.deepEqual(ai.counts(), { scenes: 1, audio: 4 });
+    assert.deepEqual(ai.counts(), { scenes: 1, audio: 7 });
     assert.ok(retries.every((r) => r.guidance.id === saved.id));
   } finally {
     dispatch.mock.restore();
@@ -471,4 +488,37 @@ test("Audio byte ranges support browser seeking, suffixes, bounds and cancelling
     [2, 3, 4, 5],
   );
   assert.equal(cancelled, true);
+});
+
+test("Historical videos keep authorized access while every new request uses the universal version", async () => {
+  configure();
+  const { job, r1 } = await fixture();
+  const dispatch = mock.method(guidanceDispatcher, "start", async () => {});
+  try {
+    const result = await requestGuidance(job.id, r1.id, "viewer", {
+      questionId: q.id,
+    });
+    const saved = (await readGuidance(job.id, result.guidance.id))!;
+    assert.equal(saved.motionTemplate, "lesson-v3");
+    saved.config.version = "motion-v1-gemini-aoede-pcm24-v1";
+    saved.sourceHash = createHash("sha256")
+      .update(
+        JSON.stringify({
+          questionId: q.id,
+          prompt: guidanceSource(q).prompt,
+          steps: q.steps,
+          explanation: q.explanation,
+          answer: q.answer,
+          options: q.options,
+        }),
+      )
+      .digest("hex");
+    await writeGuidance(saved);
+    assert.equal(
+      (await authorizedGuidance(job.id, r1.id, "viewer", saved.id)).id,
+      saved.id,
+    );
+  } finally {
+    dispatch.mock.restore();
+  }
 });

@@ -23,8 +23,35 @@ export type MotionLesson = {
     cues: Omit<MotionEvent, "time">[];
   }[];
 };
+export type StorySource = {
+  prompt: string;
+  passage: string;
+  steps: string[];
+  explanation: string;
+  answer: string;
+  figureDescription: string;
+  topic: string;
+};
+export type StoryVisual = {
+  heading: string;
+  kind: "equation" | "groups" | "compare" | "evidence" | "sequence" | "shape";
+  shape: "none" | "triangle" | "rectangle" | "circle";
+  items: string[];
+  reaction: "hello" | "think" | "aha" | "check" | "celebrate";
+};
+export type StoryLesson = {
+  title: string;
+  segments: (Omit<StoryVisual, "items"> & {
+    narration: string;
+    items: { text: string; sourceIndex: number; cue: string }[];
+    coveredSteps: number[];
+  })[];
+};
 export type GuidanceMotion = {
-  template: "carry-45-38";
+  title?: string;
+  visuals?: StoryVisual[];
+  sticker?: { src: string; name: string };
+  template: "carry-45-38" | "lesson-v3";
   duration: number;
   events: MotionEvent[];
   clips: { start: number; end: number; seconds: number; narration: string }[];

@@ -1,3 +1,10 @@
+import { fixtureReply } from "./test-support/story-fixture";
+import {
+  fixtureStory,
+  fixtureWords,
+  fixturePcm,
+} from "./test-support/story-fixture";
+import { storySource } from "./guidance-story";
 import { test, after, mock } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -461,37 +468,36 @@ test(
         aiCalls++;
         const body = JSON.parse(String(options?.body));
         if (String(url).endsWith("chat/completions")) {
-          const scripts = JSON.parse(body.messages[1].content[0].text)
-            .scripts as string[];
+          const data = JSON.parse(body.messages[1].content[0].text);
+          const review =
+            body.response_format.json_schema.name === "guidance_story_check";
           return Response.json({
             choices: [
               {
                 finish_reason: "stop",
                 message: {
-                  content: JSON.stringify({
-                    scenes: scripts.map((text) => ({
-                      tiles: [
-                        {
-                          text,
-                          slot: 0,
-                          appearAt: 0,
-                          highlightAt: 0.5,
-                          moveTo: null,
-                        },
-                      ],
-                    })),
-                  }),
+                  content: JSON.stringify(
+                    fixtureReply(
+                      body.response_format.json_schema.name,
+                      data.source,
+                    ),
+                  ),
                 },
               },
             ],
           });
         }
-        const bytes = Buffer.alloc(212);
+        if (String(url).endsWith("audio/transcriptions"))
+          return Response.json({
+            words: fixtureWords(fixtureStory(storySource(question))),
+          });
+        const bytes = fixturePcm();
         return new Response(bytes, {
           headers: { "content-type": "audio/pcm;rate=24000;channels=1" },
         });
       },
     );
+    const audioBytes = new Map<string, Buffer>();
     const putStub = mock.method(
       guidanceStorage,
       "put",
@@ -499,6 +505,7 @@ test(
         ...[pathname, _body, options]: Parameters<typeof guidanceStorage.put>
       ) => {
         uploads++;
+        audioBytes.set(String(pathname), Buffer.from(_body as Buffer));
         assert.equal(options.access, "private");
         assert.ok(String(pathname).startsWith(`guidance/${j.id}/`));
         return {} as Awaited<ReturnType<typeof guidanceStorage.put>>;
@@ -513,7 +520,9 @@ test(
         assert.equal(options.access, "private");
         return {
           statusCode: 200,
-          stream: new Response(Buffer.alloc(256)).body!,
+          stream: new Response(
+            new Uint8Array(audioBytes.get(String(_pathname))!),
+          ).body!,
         } as Awaited<ReturnType<typeof guidanceStorage.get>>;
       },
     );
@@ -531,8 +540,8 @@ test(
       const saved = (await readGuidance(j.id, id))!;
       await generateGuidanceWorkflow(j.id, id, saved.execution);
       assert.equal((await readGuidance(j.id, id))!.status, "ready");
-      assert.equal(uploads, 3);
-      assert.equal(aiCalls, 4);
+      assert.equal(uploads, 13);
+      assert.equal(aiCalls, 10);
       await closeDatabase();
       const result = await requestGuidance(j.id, r1.id, "another-viewer", {
         questionId: question.id,
@@ -542,7 +551,10 @@ test(
       const asset = await authorizedGuidance(j.id, r2.id, "another-viewer", id);
       assert.equal(asset.audio[0]!.storage, "blob");
       const stream = await openGuidanceAudio(asset, 0);
-      assert.equal((await new Response(stream).arrayBuffer()).byteLength, 256);
+      assert.equal(
+        (await new Response(stream).arrayBuffer()).byteLength,
+        asset.audio[0]!.size,
+      );
     } finally {
       dispatch.mock.restore();
       fetchStub.mock.restore();

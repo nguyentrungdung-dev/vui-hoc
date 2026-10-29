@@ -136,7 +136,7 @@ test("Integrated narration, six audio clips, processing, alignment retry and saf
       }
       asr++;
       assert.deepEqual(body.timestamp_granularities, ["word"]);
-      return Response.json({ words: asr === 1 ? [] : words });
+      return Response.json({ words: asr <= 2 ? [] : words });
     },
   );
   try {
@@ -164,7 +164,7 @@ test("Integrated narration, six audio clips, processing, alignment retry and saf
     saved = (await readGuidance(saved.documentId, saved.id))!;
     assert.equal(saved.status, "ready");
     assert.equal(tts, 6);
-    assert.equal(asr, 2);
+    assert.equal(asr, 3);
     assert.ok(Math.abs(saved.motion!.duration - 50) < 0.001);
     assert.equal(saved.motion!.events.length, 17);
     const view = guidanceView(saved, "run");

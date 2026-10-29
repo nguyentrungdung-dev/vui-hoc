@@ -27,12 +27,20 @@ export async function teachingAI<T extends z.ZodType>(
       ? {}
       : { temperature: 0.2 }),
     max_tokens:
-      name === "guidance_narration"
+      name === "guidance_script"
         ? 1800
-        : name === "teaching_review"
-          ? 5000
-          : 16000,
-    ...(name === "guidance_narration" ? { reasoning: { enabled: false } } : {}),
+        : name === "guidance_story_visuals"
+          ? 4500
+          : name === "guidance_story"
+            ? 6000
+            : name === "guidance_story_check"
+              ? 1500
+              : name === "guidance_narration"
+                ? 1800
+                : name === "teaching_review"
+                  ? 5000
+                  : 16000,
+    ...(name.startsWith("guidance_") ? { reasoning: { enabled: false } } : {}),
     provider: { require_parameters: true },
     ...(content.some((c) => c.type === "file")
       ? { plugins: [{ id: "file-parser", pdf: { engine: "native" } }] }

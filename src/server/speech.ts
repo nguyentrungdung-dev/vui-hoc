@@ -1,6 +1,8 @@
 import { AppError } from "./validation";
 import { speechText } from "./guidance-ai";
 
+export const speechInputVersion = "vi-math-unicode-v2";
+
 // Identical delivery directions to the Aoede audition selected by the user.
 export const speechInstructions =
   "Speak entirely in natural native Vietnamese, using a Northern Vietnamese Hanoi accent. You are a warm, patient female primary-school teacher explaining mathematics to a seven-year-old second-grade student. Speak slowly and clearly at about three Vietnamese syllables per second. Articulate every number distinctly, with gentle natural sentence intonation. Pause briefly after each sentence and for about one second between solution steps. Be encouraging and calm, without exaggerated acting, whispering, singing or background music. Read only the supplied transcript; do not read the directions or say the pause tags.";

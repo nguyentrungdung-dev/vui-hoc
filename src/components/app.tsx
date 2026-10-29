@@ -582,7 +582,7 @@ function ProfileModal({
                   onClose();
                 }}
               >
-                Xác nhận khôi phục demo
+                Khôi phục demo
               </button>
             </div>
           ) : (
@@ -623,7 +623,7 @@ function MathPage({ state, startRun }: Shared) {
               Gửi bài của em <Upload size={19} />
             </ButtonLink>
             <button className="button secondary" onClick={() => startRun()}>
-              Thử nhiệm vụ mẫu <ArrowRight size={18} />
+              Thử bài mẫu <ArrowRight size={18} />
             </button>
           </div>
           <div className="hero-mini-stats">
