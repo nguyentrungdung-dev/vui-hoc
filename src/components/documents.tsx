@@ -87,50 +87,42 @@ function ConfigNotice({ config }: { config: Config | null }) {
 export function SubjectPage({ subject }: { subject: Subject }) {
   const info = subjects[subject];
   return (
-    <>
-      <PageTitle
-        eyebrow="KHÁM PHÁ MỖI NGÀY · LỚP 2"
-        title={`${info.icon} ${subject === "self" ? "Góc tự học của em" : `Vui học ${info.name}`}`}
-      >
-        {info.description}
-      </PageTitle>
-      <section className="card document-hero">
+    <div className={`subject-hub subject-${subject}`}>
+      <header className="subject-heading">
         <div>
-          <span className="eyebrow">BẮT ĐẦU TỪ BÀI CỦA EM</span>
-          <h2>Mang một bài học đến đây nhé!</h2>
-          <p>
-            Gửi PDF hoặc ảnh chụp. Mình sẽ đọc tài liệu, tìm câu hỏi và sắp xếp
-            các dạng bài để em chọn học.
-          </p>
-          <div className="actions">
-            <ButtonLink href={`/tai-len/${subject}`}>
-              <Upload size={19} /> Gửi tài liệu
-            </ButtonLink>
-          </div>
+          <PageTitle
+            eyebrow="CÙNG EM KHÁM PHÁ · LỚP 2"
+            title={`${info.icon} ${subject === "self" ? "Góc tự học" : info.name}`}
+          >
+            <span>{info.description}</span>
+          </PageTitle>
         </div>
-        <Character
-          index={
-            subject === "english"
-              ? 1
-              : subject === "vietnamese"
-                ? 3
-                : subject === "self"
-                  ? 7
-                  : 4
-          }
-        />
-      </section>
+        <div className="subject-heading-actions">
+          <Character
+            index={
+              subject === "english"
+                ? 1
+                : subject === "vietnamese"
+                  ? 3
+                  : subject === "self"
+                    ? 7
+                    : 4
+            }
+          />
+          <ButtonLink href={`/tai-len/${subject}`}>
+            <Upload size={18} /> Gửi bài mới
+          </ButtonLink>
+        </div>
+      </header>
       <DocumentLibrary subject={subject} />
-      {subject === "math" && (
-        <p className="sample-note">
-          Muốn xem trước cách làm bài, gợi ý và chấm điểm?{" "}
-          <Link href="/ban-mau">Mở khu trải nghiệm bằng dữ liệu mẫu →</Link>
-        </p>
-      )}
-    </>
+    </div>
   );
 }
+
 export function DocumentLibrary({ subject }: { subject?: Subject }) {
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [infoOpen, setInfoOpen] = useState(false);
   const [documents, setDocuments] = useState<PublicDocument[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -157,30 +149,93 @@ export function DocumentLibrary({ subject }: { subject?: Subject }) {
       clearInterval(timer);
     };
   }, [version]);
-  const visible = documents.filter((d) => !subject || d.subject === subject);
+  const matchingSubject = documents.filter(
+    (d) => !subject || d.subject === subject,
+  );
+  const visible = matchingSubject.filter(
+    (d) =>
+      `${d.title} ${d.files.map((f) => f.name).join(" ")}`
+        .toLocaleLowerCase("vi")
+        .includes(query.trim().toLocaleLowerCase("vi")) &&
+      (filter === "all" ||
+        (filter === "ready"
+          ? d.status === "complete"
+          : filter === "working"
+            ? ["uploading", "queued", "preparing", "analyzing"].includes(
+                d.status,
+              )
+            : ["partial", "failed", "waiting_config"].includes(d.status))),
+  );
   return (
-    <section className="section">
-      <div className="section-heading">
+    <section className="section compact-library">
+      <div className="library-heading">
+        <h2>
+          {subject ? "Bài đã gửi" : "Thư viện"}
+          <span>{matchingSubject.length}</span>
+        </h2>
         <div>
-          <span className="eyebrow">THƯ VIỆN DEMO DÙNG CHUNG</span>
-          <h2>
-            {subject
-              ? `Bài ${subjects[subject].name} đã gửi`
-              : "Thư viện dùng chung"}
-          </h2>
-          <p>
-            Tài liệu, bài học, bài làm và điểm số dùng chung. Chỉ người tải lên
-            được quản lý tài liệu của mình.
-          </p>
+          {!subject && (
+            <Link
+              href="/tai-len/math"
+              className="button secondary"
+              aria-label="Gửi bài mới"
+            >
+              <Upload size={17} />{" "}
+              <span className="library-upload-label">Gửi bài mới</span>
+            </Link>
+          )}
+          <button
+            className="icon-button"
+            aria-label="Thông tin thư viện"
+            aria-haspopup="dialog"
+            onClick={(event) => {
+              event.currentTarget.focus();
+              setInfoOpen(true);
+            }}
+          >
+            <Info size={19} />
+          </button>
+          <button
+            className="icon-button"
+            aria-label="Làm mới thư viện"
+            onClick={() => setVersion((v) => v + 1)}
+          >
+            <RefreshCw size={19} />
+          </button>
         </div>
-        <button
-          className="icon-button"
-          aria-label="Làm mới thư viện"
-          onClick={() => setVersion((v) => v + 1)}
-        >
-          <RefreshCw size={20} />
-        </button>
       </div>
+      {!!matchingSubject.length && (
+        <div className="library-filters">
+          <label className="topic-search">
+            <Search size={18} />
+            <input
+              type="search"
+              aria-label="Tìm bài đã gửi"
+              placeholder="Tìm tên bài hoặc tài liệu…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </label>
+          <select
+            aria-label="Lọc trạng thái tài liệu"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          >
+            <option value="all">Tất cả trạng thái</option>
+            <option value="ready">Sẵn sàng</option>
+            <option value="working">Đang xử lý</option>
+            <option value="review">Cần kiểm tra</option>
+          </select>
+        </div>
+      )}
+      {infoOpen && (
+        <Modal title="Thư viện dùng chung" onClose={() => setInfoOpen(false)}>
+          <p>
+            Tài liệu, bài học, bài làm và điểm số trong bản demo được dùng
+            chung. Chỉ người tải lên được quản lý tài liệu của mình.
+          </p>
+        </Modal>
+      )}
       {error && (
         <p className="notice error" role="alert">
           {error}
@@ -191,11 +246,31 @@ export function DocumentLibrary({ subject }: { subject?: Subject }) {
       ) : !visible.length ? (
         <div className="card empty-state">
           <BookOpen size={36} />
-          <h3>Một trang mới đang chờ em</h3>
-          <p>Gửi tài liệu đầu tiên để bắt đầu nhé.</p>
-          <ButtonLink href={`/tai-len/${subject || "math"}`}>
-            Chọn PDF hoặc ảnh <ArrowRight size={18} />
-          </ButtonLink>
+          <h3>
+            {matchingSubject.length
+              ? "Chưa tìm thấy bài phù hợp"
+              : "Bắt đầu với bài của em"}
+          </h3>
+          <p>
+            {matchingSubject.length
+              ? "Thử tên khác hoặc đổi bộ lọc nhé."
+              : "Chọn PDF hoặc ảnh chụp để tạo bài học."}
+          </p>
+          {matchingSubject.length ? (
+            <button
+              className="text-button"
+              onClick={() => {
+                setQuery("");
+                setFilter("all");
+              }}
+            >
+              Xóa bộ lọc
+            </button>
+          ) : (
+            <ButtonLink href={`/tai-len/${subject || "math"}`}>
+              Gửi bài đầu tiên <ArrowRight size={18} />
+            </ButtonLink>
+          )}
         </div>
       ) : (
         <div className="document-grid">
@@ -206,19 +281,15 @@ export function DocumentLibrary({ subject }: { subject?: Subject }) {
               href={`/tai-lieu/${d.id}`}
             >
               <span className={`badge status-${d.status}`}>
-                {d.canManage ? statusNames[d.status] : "Tài liệu dùng chung"}
+                {statusNames[d.status]}
               </span>
-              <h3>{d.title}</h3>
-              <p>
-                {subjects[d.subject].icon} {subjects[d.subject].name}
-                {d.mode === "timo" ? " · TIMO" : ""}
+              <h3 title={d.title}>{d.title}</h3>
+              <p className="document-card-meta">
+                {!subject && `${subjects[d.subject].name} · `}
+                {d.mode === "timo" ? "TIMO · " : ""}
+                {new Date(d.createdAt).toLocaleDateString("vi-VN")}
+                {!d.canManage && " · Dùng chung"}
               </p>
-              <small>
-                {d.files.length === 1
-                  ? d.files[0].name
-                  : `${d.files.length} ảnh`}{" "}
-                · {new Date(d.createdAt).toLocaleDateString("vi-VN")}
-              </small>
               <div className="world-bottom">
                 {d.questions.length
                   ? `${d.questions.length} câu đã nhận diện`
@@ -308,6 +379,7 @@ export function UploadPage({
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const config = useConfig();
+  const [helpOpen, setHelpOpen] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [subject, setSubject] = useState<Subject>(initialSubject);
@@ -435,7 +507,7 @@ export function UploadPage({
     }
   }
   return (
-    <>
+    <div className={`compact-upload subject-${subject}`}>
       <Link className="back-link" href={subjects[subject].path}>
         <ArrowLeft size={16} /> {subjects[subject].name}
       </Link>
@@ -443,35 +515,48 @@ export function UploadPage({
         eyebrow={
           mode === "timo" ? "CHINH PHỤC TIMO · LỚP 2" : "TỪ TÀI LIỆU CỦA EM"
         }
-        title={mode === "timo" ? "Gửi đề, mở thử thách" : "Gửi bài tập của em"}
-      >
-        Mình cùng đọc tài liệu và khám phá các dạng bài nhé!
-      </PageTitle>
+        title={
+          mode === "timo"
+            ? "Gửi đề TIMO"
+            : `Gửi bài · ${subjects[subject].name}`
+        }
+      />
       <ConfigNotice config={config} />
-      <p className="notice">
-        Tài liệu gửi lên bản demo sẽ xuất hiện trong thư viện dùng chung cho mọi
-        người mở website.
-      </p>
-      <div className="stepper">
-        <span className="current">
-          <b>1</b> Gửi tài liệu
-        </span>
-        <i />
-        <span>
-          <b>2</b> Nhận diện
-        </span>
-        <i />
-        <span>
-          <b>3</b> Chọn bài học
-        </span>
+      <div className="upload-intro">
+        <span>Chọn tài liệu, mình chuẩn bị bài học cho em.</span>
+        <button
+          className="text-button"
+          type="button"
+          aria-haspopup="dialog"
+          onClick={(event) => {
+            event.currentTarget.focus();
+            setHelpOpen(true);
+          }}
+        >
+          <Info size={16} /> Cách gửi bài
+        </button>
       </div>
+      {helpOpen && (
+        <Modal title="Gửi bài như thế nào?" onClose={() => setHelpOpen(false)}>
+          <p>
+            Chọn một PDF hoặc nhiều ảnh theo thứ tự trang, chụp đủ đề và hình
+            minh họa. Em có thể sắp xếp ảnh trước khi gửi.
+          </p>
+          <p>
+            Mình sẽ đọc chữ, câu hỏi, hình minh họa và chuẩn bị đáp án, lời
+            giải, gợi ý. Phần thiếu dữ kiện được đánh dấu để kiểm tra.
+          </p>
+          <p>
+            Tài liệu được gửi đến OpenRouter để phân tích và xuất hiện trong thư
+            viện dùng chung của bản demo. Tránh gửi kèm thông tin cá nhân không
+            cần thiết.
+          </p>
+        </Modal>
+      )}
       <form onSubmit={submit}>
         <fieldset disabled={busy} className="upload-layout upload-fieldset">
           <div className="upload-main">
             <section className="card upload-card">
-              <h2>
-                <span className="number-label">1</span> Tài liệu của em
-              </h2>
               <div
                 className={`dropzone ${dragging ? "dragging" : ""}`}
                 onDragOver={(e) => {
@@ -488,8 +573,10 @@ export function UploadPage({
                 <span className="upload-illustration">
                   <Upload size={32} />
                 </span>
-                <h3>Kéo tài liệu vào đây</h3>
-                <p>hoặc chọn file từ thiết bị của em</p>
+                <h3>
+                  {files.length ? "Thêm tài liệu" : "Chọn tài liệu của em"}
+                </h3>
+                <p>Kéo thả tệp vào đây hoặc chọn từ thiết bị</p>
                 <input
                   ref={input}
                   className="sr-only"
@@ -536,146 +623,138 @@ export function UploadPage({
                           Xem trước ↗
                         </a>
                       </div>
-                      {files.length > 1 && (
-                        <>
-                          <button
-                            type="button"
-                            className="icon-button"
-                            aria-label={`Đưa ảnh ${i + 1} lên`}
-                            disabled={i === 0}
-                            onClick={() => {
-                              setFiles((fs) => {
-                                const n = [...fs];
-                                [n[i - 1], n[i]] = [n[i], n[i - 1]];
-                                return n;
-                              });
-                              changed();
-                            }}
-                          >
-                            <ArrowUp size={17} />
-                          </button>
-                          <button
-                            type="button"
-                            className="icon-button"
-                            aria-label={`Đưa ảnh ${i + 1} xuống`}
-                            disabled={i === files.length - 1}
-                            onClick={() => {
-                              setFiles((fs) => {
-                                const n = [...fs];
-                                [n[i + 1], n[i]] = [n[i], n[i + 1]];
-                                return n;
-                              });
-                              changed();
-                            }}
-                          >
-                            <ArrowDown size={17} />
-                          </button>
-                        </>
-                      )}
-                      <button
-                        type="button"
-                        className="icon-button"
-                        aria-label={`Bỏ ${f.name}`}
-                        onClick={() => {
-                          setFiles((fs) => fs.filter((_, n) => n !== i));
-                          changed();
-                        }}
-                      >
-                        <X size={18} />
-                      </button>
+                      <div className="file-controls">
+                        {files.length > 1 && (
+                          <>
+                            <button
+                              type="button"
+                              className="icon-button"
+                              aria-label={`Đưa ảnh ${i + 1} lên`}
+                              disabled={i === 0}
+                              onClick={() => {
+                                setFiles((fs) => {
+                                  const n = [...fs];
+                                  [n[i - 1], n[i]] = [n[i], n[i - 1]];
+                                  return n;
+                                });
+                                changed();
+                              }}
+                            >
+                              <ArrowUp size={17} />
+                            </button>
+                            <button
+                              type="button"
+                              className="icon-button"
+                              aria-label={`Đưa ảnh ${i + 1} xuống`}
+                              disabled={i === files.length - 1}
+                              onClick={() => {
+                                setFiles((fs) => {
+                                  const n = [...fs];
+                                  [n[i + 1], n[i]] = [n[i], n[i + 1]];
+                                  return n;
+                                });
+                                changed();
+                              }}
+                            >
+                              <ArrowDown size={17} />
+                            </button>
+                          </>
+                        )}
+                        <button
+                          type="button"
+                          className="icon-button"
+                          aria-label={`Bỏ ${f.name}`}
+                          onClick={() => {
+                            setFiles((fs) => fs.filter((_, n) => n !== i));
+                            changed();
+                          }}
+                        >
+                          <X size={18} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
-              <p className="micro">
-                Một PDF hoặc nhiều ảnh theo thứ tự trang. Với ảnh chụp, số trang
-                là vị trí ảnh trong danh sách. Hãy chụp đủ đề và hình minh họa.
-              </p>
             </section>
-            <section className="card upload-card document-form">
-              <h2>
-                <span className="number-label">2</span> Buổi học của em
-              </h2>
-              <label>
-                Tên buổi học
-                <input
-                  value={title}
-                  maxLength={160}
-                  placeholder="Ví dụ: Toán tuần 5"
-                  onChange={(e) => {
-                    setTitle(e.target.value);
-                    changed();
-                  }}
-                />
-              </label>
-              <label>
-                Môn học
-                <select
-                  value={subject}
-                  disabled={busy || mode === "timo"}
-                  onChange={(e) => {
-                    setSubject(e.target.value as Subject);
-                    changed();
-                  }}
-                >
-                  {Object.entries(subjects).map(([key, s]) => (
-                    <option key={key} value={key}>
-                      {s.icon} {s.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Phần muốn đọc
-                <select
-                  value={range}
-                  onChange={(e) => {
-                    setRange(e.target.value);
-                    changed();
-                  }}
-                >
-                  <option value="">Tất cả các trang</option>
-                  <option value="pages">Chọn một số trang</option>
-                </select>
-              </label>
-              {range && (
+            <details className="card upload-card document-form">
+              <summary>
+                <strong>Thông tin bài học</strong>
+                <small>
+                  {subjects[subject].name} ·{" "}
+                  {range ? `Trang ${pages || "tự chọn"}` : "Tất cả trang"}
+                </small>
+                <ChevronDown size={17} />
+              </summary>
+              <div className="upload-options">
                 <label>
-                  Số trang
+                  Tên buổi học
                   <input
-                    value={pages}
-                    placeholder="Ví dụ: 1-3, 5"
+                    value={title}
+                    maxLength={160}
+                    placeholder={`Ví dụ: ${subjects[subject].name} tuần 5`}
                     onChange={(e) => {
-                      setPages(e.target.value);
+                      setTitle(e.target.value);
                       changed();
                     }}
                   />
                 </label>
-              )}
-            </section>
+                <label>
+                  Môn học
+                  <select
+                    value={subject}
+                    disabled={busy || mode === "timo"}
+                    onChange={(e) => {
+                      setSubject(e.target.value as Subject);
+                      changed();
+                    }}
+                  >
+                    {Object.entries(subjects).map(([key, s]) => (
+                      <option key={key} value={key}>
+                        {s.icon} {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Phần muốn đọc
+                  <select
+                    value={range}
+                    onChange={(e) => {
+                      setRange(e.target.value);
+                      changed();
+                    }}
+                  >
+                    <option value="">Tất cả các trang</option>
+                    <option value="pages">Chọn một số trang</option>
+                  </select>
+                </label>
+                {range && (
+                  <label>
+                    Số trang
+                    <input
+                      value={pages}
+                      placeholder="Ví dụ: 1-3, 5"
+                      onChange={(e) => {
+                        setPages(e.target.value);
+                        changed();
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+            </details>
           </div>
-          <aside className="card upload-summary">
-            <span className="eyebrow">SẴN SÀNG KHÁM PHÁ</span>
-            <h2>Mình sẽ đọc những gì?</h2>
-            <ul className="document-benefits">
-              <li>Đọc chữ, câu hỏi và các lựa chọn</li>
-              <li>Nhận diện dạng bài, chủ đề</li>
-              <li>Giữ trang gốc để đối chiếu</li>
-              <li>Chuẩn bị đáp án, lời giải và gợi ý</li>
-              <li>Đánh dấu phần cần kiểm tra</li>
-            </ul>
-            <p>Em có thể chọn bất kỳ chủ đề nào sau khi nhận diện xong.</p>
-            <p className="micro">
-              Tài liệu được gửi đến OpenRouter để phân tích. Tránh chụp kèm
-              thông tin cá nhân không cần thiết.
-            </p>
-            <button className="button full" type="submit">
-              <Upload size={18} /> Gửi và chuẩn bị bài
+          <div className="upload-submit">
+            <p>Tài liệu sẽ xuất hiện trong thư viện dùng chung.</p>
+            <button
+              className="button"
+              type="submit"
+              disabled={!files.length || config?.storageConfigured === false}
+            >
+              <Upload size={18} /> Gửi bài
             </button>
-            <p className="micro">
-              Xử lý xong, em có thể làm bài gốc ngay với gợi ý có sẵn. Luyện
-              thêm là lựa chọn riêng.
-            </p>
-          </aside>
+          </div>
         </fieldset>
         {busy && (
           <div className="card upload-progress" role="status">
@@ -695,7 +774,7 @@ export function UploadPage({
           </div>
         )}
       </form>
-    </>
+    </div>
   );
 }
 

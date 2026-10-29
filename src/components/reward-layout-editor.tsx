@@ -48,7 +48,10 @@ export function MovableRewardItem({
   const editor = useRewardEditor();
   const element = useRef<SVGGElement>(null);
   const layout = rewardItemLayout(itemId);
-  const saved = editor.positions[itemId] ?? defaultRewardPosition(itemId);
+  const saved = clampRewardPosition(
+    itemId,
+    editor.positions[itemId] ?? defaultRewardPosition(itemId),
+  );
   const [draft, setDraft] = useState<RewardPosition | null>(null);
   const [targetSize, setTargetSize] = useState({
     width: layout.width,

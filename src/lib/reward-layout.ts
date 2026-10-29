@@ -2,14 +2,14 @@ import { rewardItems } from "./rewards";
 export type RewardPosition = { x: number; y: number };
 export type RewardPositions = Record<string, RewardPosition>;
 const study: Record<string, readonly [number, number, number, number]> = {
-  pencils: [264, 282, 44, 80],
+  pencils: [264, 282, 86, 100],
   picture: [345, 126, 102, 108],
-  plant: [211, 273, 48, 100],
-  books: [500, 163, 74, 64],
-  lamp: [496, 268, 70, 110],
-  bear: [594, 156, 58, 78],
-  chair: [352, 409, 116, 138],
-  desk: [360, 382, 378, 126],
+  plant: [211, 273, 95, 110],
+  books: [500, 163, 110, 90],
+  lamp: [496, 268, 100, 120],
+  bear: [594, 156, 110, 125],
+  chair: [352, 409, 115, 140],
+  desk: [360, 382, 245, 170],
 };
 const themed: Record<string, readonly (readonly [number, number, number])[]> = {
   space: [
@@ -67,8 +67,8 @@ export function rewardItemLayout(itemId: string) {
   return {
     x,
     y: baseline - size * 0.33,
-    width: size * 1.2,
-    height: size * 1.25,
+    width: Math.max(90, size * 1.6),
+    height: Math.max(100, size * 1.7),
     size,
     baseline,
   };

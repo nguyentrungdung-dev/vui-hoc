@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
+  BookOpen,
+  Sprout,
+  Search,
+  Flag,
   Check,
   Gift,
   History,
@@ -18,15 +22,16 @@ import {
   type RewardAction,
   type RewardMapId,
   type RewardItem,
-  type RewardItemId,
   type RewardView,
 } from "@/lib/rewards";
-import {
-  MovableRewardItem,
-  RewardLayoutProvider,
-  useRewardEditor,
-} from "./reward-layout-editor";
+import { RewardLayoutProvider } from "./reward-layout-editor";
 import type { RewardPosition } from "@/lib/reward-layout";
+import {
+  rewardBackground,
+  rewardSticker,
+  rewardStories,
+  rewardStoryStage,
+} from "@/lib/reward-stories";
 import { RewardMapScene } from "./reward-maps";
 import { ButtonLink, Modal } from "./ui";
 
@@ -55,266 +60,12 @@ async function requestRewards(
   return data;
 }
 
-function StudyRoom({
-  placed,
-  preview,
-}: {
-  placed: RewardItemId[];
-  preview?: RewardItem;
-}) {
-  const uid = useId().replace(/:/g, "");
-  const has = (id: RewardItemId) => placed.includes(id) || preview?.id === id;
-  const editor = useRewardEditor();
-  const studyArt = {
-    picture: (
-      <>
-        <rect x="294" y="72" width="101" height="107" rx="6" fill="#bc8f68" />
-        <rect x="302" y="80" width="85" height="91" fill="#fcf7e8" />
-        <circle cx="358" cy="107" r="12" fill="#e5bb65" />
-        <path d="M310 157L337 118L354 144L369 126L380 157Z" fill="#97b4a0" />
-      </>
-    ),
-    books: (
-      <>
-        <rect x="465" y="143" width="15" height="49" rx="3" fill="#cc8c76" />
-        <rect x="483" y="132" width="16" height="60" rx="3" fill="#90a8b9" />
-        <path d="M506 143L520 139L535 189L521 193Z" fill="#d9bd7c" />
-        <path d="M469 155H477M487 145H495" stroke="#fff4dc" strokeWidth="3" />
-      </>
-    ),
-    bear: (
-      <>
-        <ellipse cx="594" cy="170" rx="22" ry="23" fill="#c39470" />
-        <circle cx="579" cy="129" r="10" fill="#c39470" />
-        <circle cx="609" cy="129" r="10" fill="#c39470" />
-        <circle cx="594" cy="146" r="22" fill="#d7b08c" />
-        <ellipse cx="594" cy="154" rx="10" ry="8" fill="#f3dcc4" />
-        <path d="M592 151L596 151L594 154Z" fill="#654e45" />
-        <circle cx="586" cy="142" r="2" fill="#654e45" />
-        <circle cx="602" cy="142" r="2" fill="#654e45" />
-        <ellipse cx="594" cy="175" rx="12" ry="14" fill="#f3dcc4" />
-      </>
-    ),
-    pencils: (
-      <>
-        <path
-          d="M256 284L250 250M265 284V246M273 284L282 254"
-          stroke="#d5a061"
-          strokeWidth="6"
-        />
-        <path d="M246 277H282L277 319H252Z" fill="#9aa8bf" />
-        <path
-          d="M254 287V309M263 287V309M272 287V309"
-          stroke="#c3ccda"
-          strokeWidth="2"
-        />
-      </>
-    ),
-    plant: (
-      <>
-        <path d="M211 283V251" stroke="#62856a" strokeWidth="4" />
-        <ellipse
-          cx="200"
-          cy="256"
-          rx="9"
-          ry="18"
-          transform="rotate(-40 200 256)"
-          fill="#88ab7e"
-        />
-        <ellipse
-          cx="220"
-          cy="245"
-          rx="9"
-          ry="18"
-          transform="rotate(34 220 245)"
-          fill="#70966a"
-        />
-        <path d="M191 280H231L224 318H198Z" fill="#d69a7b" />
-        <rect x="189" y="278" width="44" height="8" rx="3" fill="#e4ac8d" />
-      </>
-    ),
-    lamp: (
-      <>
-        <path
-          d="M483 311L471 263L494 239"
-          fill="none"
-          stroke="#a99c6c"
-          strokeWidth="7"
-          strokeLinecap="round"
-        />
-        <path d="M478 234Q493 215 508 235L520 255H474Z" fill="#e2c778" />
-        <ellipse cx="483" cy="316" rx="23" ry="5" fill="#c4b16f" />
-        <path d="M482 258L463 310H529L510 258Z" fill="#f7d98a" opacity=".13" />
-      </>
-    ),
-    desk: (
-      <>
-        <rect
-          x="172"
-          y="320"
-          width="375"
-          height="19"
-          rx="7"
-          fill={has("desk") ? "#80a8a1" : "#bd9570"}
-        />
-        <rect
-          x="187"
-          y="339"
-          width="16"
-          height="104"
-          rx="4"
-          fill={has("desk") ? "#638f89" : "#ab8260"}
-        />
-        <rect
-          x="513"
-          y="339"
-          width="16"
-          height="104"
-          rx="4"
-          fill={has("desk") ? "#638f89" : "#ab8260"}
-        />
-        <rect
-          x="433"
-          y="342"
-          width="70"
-          height="40"
-          rx="5"
-          fill={has("desk") ? "#a1c1b6" : "#d5b48f"}
-        />
-        <circle cx="468" cy="361" r="3" fill="#786c59" />
-        <path d="M286 308L340 304L366 315L310 318Z" fill="#fffdf2" />
-        <path d="M340 304L384 306L406 318L366 315Z" fill="#e6eadf" />
-      </>
-    ),
-    chair: (
-      <>
-        <path
-          d="M310 415L303 471M392 415L400 471"
-          stroke="#a78367"
-          strokeWidth="11"
-          strokeLinecap="round"
-        />
-        <rect
-          x="297"
-          y="404"
-          width="110"
-          height="17"
-          rx="7"
-          fill={has("chair") ? "#a897c5" : "#cba889"}
-        />
-        <rect x="305" y="354" width="9" height="56" rx="4" fill="#b49273" />
-        <rect x="389" y="354" width="9" height="56" rx="4" fill="#b49273" />
-        <rect
-          x="295"
-          y="342"
-          width="113"
-          height="51"
-          rx="18"
-          fill={has("chair") ? "#b6a6ce" : "#dfc3a7"}
-        />
-        <path
-          d="M321 355H382"
-          stroke={has("chair") ? "#cdbfe0" : "#ecd7c0"}
-          strokeWidth="4"
-          strokeLinecap="round"
-        />
-      </>
-    ),
-  };
-  return (
-    <svg
-      viewBox="0 0 720 510"
-      className={`study-room ${editor.editing ? "is-editing" : ""}`}
-      role={editor.editing ? "group" : "img"}
-      aria-label={`Góc học tập có bàn, ghế, kệ${rewardItems
-        .filter((i) => i.map === "study" && has(i.id))
-        .map((i) => `, ${i.name}`)
-        .join("")}${preview ? `. Đang xem thử ${preview.name}` : ""}`}
-    >
-      <defs>
-        <linearGradient id={`${uid}-wall`} x2="0" y2="1">
-          <stop stopColor="#f4eee6" />
-          <stop offset="1" stopColor="#fffaf2" />
-        </linearGradient>
-        <linearGradient id={`${uid}-glass`} x2="0" y2="1">
-          <stop stopColor="#b7dce9" />
-          <stop offset="1" stopColor="#e5f3ee" />
-        </linearGradient>
-      </defs>
-      <rect width="720" height="510" rx="26" fill={`url(#${uid}-wall)`} />
-      <path d="M0 397H720V484Q720 510 694 510H26Q0 510 0 484Z" fill="#e4d4c0" />
-      <path
-        d="M0 400H720M0 455H720M150 400L85 510M360 400V510M570 400L635 510"
-        stroke="#d2bfaa"
-        strokeWidth="2"
-      />
-      <rect x="68" y="69" width="157" height="191" rx="53" fill="#decbb7" />
-      <rect
-        x="76"
-        y="77"
-        width="141"
-        height="174"
-        rx="46"
-        fill={`url(#${uid}-glass)`}
-      />
-      <circle cx="176" cy="118" r="20" fill="#fff4be" />
-      <path
-        d="M77 221Q111 176 148 216Q184 176 216 218V251H77Z"
-        fill="#a2c5b4"
-      />
-      <path d="M148 79V252M77 166H217" stroke="#fff9ee" strokeWidth="8" />
-      <path
-        d="M56 70Q40 157 60 264L85 262Q70 164 87 70M209 70Q227 165 210 263L236 265Q251 156 237 70"
-        fill="#c4c4dd"
-      />
-      <rect x="450" y="192" width="199" height="12" rx="5" fill="#bd9775" />
-      <path d="M468 204V221M630 204V221" stroke="#a98063" strokeWidth="6" />
-
-      <ellipse
-        cx="362"
-        cy="458"
-        rx="213"
-        ry="24"
-        fill="#bba68e"
-        opacity=".24"
-      />
-      {!has("desk") && studyArt.desk}
-
-      {!has("chair") && studyArt.chair}
-      <text
-        x="607"
-        y="366"
-        fontSize="12"
-        fill="#a99b88"
-        fontFamily="inherit"
-        textAnchor="middle"
-      >
-        góc nhỏ của con
-      </text>
-      {[
-        ...placed.filter((id) => id in studyArt),
-        ...(preview && !placed.includes(preview.id) ? [preview.id] : []),
-      ].map(
-        (id) =>
-          id in studyArt && (
-            <MovableRewardItem
-              key={id}
-              itemId={id}
-              preview={preview?.id === id && !placed.includes(id)}
-            >
-              {studyArt[id as keyof typeof studyArt]}
-            </MovableRewardItem>
-          ),
-      )}
-    </svg>
-  );
-}
-
 export function RewardsPage() {
   const [view, setView] = useState<RewardView | null>(null);
   const [tab, setTab] = useState<"shop" | "owned">("shop");
   const [selected, setSelected] = useState<RewardItem | null>(null);
   const [history, setHistory] = useState(false);
+  const [storyOpen, setStoryOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -344,7 +95,7 @@ export function RewardsPage() {
       setNotice(
         action === "store"
           ? `Đã cất ${item.name.toLowerCase()}. Con có thể đặt lại bất cứ lúc nào.`
-          : `${item.name} đã được đặt vào ${rewardMaps.find((map) => map.id === item.map)!.name.toLowerCase()}!`,
+          : `${item.name} đã được đặt vào bản đồ. ${rewardStories[item.map].thanks}`,
       );
     } catch (e) {
       setError((e as Error).message);
@@ -408,32 +159,47 @@ export function RewardsPage() {
     setEditing(false);
     setSelected(item);
     setNotice("");
-    if (window.matchMedia("(max-width: 1000px)").matches)
-      room.current?.scrollIntoView({
-        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-          ? "instant"
-          : "smooth",
-        block: "start",
-      });
+    room.current?.scrollIntoView({
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "instant"
+        : "smooth",
+      block: "start",
+    });
   }
   const activeMap =
     rewardMaps.find((map) => map.id === view?.activeMap) ?? rewardMaps[0];
   const mapItems = rewardItems.filter((item) => item.map === activeMap.id);
   const mapOwned = mapItems.filter((item) => view?.owned.includes(item.id));
   const mapPlaced = mapItems.filter((item) => view?.placed.includes(item.id));
+  const story = rewardStories[activeMap.id];
+  const guide = rewardItems.find((item) => item.id === story.guideItem)!;
+  const storyStage = rewardStoryStage(mapOwned.length);
   const owned = selected && view?.owned.includes(selected.id);
   const placed = selected && view?.placed.includes(selected.id);
   const enough = selected && view && view.balance >= selected.price;
   return (
     <div className="rewards-page">
-      <header className="rewards-heading">
+      <header className={`rewards-heading story-hero theme-${activeMap.id}`}>
         <div>
-          <span className="eyebrow">PHẦN THƯỞNG · THẾ GIỚI CỦA CON</span>
+          <span className="eyebrow">SỔ PHIÊU LƯU CỦA CON</span>
           <h1>
-            Góc của con<span className="reward-title-spark">✦</span>
+            Học điều mới.
+            <br />
+            <span>Vẽ thế giới riêng.</span>
           </h1>
-          <p>Mỗi điều học được, thêm một chút riêng con.</p>
+          <p>
+            Mỗi ngôi sao là một điều con đã học được.
+            <br />
+            Mang sao về, chọn một người bạn, kể tiếp câu chuyện của mình.
+          </p>
         </div>
+        <img
+          className="story-hero-guide"
+          src={rewardSticker(guide)}
+          alt=""
+          width="180"
+          height="180"
+        />
         <button
           className="reward-wallet"
           onClick={() => setHistory(true)}
@@ -446,7 +212,7 @@ export function RewardsPage() {
         >
           <Star fill="currentColor" size={24} />
           <strong>{view?.balance ?? "—"}</strong>
-          <span>sao của con</span>
+          <span>ngôi sao của con</span>
           <History size={17} />
         </button>
       </header>
@@ -470,9 +236,9 @@ export function RewardsPage() {
             <div className="reward-map-picker-heading">
               <div>
                 <span className="eyebrow">ĐIỂM ĐẾN CỦA TRÍ TƯỞNG TƯỢNG</span>
-                <h2>Hôm nay, con muốn đến đâu?</h2>
+                <h2>Năm cánh cửa, năm câu chuyện</h2>
               </div>
-              <p>Đổi bản đồ miễn phí · Dùng chung sao</p>
+              <p>Con có thể ghé thăm bất cứ nơi nào.</p>
             </div>
             <div className="reward-map-options">
               {rewardMaps.map((map) => (
@@ -483,16 +249,21 @@ export function RewardsPage() {
                   onClick={() => switchMap(map.id)}
                   className={`reward-map-option map-${map.id}`}
                 >
-                  <span
-                    className="reward-map-icon"
-                    aria-hidden="true"
-                    style={{ background: map.color }}
-                  >
-                    {map.icon}
+                  <span className="story-map-cover">
+                    <img
+                      src={rewardBackground(map.id)}
+                      alt=""
+                      width="240"
+                      height="160"
+                      loading="lazy"
+                    />
+                    <span className="story-map-chapter">
+                      CHƯƠNG {rewardStories[map.id].chapter}
+                    </span>
                   </span>
                   <span>
-                    <strong>{map.name}</strong>
-                    <small>{map.subtitle}</small>
+                    <strong>{rewardStories[map.id].shortTitle}</strong>
+                    <small>{rewardStories[map.id].title}</small>
                     <span className="reward-map-count">
                       {
                         rewardItems.filter(
@@ -508,6 +279,37 @@ export function RewardsPage() {
                   )}
                 </button>
               ))}
+            </div>
+          </section>
+          <section
+            className={`story-letter theme-${activeMap.id}`}
+            aria-label="Lời mời vào câu chuyện"
+          >
+            <div className="story-guide-portrait">
+              <img
+                src={rewardSticker(guide)}
+                alt={story.guide}
+                width="120"
+                height="130"
+              />
+            </div>
+            <div className="story-letter-copy">
+              <span className="eyebrow">
+                LÁ THƯ TỪ {story.guide.toLocaleUpperCase("vi-VN")}
+              </span>
+              <h2>{story.title}</h2>
+              <p>{story.invitation}</p>
+              <button
+                className="text-button"
+                onClick={() => setStoryOpen(true)}
+              >
+                Đọc câu chuyện <ArrowRight size={16} />
+              </button>
+            </div>
+            <div className="story-mission">
+              <span>CHÚNG MÌNH CÙNG…</span>
+              <strong>{story.mission}</strong>
+              <p>Không cần vội. Câu chuyện luôn chờ con.</p>
             </div>
           </section>
           <RewardLayoutProvider
@@ -527,7 +329,7 @@ export function RewardsPage() {
                 >
                   <div className="reward-room-label">
                     <span>
-                      <span className="status-dot" /> {activeMap.name}
+                      <span className="status-dot" /> {story.shortTitle}
                     </span>
                     <small role="status">
                       {busy
@@ -569,18 +371,11 @@ export function RewardsPage() {
                         ? "Chọn Sắp xếp để di chuyển đồ bằng chuột hoặc ngón tay."
                         : "Đổi và đặt một vật phẩm để bắt đầu tự sắp xếp nhé!"}
                   </p>
-                  {activeMap.id === "study" ? (
-                    <StudyRoom
-                      placed={view.placed}
-                      preview={selected && !placed ? selected : undefined}
-                    />
-                  ) : (
-                    <RewardMapScene
-                      mapId={activeMap.id}
-                      placed={view.placed}
-                      preview={selected && !placed ? selected : undefined}
-                    />
-                  )}
+                  <RewardMapScene
+                    mapId={activeMap.id}
+                    placed={view.placed}
+                    preview={selected && !placed ? selected : undefined}
+                  />
                   <div className="reward-room-caption">
                     <Sparkles size={17} />
                     <span>
@@ -600,12 +395,13 @@ export function RewardsPage() {
                     aria-label="Vật phẩm đang chọn"
                   >
                     <div className="reward-selection-top">
-                      <span
-                        className="reward-selection-icon"
-                        aria-hidden="true"
-                      >
-                        {selected.icon}
-                      </span>
+                      <img
+                        className="reward-selection-sticker"
+                        src={rewardSticker(selected)}
+                        alt=""
+                        width="76"
+                        height="76"
+                      />
                       <div>
                         <h2>{selected.name}</h2>
                         <p>{selected.description}</p>
@@ -660,14 +456,25 @@ export function RewardsPage() {
                     </p>
                   </section>
                 ) : (
-                  <div className="reward-room-invitation">
-                    <span aria-hidden="true">🌱</span>
+                  <div
+                    className="story-progress"
+                    aria-label="Tiến triển câu chuyện"
+                  >
                     <div>
-                      <strong>Cứ học theo nhịp của con</strong>
-                      <p>
-                        Sao được giữ qua các buổi học. Nghỉ một hôm cũng không
-                        mất sao.
-                      </p>
+                      <span className="eyebrow">
+                        TRANG TRUYỆN {storyStage + 1}/4
+                      </span>
+                      <span>{mapOwned.length}/8 mảnh ghép đã sưu tầm</span>
+                    </div>
+                    <h3>{story.stages[storyStage]}</h3>
+                    <p>{story.discoveries[storyStage]}</p>
+                    <div className="story-progress-track" aria-hidden="true">
+                      {[0, 1, 2, 3].map((stage) => (
+                        <span
+                          key={stage}
+                          className={stage <= storyStage ? "reached" : ""}
+                        />
+                      ))}
                     </div>
                   </div>
                 )}
@@ -684,9 +491,11 @@ export function RewardsPage() {
                 aria-label="Vật phẩm trang trí"
               >
                 <div className="reward-catalog-heading">
-                  <span className="eyebrow">MỘT CHÚT SÁNG TẠO</span>
-                  <h2>Thêm điều con thích</h2>
-                  <p>Vật phẩm dành cho {activeMap.name.toLowerCase()}.</p>
+                  <span className="eyebrow">
+                    BỘ SƯU TẬP · CHƯƠNG {story.chapter}
+                  </span>
+                  <h2>Những mảnh ghép nhỏ</h2>
+                  <p>Chọn một món, thêm một điều vào câu chuyện.</p>
                 </div>
                 <div
                   className="reward-tabs"
@@ -708,7 +517,12 @@ export function RewardsPage() {
                 </div>
                 {tab === "owned" && !mapOwned.length ? (
                   <div className="reward-empty">
-                    <span aria-hidden="true">🎁</span>
+                    <img
+                      src={rewardSticker(guide)}
+                      alt=""
+                      width="100"
+                      height="100"
+                    />
                     <h3>Món đầu tiên đang chờ con</h3>
                     <p>
                       Hoàn thành mục tiêu học để nhận sao, rồi tự chọn một món
@@ -742,7 +556,14 @@ export function RewardsPage() {
                             <span
                               className={`reward-item-art art-${item.id} map-art-${item.map}`}
                             >
-                              <span aria-hidden="true">{item.icon}</span>
+                              <img
+                                className="reward-sticker"
+                                src={rewardSticker(item)}
+                                alt=""
+                                width="160"
+                                height="160"
+                                loading="lazy"
+                              />
                               {isOwned && (
                                 <span className="reward-owned-mark">
                                   <Check size={13} />{" "}
@@ -788,31 +609,31 @@ export function RewardsPage() {
             </div>
             <div className="reward-goal-grid">
               <div>
-                <span>📖</span>
+                <BookOpen size={26} />
                 <strong>Hoàn thành bài học</strong>
                 <p>Làm hết các câu trong một bài.</p>
-                <b>+2 ⭐</b>
+                <b>+2 sao</b>
               </div>
               <div>
-                <span>🌱</span>
+                <Sprout size={26} />
                 <strong>Tự sửa đúng 3 câu sai</strong>
                 <p>Tự trả lời lại sau khi xem gợi ý.</p>
-                <b>+1 ⭐</b>
+                <b>+1 sao</b>
               </div>
               <div>
-                <span>🔎</span>
+                <Search size={26} />
                 <strong>Hoàn thành lượt ôn tập</strong>
                 <p>Làm hết một bộ ôn được tạo.</p>
-                <b>+2 ⭐</b>
+                <b>+2 sao</b>
               </div>
               <div>
-                <span>🚩</span>
+                <Flag size={26} />
                 <strong>Chặng 3 bài khác nhau</strong>
                 <p>
                   Đã hoàn thành {view.lessonProgress}/3 bài trong chặng tiếp
                   theo.
                 </p>
-                <b>Thêm 2 ⭐</b>
+                <b>Thêm 2 sao</b>
               </div>
             </div>
             <p className="micro">
@@ -826,10 +647,35 @@ export function RewardsPage() {
           </section>
         </>
       )}
+      {storyOpen && (
+        <Modal title={story.title} onClose={() => setStoryOpen(false)}>
+          <div className="story-reading">
+            <img
+              src={rewardBackground(activeMap.id)}
+              alt=""
+              width="600"
+              height="425"
+            />
+            <div className="story-reading-guide">
+              <img src={rewardSticker(guide)} alt="" width="80" height="80" />
+              <span>
+                <strong>{story.guide}</strong>
+                <small>{story.role}</small>
+              </span>
+            </div>
+            {story.paragraphs.map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
+            <button className="button full" onClick={() => setStoryOpen(false)}>
+              Cùng viết tiếp câu chuyện <ArrowRight size={17} />
+            </button>
+          </div>
+        </Modal>
+      )}
       {history && view && (
         <Modal title="Những ngôi sao của con" onClose={() => setHistory(false)}>
           <p className="reward-history-balance">
-            Con đang có <strong>{view.balance} ⭐</strong>
+            Con đang có <strong>{view.balance} sao</strong>
           </p>
           <p className="micro">Sao nhận được từ những điều con đã làm được.</p>
           {!view.events.length ? (
@@ -849,7 +695,7 @@ export function RewardsPage() {
                       })}
                     </small>
                   </span>
-                  <b>+{event.stars} ⭐</b>
+                  <b>+{event.stars} sao</b>
                 </li>
               ))}
             </ol>
@@ -902,7 +748,7 @@ export function RewardCelebration({ runId }: { runId: string }) {
         </h2>
         {receipt.map((event) => (
           <p key={event.id}>
-            {event.message} <strong>+{event.stars} ⭐</strong>
+            {event.message} <strong>+{event.stars} sao</strong>
           </p>
         ))}
         {!receipt.length && (
