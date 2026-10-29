@@ -547,21 +547,6 @@ export function RealPracticePage({
       setBusy(false);
     }
   }
-  async function similar() {
-    setBusy(true);
-    setError("");
-    try {
-      const next = await request<RunView>(`/${documentId}/runs`, {
-        kind: "similar",
-        sourceId: run!.questions[run!.index].id,
-      });
-      router.push(`/luyen-tap/${documentId}/${next.id}`);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
   if (!run)
     return (
       <div className="card empty-state">
@@ -1088,17 +1073,6 @@ export function RealPracticePage({
                   >
                     <Lightbulb size={18} /> Giải thích
                   </button>
-                  {a.solved && !run.similar && (
-                    <button
-                      type="button"
-                      className="button secondary"
-                      disabled={busy}
-                      onClick={similar}
-                      title="Làm câu tương tự từ bộ luyện có sẵn"
-                    >
-                      <Rocket size={17} /> Câu tương tự
-                    </button>
-                  )}
                 </>
               )}
               <button

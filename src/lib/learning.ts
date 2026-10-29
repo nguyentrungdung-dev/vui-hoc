@@ -37,6 +37,27 @@ export type AnswerAssessment = {
   }[];
 };
 export type LearningQuestion = {
+  generationApproval?: {
+    policy: string;
+    model: string;
+    level: string;
+    at: string;
+    attempts: number;
+    review: {
+      valid: boolean;
+      reason: string;
+      answer: string;
+      responseCount: number;
+      sameStructure: boolean;
+      difficultyAppropriate: boolean;
+      difficultyEvidence: string;
+      answerMatches: boolean;
+      answerEvidence: string;
+      hintsConsistent: boolean;
+      selfContained: boolean;
+      uniqueAnswer: boolean;
+    };
+  };
   id: string;
   sourceIds: string[];
   sourcePages: number[];
@@ -153,6 +174,7 @@ export type QuestionView = Omit<
   | "englishSteps"
   | "checks"
   | "rubric"
+  | "generationApproval"
 > & {
   hint?: string;
   solution?: Pick<
@@ -402,6 +424,7 @@ export function runView(run: LearningRun): RunView {
         explanation,
         englishSteps,
         checks: _checks,
+        generationApproval: _approval,
         rubric: _rubric,
         ...safe
       } = q;

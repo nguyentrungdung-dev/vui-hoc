@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NextRequest } from "next/server";
 import type { DocumentJob } from "../lib/documents";
+import { arithmetic } from "./learning-validation";
 import { runView, type LearningQuestion } from "../lib/learning";
 import { similarDifficulties, similarLevel } from "../lib/similar";
 import { writeJob } from "./store";
@@ -59,7 +60,10 @@ const question = (index = 0): LearningQuestion => {
     steps: ["Đặt tính thẳng cột.", "Cộng trừ lần lượt từ hàng đơn vị."],
     explanation: "Các chữ số cùng hàng thẳng cột.",
     englishSteps: [],
-    checks: [{ expression: `${base}+29`, value: base + 29 }],
+    checks: fields.map((f) => ({
+      expression: f.label,
+      value: arithmetic(f.label),
+    })),
     answerFields: fields,
     rubric: fields.map((f) => ({
       id: f.id,
@@ -151,10 +155,15 @@ async function mockAI(
           ? "Hint mâu thuẫn với đáp án."
           : "Đã tự giải và kiểm tra đủ bốn ý.",
         answer: payload.question.answer,
-        fieldCount: 4,
+        responseCount: 4,
         sameStructure: true,
         difficultyAppropriate: true,
         hintsConsistent: !control.reject,
+        difficultyEvidence: "Cùng số toán hạng, phạm vi và nhớ/mượn với nguồn.",
+        answerMatches: true,
+        answerEvidence: "Đã tự tính từng ý và so đáp án.",
+        selfContained: true,
+        uniqueAnswer: true,
       };
     }
     return Response.json({
@@ -205,6 +214,8 @@ test("Five big questions retain four subparts, publish first early, preserve wor
     assert.equal(saved.similar?.status, "generating");
     assert.equal(runView(saved).questions[0].solution, undefined);
     assert.equal("rubric" in runView(saved).questions[0], false);
+    assert.ok(saved.questions[0].generationApproval);
+    assert.equal("generationApproval" in runView(saved).questions[0], false);
     assert.equal(saved.questions[0].answerFields?.length, 4);
     assert.equal(control.calls, 2);
     const hint = await changeRun(j.id, next.id, "visitor", {
@@ -381,10 +392,15 @@ test("A word problem produces a new complete written problem, not a list of calc
         valid: true,
         reason: "Bài toán lời văn mới cùng dạng",
         answer: "26 nhãn vở",
-        fieldCount: 1,
+        responseCount: 1,
         sameStructure: true,
         difficultyAppropriate: true,
         hintsConsistent: true,
+        difficultyEvidence: "Giữ một phép trừ có mượn trong phạm vi 100.",
+        answerMatches: true,
+        answerEvidence: "35 - 9 = 26 nhãn vở.",
+        selfContained: true,
+        uniqueAnswer: true,
       };
     return Response.json({
       choices: [
