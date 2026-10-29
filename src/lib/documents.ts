@@ -4,25 +4,25 @@ export const subjects = {
   math: {
     name: "Toán",
     path: "/toan",
-    icon: "🧮",
+    icon: "math",
     description: "Bài tập trên lớp và toán tư duy từ tài liệu của em.",
   },
   english: {
     name: "Tiếng Anh",
     path: "/tieng-anh",
-    icon: "🌏",
+    icon: "english",
     description: "Từ vựng, câu đơn giản và bài đọc của em.",
   },
   vietnamese: {
     name: "Tiếng Việt",
     path: "/tieng-viet",
-    icon: "📚",
+    icon: "vietnamese",
     description: "Tập đọc, chính tả và luyện từ, luyện câu.",
   },
   self: {
     name: "Tự học",
     path: "/tu-hoc",
-    icon: "🌱",
+    icon: "self",
     description: "Khám phá chủ đề em thích từ tài liệu của mình.",
   },
 } as const;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Play } from "lucide-react";
+import { Play } from "./icons";
 
 export function HintHelpActions({
   disabled = false,

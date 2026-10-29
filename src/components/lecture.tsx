@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
+  Sparkles,
   ArrowLeft,
   ArrowRight,
   Captions,
@@ -13,7 +14,7 @@ import {
   Pause,
   Play,
   RotateCcw,
-} from "lucide-react";
+} from "./icons";
 import { chapters } from "@/lib/demo";
 import type { Shared } from "./app";
 import { Character, PageTitle } from "./ui";
@@ -62,7 +63,9 @@ export function LecturePage({ state, startRun }: Shared) {
         <section>
           <div className="slide-player">
             <div className="slide-top">
-              <span>✦ Vui học · Lớp 2</span>
+              <span>
+                <Sparkles size={16} /> Vui học · Lớp 2
+              </span>
               <span>Trang {chapter + 1}/4 · Slide minh họa</span>
             </div>
             <div className="slide-stage">
@@ -72,14 +75,18 @@ export function LecturePage({ state, startRun }: Shared) {
                 <div className="star-groups">
                   <div>
                     {Array.from({ length: 24 }, (_, i) => (
-                      <span key={i}>✦</span>
+                      <span key={i}>
+                        <Sparkles size={20} />
+                      </span>
                     ))}
                     <b>24 ngôi sao</b>
                   </div>
                   <span>＋</span>
                   <div>
                     {Array.from({ length: 13 }, (_, i) => (
-                      <span key={i}>✦</span>
+                      <span key={i}>
+                        <Sparkles size={20} />
+                      </span>
                     ))}
                     <b>13 ngôi sao</b>
                   </div>

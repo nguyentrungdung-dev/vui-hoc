@@ -2,13 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import {
-  BookOpen,
-  ChevronDown,
-  Layers3,
-  PencilLine,
-  Trophy,
-} from "lucide-react";
+import { Glyph, ChevronDown, Trophy } from "./icons";
 
 export function PracticeMenu({ path }: { path: string }) {
   const [open, setOpen] = useState(false);
@@ -70,7 +64,7 @@ export function PracticeMenu({ path }: { path: string }) {
           }
         }}
       >
-        <PencilLine size={18} /> Luyện tập <ChevronDown size={14} />
+        <Glyph token="practice" size={18} /> Luyện tập <ChevronDown size={14} />
       </button>
       <div id="practice-dropdown" className="practice-dropdown" hidden={!open}>
         <Link
@@ -78,7 +72,7 @@ export function PracticeMenu({ path }: { path: string }) {
           aria-current={path === "/luyen-tap/on-bai" ? "page" : undefined}
           onClick={() => setOpen(false)}
         >
-          <BookOpen size={20} />
+          <Glyph token="review" size={20} />
           <span>
             <strong>Ôn bài</strong>
             <small>Chọn tài liệu trong thư viện</small>
@@ -89,7 +83,7 @@ export function PracticeMenu({ path }: { path: string }) {
           aria-current={path === "/luyen-tap/on-tong-hop" ? "page" : undefined}
           onClick={() => setOpen(false)}
         >
-          <Layers3 size={20} />
+          <Glyph token="review-set" size={20} />
           <span>
             <strong>Ôn tổng hợp</strong>
             <small>Tìm đề tài, ôn từ tài liệu đã học</small>

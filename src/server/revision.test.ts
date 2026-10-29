@@ -1,3 +1,5 @@
+import { testStudent } from "./test-support/accounts";
+import { before } from "node:test";
 import { test, after, mock } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
@@ -24,6 +26,9 @@ const dir = mkdtempSync(path.join(os.tmpdir(), "vuihoc-revision-"));
 process.env.VUIHOC_DATA_DIR = dir;
 after(() => fs.rm(dir, { recursive: true, force: true }));
 const token = "a".repeat(64);
+before(async () => {
+  await testStudent(token);
+});
 const viewer = createHash("sha256").update(token).digest("hex");
 function job(subject: Subject = "math", topic = "Cộng"): DocumentJob {
   const now = new Date().toISOString();
@@ -68,7 +73,7 @@ function job(subject: Subject = "math", topic = "Cộng"): DocumentJob {
 }
 function api(method: "GET" | "POST", parts: string[], body?: unknown) {
   const headers: Record<string, string> = {
-    cookie: `vuihoc-library=${token}`,
+    cookie: `vuihoc-session=${token}`,
     origin: "http://localhost:3100",
   };
   if (body !== undefined) headers["content-type"] = "application/json";
@@ -243,7 +248,7 @@ test("Revision API enqueues existing workflow, hides sets from source library, a
   }
 });
 
-test("Generated revision questions keep grounding, hide answers, support hints/scoring and persist in shared history", async () => {
+test("Generated revision questions keep grounding, hide answers, support hints/scoring and persist in private history", async () => {
   const source = job("math", "Trừ");
   const second = job("math", "Trừ");
   for (let page = 2; page <= 12; page++)
@@ -384,8 +389,13 @@ test("Generated revision questions keep grounding, hide answers, support hints/s
     eventId: randomUUID(),
     action: "finish",
   });
-  assert.equal((await readRun(set.id, run.id, "other-browser")).finished, true);
-  const history = await learningHistory("other-browser");
+  await assert.rejects(
+    readRun(set.id, run.id, "other-browser"),
+    /Không tìm thấy/,
+  );
+  assert.equal((await readRun(set.id, run.id, viewer)).finished, true);
+  assert.deepEqual(await learningHistory("other-browser"), []);
+  const history = await learningHistory(viewer);
   assert.ok(
     history.some(
       (r) => r.id === run.id && r.finished && r.total === 7 && r.hints === 1,

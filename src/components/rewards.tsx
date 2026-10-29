@@ -15,7 +15,7 @@ import {
   Sparkles,
   Star,
   X,
-} from "lucide-react";
+} from "./icons";
 import {
   rewardItems,
   rewardMaps,

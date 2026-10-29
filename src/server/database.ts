@@ -44,6 +44,9 @@ export async function ensureDatabase() {
         await client.query("SET LOCAL lock_timeout = '15s'");
         await client.query("SELECT pg_advisory_xact_lock(727409301)");
         await client.query(`
+        CREATE TABLE IF NOT EXISTS vuihoc_account_records (
+          kind text NOT NULL, key text NOT NULL, data jsonb NOT NULL, PRIMARY KEY(kind,key)
+        );
         CREATE TABLE IF NOT EXISTS vuihoc_documents (
           id uuid PRIMARY KEY,
           owner text NOT NULL,

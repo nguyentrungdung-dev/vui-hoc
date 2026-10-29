@@ -10,7 +10,7 @@ import {
   LoaderCircle,
   RefreshCw,
   Rocket,
-} from "lucide-react";
+} from "./icons";
 import { similarDifficulties, type SimilarDifficulty } from "@/lib/similar";
 import type { PublicDocument } from "@/lib/documents";
 import { sourceUrl } from "@/lib/revision";
@@ -40,6 +40,8 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
   const result = await r.json().catch(() => null);
   if (!r.ok)
     throw new Error(result?.error || "Chưa kết nối được máy chủ. Hãy thử lại.");
+  if (body !== undefined)
+    window.dispatchEvent(new Event("vuihoc-achievements"));
   return result;
 }
 const titles = {
@@ -1171,7 +1173,8 @@ export function RealPracticePage({
             <Character index={character} />
             <h3>Cứ bình tĩnh, em nhé!</h3>
             <p>
-              Mở gợi ý không bị trừ điểm. Mỗi lần thử là một lần mình hiểu hơn.
+              Gợi ý giúp em hiểu bài hơn. Câu đã mở gợi ý sẽ không tính huy
+              chương tự giải và nhận ít điểm thi đua hơn.
             </p>
             <span className="badge">{a.hintOpens} lượt mở gợi ý</span>
           </div>
@@ -1267,7 +1270,7 @@ export function RealPracticePage({
       )}
       {hint && (
         <Modal
-          title="Một gợi ý nhỏ cho em 💡"
+          title="Một gợi ý nhỏ cho em"
           onClose={() => {
             if (!busy) void closeHint();
           }}

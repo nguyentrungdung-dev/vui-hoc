@@ -1,3 +1,6 @@
+import type { Student } from "../lib/account";
+import { readRecord } from "./account-store";
+import { recordAchievements } from "./achievements";
 import { databaseEnabled, query } from "./database";
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
@@ -60,11 +63,35 @@ export async function readRun(docId: string, id: string, viewer: string) {
       [id, docId],
     );
     const row = result.rows[0];
-    if (!row || !canReadLibraryDocument(row, viewer))
+    if (
+      !row ||
+      row.data.owner !== viewer ||
+      !canReadLibraryDocument(row, viewer)
+    )
       throw new AppError("Không tìm thấy bài làm.", 404);
     return protectLegacyRun(row.data);
   }
   await readLibraryJob(docId, viewer);
+  const run = await readRunFile(docId, id);
+  if (run.owner !== viewer)
+    throw new AppError("Không tìm thấy bài làm của em.", 404);
+  return protectLegacyRun(run);
+}
+// Background workers use immutable run IDs supplied by an authorized workflow.
+// Never call this from a request handler; readRun enforces student ownership.
+export async function readWorkflowRun(
+  docId: string,
+  id: string,
+): Promise<LearningRun> {
+  runPath(docId, id);
+  if (databaseEnabled()) {
+    const result = await query<{ data: LearningRun }>(
+      "SELECT data FROM vuihoc_runs WHERE id=$1 AND document_id=$2",
+      [id, docId],
+    );
+    if (!result.rows[0]) throw new AppError("Không tìm thấy bài làm.", 404);
+    return protectLegacyRun(result.rows[0].data);
+  }
   return protectLegacyRun(await readRunFile(docId, id));
 }
 type LibraryRunRow = Pick<DocumentJob, "owner" | "files" | "revision"> & {
@@ -84,7 +111,7 @@ async function readRunFile(docId: string, id: string) {
 }
 export async function listRuns(docId: string, viewer: string) {
   await readLibraryJob(docId, viewer);
-  return listDocumentRuns(docId);
+  return (await listDocumentRuns(docId)).filter((r) => r.owner === viewer);
 }
 // Internal only: callers must have checked access to the document in this request.
 async function listDocumentRuns(docId: string) {
@@ -124,7 +151,10 @@ export async function learningHistory(viewer: string) {
       await Promise.all(jobs.map((job) => listDocumentRuns(job.id)))
     ).flat();
   }
-  return runs.map(learningResult).sort((a, b) => b.date.localeCompare(a.date));
+  return runs
+    .filter((r) => r.owner === viewer)
+    .map(learningResult)
+    .sort((a, b) => b.date.localeCompare(a.date));
 }
 export async function learningView(
   job: DocumentJob,
@@ -165,7 +195,7 @@ export async function learningView(
           errors: p.parts.filter((x) => x.error).map((x) => x.error!),
         }
       : null,
-    runs: (await listDocumentRuns(job.id)).map(learningResult),
+    runs: (await listRuns(job.id, owner)).map(learningResult),
     sources: publicDocument(job).questions.map(
       ({ id, label, topic, needsReview }) => ({
         id,
@@ -240,6 +270,7 @@ export async function startLearningRun(
     if (request.resume) {
       const existing = (await listDocumentRuns(docId)).find(
         (r) =>
+          r.owner === owner &&
           !r.finished &&
           r.packId === pack.id &&
           r.kind === request.kind &&
@@ -250,6 +281,7 @@ export async function startLearningRun(
     }
     const now = new Date().toISOString();
     const run: LearningRun = {
+      owner,
       id: randomUUID(),
       documentId: docId,
       title: job.title,
@@ -460,22 +492,30 @@ export async function changeRun(
       // Read again after AI completes: background generation may have appended a
       // question, or another browser may have navigated/submitted in the meantime.
       const run = await readRun(docId, id, owner);
-      if (run.eventIds.includes(action.eventId)) return runView(run);
-      if (action.action === "answer") validateAnswer(run);
-      applyRunAction(run, input, Date.now(), assessment);
-      await saveRun(run);
+      if (!run.eventIds.includes(action.eventId)) {
+        if (action.action === "answer") validateAnswer(run);
+        applyRunAction(run, input, Date.now(), assessment);
+        await saveRun(run);
+      }
+      const student = await readRecord<Student>("students", owner);
+      if (student)
+        await recordAchievements(
+          student,
+          run,
+          await readLibraryJob(docId, owner),
+        );
       return runView(run);
     });
   if (action.action === "answer") {
     const snapshot = await readRun(docId, id, owner);
-    if (snapshot.eventIds.includes(action.eventId)) return runView(snapshot);
+    if (snapshot.eventIds.includes(action.eventId)) return commit();
     const q = validateAnswer(snapshot);
     if (q.grading === "self_review" && !snapshot.attempts[q.id]?.solved) {
       // Deduplicate this submission without holding the run lock across AI calls.
       // The next reviewed question can be published while the child is graded.
       return lock(`grade:${docId}:${id}:${action.eventId}`, async () => {
         const latest = await readRun(docId, id, owner);
-        if (latest.eventIds.includes(action.eventId)) return runView(latest);
+        if (latest.eventIds.includes(action.eventId)) return commit();
         const currentQuestion = validateAnswer(latest);
         const assessment = latest.attempts[currentQuestion.id]?.solved
           ? undefined

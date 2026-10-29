@@ -1,3 +1,5 @@
+import { testStudent } from "./test-support/accounts";
+import { before } from "node:test";
 import { test, after, mock } from "node:test";
 import { dispatcher } from "./dispatch";
 mock.method(dispatcher, "start", async () => {});
@@ -28,6 +30,10 @@ import { GET, POST, PUT } from "../app/api/documents/[[...parts]]/route";
 
 const root = mkdtempSync(path.join(os.tmpdir(), "vuihoc-tests-"));
 process.env.VUIHOC_DATA_DIR = root;
+before(async () => {
+  await testStudent("a".repeat(64));
+  await testStudent("b".repeat(64));
+});
 const originalKey = process.env.OPENROUTER_API_KEY;
 delete process.env.OPENROUTER_API_KEY;
 after(async () => {
@@ -96,7 +102,7 @@ function request(
       headers: {
         origin,
         "content-type": "application/json",
-        ...(cookie ? { cookie } : {}),
+        cookie: cookie || `vuihoc-session=${"b".repeat(64)}`,
       },
       ...(body !== undefined ? { body } : {}),
     },
@@ -225,12 +231,17 @@ test("OpenRouter contract uses native PDF, strict schema and keeps API key only 
 test("API shares uploaded PDFs while protecting unfinished uploads and creator-only mutations", async () => {
   const bytes = await pdfBytes();
   const response = await POST(
-    request("POST", [], JSON.stringify(createInput(bytes.length))),
+    request(
+      "POST",
+      [],
+      JSON.stringify(createInput(bytes.length)),
+      `vuihoc-session=${"a".repeat(64)}`,
+    ),
     context([]),
   );
   assert.equal(response.status, 201);
   const job = await response.json();
-  const cookie = response.headers.get("set-cookie")!.split(";")[0];
+  const cookie = `vuihoc-session=${"a".repeat(64)}`;
   const parts = [job.id, "files", "0"];
   assert.equal(
     (await GET(request("GET", [job.id]), context([job.id]))).status,
@@ -426,6 +437,7 @@ test("Origin validation accepts the browser Host when Next internally uses local
   const req = new NextRequest("http://localhost:3100/api/documents", {
     method: "POST",
     headers: {
+      cookie: `vuihoc-session=${"a".repeat(64)}`,
       origin: "http://127.0.0.1:3100",
       host: "127.0.0.1:3100",
       "content-type": "application/json",
@@ -436,6 +448,7 @@ test("Origin validation accepts the browser Host when Next internally uses local
   const crossOrigin = new NextRequest("http://localhost:3100/api/documents", {
     method: "POST",
     headers: {
+      cookie: `vuihoc-session=${"a".repeat(64)}`,
       origin: "http://evil.example",
       host: "127.0.0.1:3100",
       "content-type": "application/json",

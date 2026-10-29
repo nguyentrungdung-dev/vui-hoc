@@ -11,7 +11,7 @@ import {
   type LearningQuestion,
   type LearningRun,
 } from "../lib/learning";
-import { readRun, saveRun } from "./learning-runs";
+import { readRun, readWorkflowRun, saveRun } from "./learning-runs";
 import { lock } from "./store";
 import { AppError } from "./validation";
 import { modelName } from "./analysis";
@@ -93,6 +93,7 @@ export async function requestSimilar(
       return { run: await readRun(docId, prior, viewer), start: false };
     const now = new Date().toISOString();
     const run: LearningRun = {
+      owner: viewer,
       id: randomUUID(),
       documentId: docId,
       title: `5 câu tương tự · ${source.label || source.topic}`,
@@ -157,7 +158,7 @@ export async function failSimilar(
   detail?: string,
 ) {
   await lock(`run:${docId}:${id}`, async () => {
-    const run = await readRun(docId, id, "");
+    const run = await readWorkflowRun(docId, id);
     if (
       !run.similar ||
       run.similar.execution !== execution ||
@@ -336,7 +337,7 @@ export async function generateSimilarQuestion(
   index: number,
   execution: string,
 ) {
-  const snapshot = await readRun(docId, id, "");
+  const snapshot = await readWorkflowRun(docId, id);
   const g = snapshot.similar;
   if (
     !g ||
@@ -357,7 +358,7 @@ export async function generateSimilarQuestion(
       g.model,
     );
     return await lock(`run:${docId}:${id}`, async () => {
-      const current = await readRun(docId, id, "");
+      const current = await readWorkflowRun(docId, id);
       if (
         !current.similar ||
         current.similar.execution !== execution ||

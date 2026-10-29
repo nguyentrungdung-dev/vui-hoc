@@ -13,7 +13,7 @@ import {
   LoaderCircle,
   Search,
   X,
-} from "lucide-react";
+} from "./icons";
 import { subjects, type Subject, type PublicDocument } from "@/lib/documents";
 import type { RevisionCatalog, RevisionKind } from "@/lib/revision";
 import type { LearningView, RunView } from "@/lib/learning";

@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { upload } from "@vercel/blob/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
+  Glyph,
   ArrowLeft,
   ArrowRight,
   ArrowUp,
@@ -19,7 +20,7 @@ import {
   CheckCircle2,
   BookOpen,
   LoaderCircle,
-} from "lucide-react";
+} from "./icons";
 import {
   MAX_BYTES,
   MAX_PAGES,
@@ -31,6 +32,7 @@ import {
 import { ButtonLink, Character, Modal, PageTitle } from "./ui";
 
 import { LearningPanel } from "./learning";
+import { LibraryStatusFilter } from "./library-status-filter";
 
 type Config = {
   configured: boolean;
@@ -92,7 +94,12 @@ export function SubjectPage({ subject }: { subject: Subject }) {
         <div>
           <PageTitle
             eyebrow="CÙNG EM KHÁM PHÁ · LỚP 2"
-            title={`${info.icon} ${subject === "self" ? "Góc tự học" : info.name}`}
+            title={
+              <>
+                <Glyph token={info.icon} size={38} />{" "}
+                {subject === "self" ? "Góc tự học" : info.name}
+              </>
+            }
           >
             <span>{info.description}</span>
           </PageTitle>
@@ -127,23 +134,34 @@ export function DocumentLibrary({ subject }: { subject?: Subject }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [version, setVersion] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState("");
+  const tooltipId = useId();
   useEffect(() => {
     let active = true;
-    async function refresh() {
+    let fetching = false;
+    async function refresh(manual = false) {
+      if (fetching) return;
+      fetching = true;
       try {
         const data = await api<{ documents: PublicDocument[] }>("");
         if (active) {
           setDocuments(data.documents);
           setError("");
+          if (manual) setRefreshMessage("Thư viện đã được cập nhật.");
         }
       } catch (e) {
         if (active) setError((e as Error).message);
       } finally {
-        if (active) setLoading(false);
+        fetching = false;
+        if (active) {
+          setLoading(false);
+          if (manual) setRefreshing(false);
+        }
       }
     }
-    void refresh();
-    const timer = setInterval(refresh, 5000);
+    void refresh(version > 0);
+    const timer = setInterval(() => void refresh(), 5000);
     return () => {
       active = false;
       clearInterval(timer);
@@ -184,24 +202,58 @@ export function DocumentLibrary({ subject }: { subject?: Subject }) {
               <span className="library-upload-label">Gửi bài mới</span>
             </Link>
           )}
-          <button
-            className="icon-button"
-            aria-label="Thông tin thư viện"
-            aria-haspopup="dialog"
-            onClick={(event) => {
-              event.currentTarget.focus();
-              setInfoOpen(true);
-            }}
-          >
-            <Info size={19} />
-          </button>
-          <button
-            className="icon-button"
-            aria-label="Làm mới thư viện"
-            onClick={() => setVersion((v) => v + 1)}
-          >
-            <RefreshCw size={19} />
-          </button>
+          <span className="library-tool">
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Hướng dẫn thư viện"
+              aria-describedby={`${tooltipId}-help`}
+              aria-haspopup="dialog"
+              onClick={(event) => {
+                event.currentTarget.focus();
+                setInfoOpen(true);
+              }}
+            >
+              <Info size={19} />
+            </button>
+            <span
+              id={`${tooltipId}-help`}
+              role="tooltip"
+              className="library-tooltip"
+            >
+              Hướng dẫn thư viện
+            </span>
+          </span>
+          <span className="library-tool">
+            <button
+              type="button"
+              className="icon-button"
+              aria-label={
+                refreshing ? "Đang làm mới thư viện" : "Làm mới thư viện"
+              }
+              aria-describedby={`${tooltipId}-refresh`}
+              disabled={refreshing}
+              aria-busy={refreshing}
+              onClick={() => {
+                setRefreshMessage("");
+                setRefreshing(true);
+                setVersion((v) => v + 1);
+              }}
+            >
+              {refreshing ? (
+                <LoaderCircle size={19} className="spin" />
+              ) : (
+                <RefreshCw size={19} />
+              )}
+            </button>
+            <span
+              id={`${tooltipId}-refresh`}
+              role="tooltip"
+              className="library-tooltip"
+            >
+              {refreshing ? "Đang cập nhật…" : "Làm mới thư viện"}
+            </span>
+          </span>
         </div>
       </div>
       {!!matchingSubject.length && (
@@ -216,23 +268,30 @@ export function DocumentLibrary({ subject }: { subject?: Subject }) {
               onChange={(e) => setQuery(e.target.value)}
             />
           </label>
-          <select
-            aria-label="Lọc trạng thái tài liệu"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          >
-            <option value="all">Tất cả trạng thái</option>
-            <option value="ready">Sẵn sàng</option>
-            <option value="working">Đang xử lý</option>
-            <option value="review">Cần kiểm tra</option>
-          </select>
+          <LibraryStatusFilter value={filter} onChange={setFilter} />
         </div>
       )}
+      {refreshMessage && (
+        <p className="library-refresh-message" role="status">
+          <CheckCircle2 size={16} />
+          {refreshMessage}
+        </p>
+      )}
       {infoOpen && (
-        <Modal title="Thư viện dùng chung" onClose={() => setInfoOpen(false)}>
+        <Modal title="Hướng dẫn thư viện" onClose={() => setInfoOpen(false)}>
           <p>
-            Tài liệu, bài học, bài làm và điểm số trong bản demo được dùng
-            chung. Chỉ người tải lên được quản lý tài liệu của mình.
+            Chọn tài liệu để xem nội dung và bắt đầu học. Em có thể tìm theo tên
+            hoặc lọc các bài sẵn sàng, đang xử lý hay cần kiểm tra.
+          </p>
+          <p>
+            Nút “Gửi bài mới” giúp em thêm tài liệu. Nút “Làm mới thư viện” tải
+            lại danh sách và trạng thái mới nhất; thư viện cũng tự cập nhật định
+            kỳ.
+          </p>
+          <p>
+            Tài liệu trong thư viện được dùng chung. Chỉ người tải lên được quản
+            lý tài liệu của mình; bài làm, điểm số và tiến độ học được lưu riêng
+            theo tài khoản.
           </p>
         </Modal>
       )}
@@ -711,7 +770,7 @@ export function UploadPage({
                   >
                     {Object.entries(subjects).map(([key, s]) => (
                       <option key={key} value={key}>
-                        {s.icon} {s.name}
+                        {s.name}
                       </option>
                     ))}
                   </select>

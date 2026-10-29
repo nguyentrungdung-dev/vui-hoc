@@ -1,5 +1,6 @@
+import { requireStudent } from "@/server/accounts";
 import { NextRequest, NextResponse } from "next/server";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import { publicDocument, type DocumentJob } from "@/lib/documents";
 import { AppError, createSchema, sniffMime } from "@/server/validation";
@@ -45,20 +46,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 type Context = { params: Promise<{ parts?: string[] }> };
-const cookieName = "vuihoc-library";
-
-function identity(request: NextRequest) {
-  const value = request.cookies.get(cookieName)?.value;
-  const token =
-    value && /^[a-f0-9]{64}$/.test(value)
-      ? value
-      : randomBytes(32).toString("hex");
-  return {
-    owner: createHash("sha256").update(token).digest("hex"),
-    token,
-    fresh: token !== value,
-  };
-}
 function sameOrigin(request: NextRequest) {
   const origin = request.headers.get("origin");
   // Next may reconstruct request.url with localhost behind its own server.
@@ -104,11 +91,13 @@ async function jsonBody(request: NextRequest) {
   }
 }
 async function handler(request: NextRequest, context: Context) {
-  const session = identity(request);
   try {
+    if (request.method !== "GET") sameOrigin(request);
+    const student = await requireStudent(request);
+    const session = { owner: student.id };
     const parts = (await context.params).parts ?? [];
     const method = request.method;
-    if (method !== "GET") sameOrigin(request);
+
     let response: NextResponse;
     if (parts.length === 1 && parts[0] === "rewards" && method === "GET") {
       response = NextResponse.json(
@@ -545,14 +534,6 @@ async function handler(request: NextRequest, context: Context) {
         response = NextResponse.json({ uploaded: true });
       } else throw new AppError("Phương thức chưa được hỗ trợ.", 405);
     } else throw new AppError("Không tìm thấy đường dẫn.", 404);
-    if (session.fresh)
-      response.cookies.set(cookieName, session.token, {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: new URL(request.url).protocol === "https:",
-        maxAge: 365 * 86400,
-        path: "/",
-      });
     response.headers.set("Cache-Control", "private, no-store");
     return response;
   } catch (error) {

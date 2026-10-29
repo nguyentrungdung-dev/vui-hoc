@@ -1,8 +1,14 @@
 "use client";
 
-import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useId,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
-import { ArrowRight, X } from "lucide-react";
+import { ArrowRight, X, Glyph } from "./icons";
 import { characters } from "@/lib/demo";
 
 export function Character({
@@ -52,7 +58,7 @@ export function PageTitle({
   children,
 }: {
   eyebrow: string;
-  title: string;
+  title: ReactNode;
   children?: ReactNode;
 }) {
   return (
@@ -67,12 +73,15 @@ export function Modal({
   title,
   onClose,
   children,
+  className = "",
 }: {
+  className?: string;
   title: string;
   onClose: () => void;
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
   useEffect(() => {
     const el = ref.current;
     el?.showModal();
@@ -81,14 +90,15 @@ export function Modal({
   return (
     <dialog
       ref={ref}
+      aria-labelledby={titleId}
       onCancel={onClose}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="modal"
+      className={`modal ${className}`}
     >
       <div className="modal-heading">
-        <h2>{title}</h2>
+        <h2 id={titleId}>{title}</h2>
         <button className="icon-button" onClick={onClose} aria-label="Đóng">
           <X size={22} />
         </button>
@@ -98,7 +108,11 @@ export function Modal({
   );
 }
 export function TopicIcon({ icon, color }: { icon: string; color: string }) {
-  return <span className={`topic-icon ${color}`}>{icon}</span>;
+  return (
+    <span className={`topic-icon ${color}`}>
+      <Glyph token={icon} />
+    </span>
+  );
 }
 export function NextArrow() {
   return <ArrowRight size={19} />;

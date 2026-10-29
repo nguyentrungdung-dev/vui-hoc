@@ -170,11 +170,11 @@ test(
     const visitor = await startLearningRun(j.id, "visitor", {
       kind: "practice",
     });
-    assert.equal(visitor.id, id);
+    assert.notEqual(visitor.id, id);
     assert.equal("owner" in visitor, false);
     assert.deepEqual(
       (await listRuns(j.id, "visitor")).map((r) => r.id),
-      [id],
+      [visitor.id],
     );
     assert.deepEqual(
       (await listRuns(j.id, j.owner)).map((r) => r.id),
@@ -265,14 +265,14 @@ test(
       job.files = j.files;
     });
     await query("UPDATE vuihoc_runs SET data=data-'owner' WHERE id=$1", [id]);
-    assert.equal((await readRun(j.id, id, j.owner)).finished, true);
-    assert.equal((await readRun(j.id, id, "visitor")).finished, true);
+    await assert.rejects(readRun(j.id, id, j.owner), /Không tìm thấy/);
+    await assert.rejects(readRun(j.id, id, "visitor"), /Không tìm thấy/);
     assert.deepEqual(
       (await listRuns(j.id, "visitor")).map((r) => r.id),
       [visitor.id],
     );
 
-    assert.equal((await readRun(j.id, id, "another-owner")).id, id);
+    await assert.rejects(readRun(j.id, id, "another-owner"), /Không tìm thấy/);
   },
 );
 test(
@@ -437,7 +437,7 @@ test(
       ],
     };
     await writeJob(j);
-    const r1 = await startLearningRun(j.id, j.owner, {
+    const r1 = await startLearningRun(j.id, "another-viewer", {
       kind: "original",
       resume: false,
     });

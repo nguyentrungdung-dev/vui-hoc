@@ -1,3 +1,5 @@
+import { testStudent } from "./test-support/accounts";
+import { before } from "node:test";
 import { fixtureReply } from "./test-support/story-fixture";
 import { test, after, mock } from "node:test";
 import assert from "node:assert/strict";
@@ -67,6 +69,7 @@ const q: LearningQuestion = {
   checks: [],
 };
 async function fixture() {
+  await testStudent("a".repeat(64), "viewer");
   const now = new Date().toISOString();
   const job: DocumentJob = {
     id: randomUUID(),
@@ -115,7 +118,7 @@ async function fixture() {
     kind: "original",
     resume: false,
   });
-  const r2 = await startLearningRun(job.id, "other", {
+  const r2 = await startLearningRun(job.id, "viewer", {
     kind: "original",
     resume: false,
   });
@@ -233,7 +236,10 @@ test("Concurrent clicks and different runs share one generation; cache hits mark
     const audioParts = [job.id, "runs", r1.id, "guidance", id, "0"];
     const partial = await GET(
       new NextRequest("http://localhost/api/documents/test", {
-        headers: { Range: "bytes=10-19" },
+        headers: {
+          Range: "bytes=10-19",
+          cookie: `vuihoc-session=${"a".repeat(64)}`,
+        },
       }),
       { params: Promise.resolve({ parts: audioParts }) },
     );
@@ -370,7 +376,11 @@ test("API enforces origin, document access, full-solution exposure and audio bou
       POST(
         new NextRequest(`http://localhost/api/documents/${parts.join("/")}`, {
           method: "POST",
-          headers: { origin, "content-type": "application/json" },
+          headers: {
+            origin,
+            "content-type": "application/json",
+            cookie: `vuihoc-session=${"a".repeat(64)}`,
+          },
           body: JSON.stringify({ questionId: q.id }),
         }),
         { params: Promise.resolve({ parts }) },
@@ -382,18 +392,28 @@ test("API enforces origin, document access, full-solution exposure and audio bou
     const unread = [job.id, "runs", r2.id, "guidance", body.guidance.id];
     assert.equal(
       (
-        await GET(new NextRequest("http://localhost/api/documents/test"), {
-          params: Promise.resolve({ parts: unread }),
-        })
+        await GET(
+          new NextRequest("http://localhost/api/documents/test", {
+            headers: { cookie: `vuihoc-session=${"a".repeat(64)}` },
+          }),
+          {
+            params: Promise.resolve({ parts: unread }),
+          },
+        )
       ).status,
       403,
     );
     const audio = [...parts, body.guidance.id, "99"];
     assert.equal(
       (
-        await GET(new NextRequest("http://localhost/api/documents/test"), {
-          params: Promise.resolve({ parts: audio }),
-        })
+        await GET(
+          new NextRequest("http://localhost/api/documents/test", {
+            headers: { cookie: `vuihoc-session=${"a".repeat(64)}` },
+          }),
+          {
+            params: Promise.resolve({ parts: audio }),
+          },
+        )
       ).status,
       404,
     );
@@ -404,9 +424,14 @@ test("API enforces origin, document access, full-solution exposure and audio bou
     await writeJob(job);
     assert.equal(
       (
-        await GET(new NextRequest("http://localhost/api/documents/test"), {
-          params: Promise.resolve({ parts: [...parts, body.guidance.id] }),
-        })
+        await GET(
+          new NextRequest("http://localhost/api/documents/test", {
+            headers: { cookie: `vuihoc-session=${"a".repeat(64)}` },
+          }),
+          {
+            params: Promise.resolve({ parts: [...parts, body.guidance.id] }),
+          },
+        )
       ).status,
       404,
     );

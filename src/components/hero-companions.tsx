@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { characters } from "@/lib/demo";
+import { Sparkles } from "./icons";
 import { Character } from "./ui";
 
 export function HeroCompanions({
@@ -63,10 +64,10 @@ export function HeroCompanions({
         </button>
       ))}
       <span className="twinkle t1" aria-hidden="true">
-        ✦
+        <Sparkles size={26} />
       </span>
       <span className="twinkle t2" aria-hidden="true">
-        ✧
+        <Sparkles size={18} />
       </span>
       <div
         className="character-label"

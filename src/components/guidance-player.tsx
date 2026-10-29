@@ -8,7 +8,7 @@ import {
   Pause,
   Play,
   RotateCcw,
-} from "lucide-react";
+} from "./icons";
 import {
   tileFrame,
   type GuidanceResponse,

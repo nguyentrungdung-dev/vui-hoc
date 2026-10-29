@@ -9,7 +9,7 @@ import {
   Lightbulb,
   Rocket,
   Volume2,
-} from "lucide-react";
+} from "./icons";
 import { newAttempt, recordAnswer, summarize, topics } from "@/lib/demo";
 import type { Shared } from "./app";
 import { ButtonLink, Character, Modal, PageTitle } from "./ui";
@@ -382,7 +382,7 @@ export function PracticePage({ state, setState, startRun }: Shared) {
         </aside>
       </div>
       {hint && (
-        <Modal title="Một gợi ý nhỏ cho em 💡" onClose={closeHint}>
+        <Modal title="Một gợi ý nhỏ cho em" onClose={closeHint}>
           <div className="hint-content">
             <span className="badge">
               Gợi ý {Math.min(attempt.hintOpens, 3)} / 3

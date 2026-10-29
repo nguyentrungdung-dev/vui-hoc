@@ -1,3 +1,4 @@
+import { testStudent } from "./test-support/accounts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PDFDocument, rgb } from "pdf-lib";
@@ -79,12 +80,14 @@ test("Page image endpoint enforces document access, page bounds and crop geometr
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+    await testStudent();
     await writeJob(job);
     await writeFile(filePath(job.id, 0), bytes);
     const get = (page: string, query = "") =>
       GET(
         new NextRequest(
           `http://localhost/api/documents/${job.id}/pages/${page}/image${query}`,
+          { headers: { cookie: `vuihoc-session=${"a".repeat(64)}` } },
         ),
         {
           params: Promise.resolve({ parts: [job.id, "pages", page, "image"] }),

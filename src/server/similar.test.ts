@@ -1,3 +1,5 @@
+import { testStudent } from "./test-support/accounts";
+import { before } from "node:test";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -68,6 +70,7 @@ const question = (index = 0): LearningQuestion => {
   };
 };
 async function fixture(q = question()) {
+  await testStudent("a".repeat(64), "visitor");
   const now = new Date().toISOString();
   const j: DocumentJob = {
     id: randomUUID(),
@@ -113,7 +116,7 @@ async function fixture(q = question()) {
     },
   };
   await writeJob(j);
-  const run = await startLearningRun(j.id, j.owner, { kind: "original" });
+  const run = await startLearningRun(j.id, "visitor", { kind: "original" });
   return { j, run };
 }
 async function mockAI(
@@ -272,7 +275,11 @@ test("Similarity API validates origin, source access and difficulty, and stores 
       POST(
         new NextRequest(`http://localhost/api/documents/${parts.join("/")}`, {
           method: "POST",
-          headers: { origin, "content-type": "application/json" },
+          headers: {
+            origin,
+            "content-type": "application/json",
+            cookie: `vuihoc-session=${"a".repeat(64)}`,
+          },
           body: JSON.stringify(body),
         }),
         { params: Promise.resolve({ parts }) },

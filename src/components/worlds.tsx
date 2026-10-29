@@ -1,40 +1,41 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { subjects } from "@/lib/documents";
+import { ArrowRight, Glyph } from "./icons";
 
 const worlds = [
   {
     color: "blue",
-    icon: "＋",
+    icon: subjects.math.icon,
     title: "Toán",
     description: "Khám phá những con số",
     href: "/toan",
   },
   {
     color: "peach",
-    icon: "Aa",
+    icon: subjects.english.icon,
     title: "Tiếng Anh",
     description: "Thêm từ mới mỗi ngày",
     href: "/tieng-anh",
   },
   {
     color: "purple",
-    icon: "✎",
+    icon: subjects.vietnamese.icon,
     title: "Tiếng Việt",
     description: "Vui cùng từng con chữ",
     href: "/tieng-viet",
   },
   {
     color: "green",
-    icon: "✦",
+    icon: subjects.self.icon,
     title: "Tự học",
     description: "Học điều em tò mò",
     href: "/tu-hoc",
   },
   {
     color: "gold",
-    icon: "🏆",
+    icon: "timo",
     title: "TIMO",
     description: "Thử sức Toán song ngữ",
     href: "/luyen-tap/timo",
@@ -62,7 +63,7 @@ export function WorldsSection() {
             className={`world-card ${world.color}`}
           >
             <span className="world-symbol" aria-hidden="true">
-              {world.icon}
+              <Glyph token={world.icon} size={42} />
             </span>
             <div className="world-copy">
               <h3>{world.title}</h3>

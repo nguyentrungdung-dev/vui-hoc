@@ -79,7 +79,9 @@ Bài học thật hoàn thành nhận 2 sao; bộ ôn nhận 2 sao thay cho thư
 
 Thưởng hoàn thành được chống trùng theo tài liệu và tập câu hỏi, kể cả khi tạo lượt làm mới. Câu sửa sai chỉ được tính một lần. Đổi vật phẩm được khóa đồng thời ở máy chủ, không thể tiêu quá số sao; cất và đặt lại miễn phí. Không có chuỗi ngày học hoặc sao hết hạn.
 
-Sao và đồ trang trí gắn với phiên trình duyệt qua cookie hiện có; lưu PostgreSQL ở production, file JSON trong thư mục dữ liệu khi phát triển local. Chưa có tài khoản để đồng bộ giữa các thiết bị. Các bài và lịch sử học chung của thư viện không tự động cộng sao cho mọi phiên; sao được ghi cho phiên thao tác kết thúc bài. Lịch sử cũ trước tính năng này không được cộng sao hồi tố.
+Khách có thể tham quan trang chủ và xem trước các khu chức năng. Bắt đầu làm bài, tạo tài liệu, lưu tiến độ hoặc xem xếp hạng sẽ mở pop-up đăng nhập/đăng ký. Biểu tượng giao diện và 20 huy chương dùng hình vẽ vector riêng của Vui học.
+
+Sao, đồ trang trí, bài làm và lịch sử gắn với tài khoản học sinh; lưu PostgreSQL ở production, file JSON trong thư mục dữ liệu khi phát triển local. Tài liệu đã tải đủ vẫn dùng chung giữa các tài khoản đăng nhập. Bài làm cũ không có chủ tài khoản không được tự nhận về một bé; dữ liệu vẫn được giữ trong kho. Không cộng thành tích hồi tố từ lịch sử demo chung. Xem [tài khoản, 20 huy chương và xếp hạng](ACHIEVEMENTS.md).
 
 ### Tự sắp xếp vật phẩm
 
@@ -108,3 +110,7 @@ Chạy app development với `VUIHOC_DATA_DIR=.test-data/video-review-20261029 D
 ### Bộ minh họa và câu chuyện Phần thưởng
 
 Trang Phần thưởng dùng 5 nền và 40 sticker minh họa riêng theo phong cách truyện thiếu nhi, thay cho emoji và nền SVG cũ. Mỗi bản đồ là một chương có người dẫn chuyện, thư mời, truyện tùy chọn đọc, lời dẫn theo bộ sưu tập và lời ghi nhận khi đặt đồ. Câu chuyện không khóa bản đồ, không thêm loại tiền hay thay đổi mức thưởng. Ảnh tối ưu WebP nằm trong `public/assets/rewards/storybook-v1/`; nội dung truyện trong `src/lib/reward-stories.ts`.
+
+## Nhận diện thương hiệu
+
+Logo và quy ước icon được chốt tại [BRAND.md](BRAND.md). Tệp chuẩn: `public/brand/vui-hoc-logo.svg`. Sinh lại favicon từ logo chuẩn bằng `node scripts/generate-brand-icons.mjs`.

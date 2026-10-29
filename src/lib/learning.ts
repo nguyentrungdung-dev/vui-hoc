@@ -127,7 +127,7 @@ export type SimilarGeneration = {
 export type LearningRun = {
   similar?: SimilarGeneration;
   similarRequests?: Record<string, string>;
-  /** Legacy metadata only. Demo runs are shared; this field never grants access. */
+  /** Account that owns this private learning run. Legacy unowned runs stay inaccessible. */
   owner?: string;
   id: string;
   documentId: string;

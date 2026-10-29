@@ -1,9 +1,20 @@
 "use client";
+import { GuestExplore } from "./guest-explore";
+
+import { AccountProvider, AccountModal, AuthPage, useAccount } from "./account";
+import {
+  AchievementMenu,
+  AchievementNotice,
+  MedalPage,
+  RankingPage,
+} from "./achievements";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import {
+  Glyph,
+  BrandLogo,
   ArrowLeft,
   ArrowRight,
   BookOpen,
@@ -22,9 +33,8 @@ import {
   Trophy,
   Upload,
   X,
-} from "lucide-react";
+} from "./icons";
 import {
-  characters,
   createQuestions,
   initialState,
   STORAGE_KEY,
@@ -61,6 +71,26 @@ export type Shared = {
 };
 
 export default function VuiHocApp({ path }: { path: string }) {
+  return (
+    <AccountProvider>
+      <AccountApp path={path} />
+    </AccountProvider>
+  );
+}
+function AccountApp({ path }: { path: string }) {
+  const { user, loaded } = useAccount();
+  if (!loaded)
+    return (
+      <main className="loading">
+        <Sparkles />
+        <h1>Vui học</h1>
+        <p>Đang mở góc học tập của em…</p>
+      </main>
+    );
+  return <VuiHocContent key={user?.id || "guest"} path={path} />;
+}
+function VuiHocContent({ path }: { path: string }) {
+  const { user, notify, update, openAuth, requestAccess } = useAccount();
   const router = useRouter();
   const [state, setState] = useState<State>(initialState);
   const [ready, setReady] = useState(false);
@@ -71,7 +101,7 @@ export default function VuiHocApp({ path }: { path: string }) {
     LearningResult[] | null
   >(null);
   useEffect(() => {
-    if (path !== "/") return;
+    if (path !== "/" || !user) return;
     let active = true;
     fetch("/api/documents/history", { cache: "no-store" })
       .then(async (response) => {
@@ -90,7 +120,7 @@ export default function VuiHocApp({ path }: { path: string }) {
   }, [path]);
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(`${STORAGE_KEY}:${user?.id}`);
       if (raw) {
         const parsed = JSON.parse(raw) as State;
         if (
@@ -105,12 +135,24 @@ export default function VuiHocApp({ path }: { path: string }) {
     } catch {
       setStorageError(true);
     }
+    if (user)
+      setState((s) => ({
+        ...s,
+        profile: {
+          name: user.nickname,
+          character: user.character,
+          dailyGoal: user.dailyGoal,
+        },
+      }));
     setReady(true);
   }, []);
   useEffect(() => {
-    if (ready) {
+    if (ready && user) {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        localStorage.setItem(
+          `${STORAGE_KEY}:${user?.id}`,
+          JSON.stringify(state),
+        );
       } catch {
         setStorageError(true);
       }
@@ -121,6 +163,7 @@ export default function VuiHocApp({ path }: { path: string }) {
     window.scrollTo(0, 0);
   }, [path]);
   function startRun(kind: Run["kind"] = "practice", selected?: TopicId[]) {
+    if (!requestAccess("bắt đầu làm bài và lưu kết quả", "/ban-mau")) return;
     const count =
       kind === "original" ? 12 : kind === "similar" ? 5 : state.lesson.count;
     const run: Run = {
@@ -140,6 +183,17 @@ export default function VuiHocApp({ path }: { path: string }) {
     setState((s) => ({ ...s, run }));
     router.push("/luyen-tap");
   }
+  useEffect(() => {
+    if (user)
+      setState((s) => ({
+        ...s,
+        profile: {
+          name: user.nickname,
+          character: user.character,
+          dailyGoal: user.dailyGoal,
+        },
+      }));
+  }, [user]);
   const shared = { state, setState, startRun };
   const isHome = path === "/";
   const subject = Object.entries(subjects).find(
@@ -183,6 +237,9 @@ export default function VuiHocApp({ path }: { path: string }) {
     "/tu-hoc",
     "/thu-vien",
     "/ban-mau",
+    "/thanh-tich",
+    "/thanh-tich/xep-hang",
+    "/thanh-tich/huy-chuong",
   ];
   supported.push(
     "/luyen-tap/on-bai",
@@ -212,7 +269,9 @@ export default function VuiHocApp({ path }: { path: string }) {
       </a>
       <header className="site-header wrap">
         <Link href="/" className="brand">
-          <span className="brand-mark">✦</span>
+          <span className="brand-mark">
+            <BrandLogo size={48} />
+          </span>
           <strong>Vui học</strong>
           <span className="brand-tag">VŨ TRỤ CỦA BÉ</span>
         </Link>
@@ -227,22 +286,33 @@ export default function VuiHocApp({ path }: { path: string }) {
         <nav
           aria-label="Điều hướng chính"
           className={`top-nav ${mobileMenu ? "open" : ""}`}
+          onClickCapture={(event) => {
+            const link = (event.target as HTMLElement).closest("a");
+            if (
+              !user &&
+              link?.getAttribute("href") === "/thanh-tich/xep-hang"
+            ) {
+              event.preventDefault();
+              requestAccess(
+                "xem bảng xếp hạng của các bạn cùng khối",
+                "/thanh-tich/xep-hang",
+              );
+            }
+          }}
         >
           <Link href="/" className={isHome ? "active" : ""}>
             <Home size={18} /> Trang chủ
           </Link>
           <PracticeMenu path={path} />
-          <Link href="/#worlds">
-            <BookOpen size={18} /> Khám phá
-          </Link>
+          <AchievementMenu path={path} />
           <Link
             href="/thu-vien"
             className={path === "/thu-vien" ? "active" : ""}
           >
-            <FileText size={18} /> Thư viện
+            <Glyph token="library" size={18} /> Thư viện
           </Link>
           <Link href="/hanh-trinh">
-            <Trophy size={18} /> Hành trình
+            <Glyph token="journey" size={18} /> Hành trình
           </Link>
           <Link
             href="/phan-thuong"
@@ -250,13 +320,16 @@ export default function VuiHocApp({ path }: { path: string }) {
           >
             <Gift size={18} /> Phần thưởng
           </Link>
-          <button className="profile-chip" onClick={() => setModal("profile")}>
+          <button
+            className="profile-chip"
+            onClick={() => (user ? setModal("profile") : openAuth())}
+          >
             <Character index={state.profile.character} />
-            <span>{state.profile.name}</span>
+            <span>{user?.nickname || "Đăng nhập / Đăng ký"}</span>
           </button>
         </nav>
       </header>
-      {isSample && (
+      {user && isSample && (
         <div className="demo-ribbon wrap">
           <span className="status-dot" /> Khu trải nghiệm · Dữ liệu mẫu
           <span className="ribbon-separator">·</span>
@@ -270,281 +343,216 @@ export default function VuiHocApp({ path }: { path: string }) {
         </div>
       )}
       <main id="main" className="wrap main-content">
-        {isHome && (
-          <div className="home-dashboard">
-            <section className="home-hero">
-              <div className="hero-copy">
-                <p className="greeting">Chào {state.profile.name}!</p>
-                <h1>
-                  Hôm nay mình
-                  <br />
-                  <span>học gì nào?</span>
-                </h1>
-                <p>Chọn môn em thích, cùng khám phá nhé.</p>
-                {unfinishedLesson && (
-                  <div className="home-resume">
-                    <span className="eyebrow">BÀI ĐANG HỌC</span>
-                    <h2 title={unfinishedLesson.title}>
-                      {unfinishedLesson.title}
-                    </h2>
-                    <div className="home-resume-bottom">
-                      <span>
-                        {unfinishedLesson.solved}/{unfinishedLesson.total} câu
-                        đã hoàn thành
-                      </span>
-                      <ButtonLink
-                        href={`/luyen-tap/${unfinishedLesson.documentId}/${unfinishedLesson.id}`}
-                        className="small"
-                      >
-                        Học tiếp <ArrowRight size={17} />
-                      </ButtonLink>
-                    </div>
-                    <progress
-                      aria-label="Tiến độ bài đang học"
-                      value={unfinishedLesson.solved}
-                      max={unfinishedLesson.total}
-                    />
-                  </div>
-                )}
-                <div className="home-start-row">
-                  <ButtonLink href="/#worlds" secondary={!!unfinishedLesson}>
-                    Chọn môn học <Rocket size={18} />
-                  </ButtonLink>
-                  <button
-                    className="text-button"
-                    onClick={() => setModal("profile")}
-                    aria-haspopup="dialog"
-                  >
-                    Đổi bạn đồng hành
-                  </button>
-                </div>
-                <p className="home-daily-goal">
-                  <Star size={14} aria-hidden="true" /> Mục tiêu hôm nay:{" "}
-                  {state.profile.dailyGoal} buổi học
-                </p>
-              </div>
-              <HeroCompanions
-                selected={state.profile.character}
-                onSelect={(character) =>
-                  setState((s) => ({
-                    ...s,
-                    profile: { ...s.profile, character },
-                  }))
-                }
-              />
-            </section>
-            <WorldsSection />
-            <Link className="home-progress" href="/hanh-trinh">
-              <Trophy size={18} aria-hidden="true" />
-              <span>
-                {learningHistory && learningHistory.length > 0
-                  ? `${completedLessons} buổi hoàn thành · ${totalQuestions} câu đã luyện`
-                  : "Hành trình của em"}
-              </span>
-              <span className="home-progress-detail">Xem hành trình</span>
-              <ArrowRight size={16} aria-hidden="true" />
-            </Link>
-          </div>
-        )}
-        {subject && <SubjectPage key={subject} subject={subject} />}
-        {path === "/ban-mau" && <MathPage {...shared} />}
-        {isUpload && (
-          <UploadPage
-            key={path}
-            subject={uploadSubject as Subject}
-            mode={path === "/timo" ? "timo" : "weekly"}
-          />
-        )}
-        {(path === "/thu-vien" || path === "/dang-tao") && <DocumentLibrary />}
-        {documentId && <DocumentPage key={documentId} id={documentId} />}
-        {path === "/luyen-tap/on-bai" && (
-          <RevisionPage key="documents" kind="documents" />
-        )}
-        {path === "/luyen-tap/on-tong-hop" && (
-          <RevisionPage key="topics" kind="topics" />
-        )}
-        {revisionSetId && (
-          <RevisionSetPage key={revisionSetId} id={revisionSetId} />
-        )}
-        {isTimoBank && <TimoPage gradeId={timoGradeId} />}
-        {path === "/phan-thuong" && <RewardsPage />}
-        {realRun && (
-          <RealPracticePage
-            key={realRun[2]}
-            documentId={realRun[1]}
-            runId={realRun[2]}
-            character={state.profile.character}
-          />
-        )}
-        {path === "/buoi-hoc" && <LessonPage {...shared} />}
-        {path === "/bai-giang" && <LecturePage {...shared} />}
-        {path === "/luyen-tap" && <PracticePage {...shared} />}
-        {path === "/ket-qua" && <ResultsPage {...shared} />}
-        {path === "/hanh-trinh" && (
+        {!user && path !== "/" ? (
+          <GuestExplore path={path} />
+        ) : (
           <>
-            <LearningHistory />
-            <details className="card source-details">
-              <summary>Lịch sử khu trải nghiệm mẫu</summary>
-              <HistoryPage {...shared} />
-            </details>
+            {(path === "/thanh-tich/huy-chuong" || path === "/thanh-tich") && (
+              <MedalPage />
+            )}
+            {path === "/thanh-tich/xep-hang" && <RankingPage />}
+            {isHome && (
+              <div className="home-dashboard">
+                <section className="home-hero">
+                  <div className="hero-copy">
+                    <p className="greeting">
+                      {user
+                        ? `Chào ${state.profile.name}!`
+                        : "CHÀO MỪNG ĐẾN VỚI VUI HỌC"}
+                    </p>
+                    <h1>
+                      Hôm nay mình
+                      <br />
+                      <span>học gì nào?</span>
+                    </h1>
+                    <p>Chọn môn em thích, cùng khám phá nhé.</p>
+                    {unfinishedLesson && (
+                      <div className="home-resume">
+                        <span className="eyebrow">BÀI ĐANG HỌC</span>
+                        <h2 title={unfinishedLesson.title}>
+                          {unfinishedLesson.title}
+                        </h2>
+                        <div className="home-resume-bottom">
+                          <span>
+                            {unfinishedLesson.solved}/{unfinishedLesson.total}{" "}
+                            câu đã hoàn thành
+                          </span>
+                          <ButtonLink
+                            href={`/luyen-tap/${unfinishedLesson.documentId}/${unfinishedLesson.id}`}
+                            className="small"
+                          >
+                            Học tiếp <ArrowRight size={17} />
+                          </ButtonLink>
+                        </div>
+                        <progress
+                          aria-label="Tiến độ bài đang học"
+                          value={unfinishedLesson.solved}
+                          max={unfinishedLesson.total}
+                        />
+                      </div>
+                    )}
+                    <div className="home-start-row">
+                      <ButtonLink
+                        href="/#worlds"
+                        secondary={!!unfinishedLesson}
+                      >
+                        Chọn môn học <Rocket size={18} />
+                      </ButtonLink>
+                      <button
+                        className="text-button"
+                        onClick={() =>
+                          user ? setModal("profile") : openAuth()
+                        }
+                        aria-haspopup="dialog"
+                      >
+                        {user ? "Đổi bạn đồng hành" : "Tạo góc học của em"}
+                      </button>
+                    </div>
+                    <p className="home-daily-goal">
+                      <Star size={14} aria-hidden="true" />{" "}
+                      {user
+                        ? `Mục tiêu hôm nay: ${state.profile.dailyGoal} buổi học`
+                        : "Khám phá theo nhịp của mình"}
+                    </p>
+                  </div>
+                  <HeroCompanions
+                    selected={state.profile.character}
+                    onSelect={async (character) => {
+                      if (!user) {
+                        setState((s) => ({
+                          ...s,
+                          profile: { ...s.profile, character },
+                        }));
+                        return;
+                      }
+                      const {
+                        id: _id,
+                        username: _username,
+                        grade: _grade,
+                        ...profile
+                      } = user;
+                      try {
+                        await update({ ...profile, character });
+                      } catch (e) {
+                        notify((e as Error).message);
+                      }
+                    }}
+                  />
+                </section>
+                <WorldsSection />
+                <Link className="home-progress" href="/hanh-trinh">
+                  <Glyph token="journey" size={18} />
+                  <span>
+                    {learningHistory && learningHistory.length > 0
+                      ? `${completedLessons} buổi hoàn thành · ${totalQuestions} câu đã luyện`
+                      : "Hành trình của em"}
+                  </span>
+                  <span className="home-progress-detail">Xem hành trình</span>
+                  <ArrowRight size={16} aria-hidden="true" />
+                </Link>
+              </div>
+            )}
+            {subject && <SubjectPage key={subject} subject={subject} />}
+            {path === "/ban-mau" && <MathPage {...shared} />}
+            {isUpload && (
+              <UploadPage
+                key={path}
+                subject={uploadSubject as Subject}
+                mode={path === "/timo" ? "timo" : "weekly"}
+              />
+            )}
+            {(path === "/thu-vien" || path === "/dang-tao") && (
+              <DocumentLibrary />
+            )}
+            {documentId && <DocumentPage key={documentId} id={documentId} />}
+            {path === "/luyen-tap/on-bai" && (
+              <RevisionPage key="documents" kind="documents" />
+            )}
+            {path === "/luyen-tap/on-tong-hop" && (
+              <RevisionPage key="topics" kind="topics" />
+            )}
+            {revisionSetId && (
+              <RevisionSetPage key={revisionSetId} id={revisionSetId} />
+            )}
+            {isTimoBank && <TimoPage gradeId={timoGradeId} />}
+            {path === "/phan-thuong" && <RewardsPage />}
+            {realRun && (
+              <RealPracticePage
+                key={realRun[2]}
+                documentId={realRun[1]}
+                runId={realRun[2]}
+                character={state.profile.character}
+              />
+            )}
+            {path === "/buoi-hoc" && <LessonPage {...shared} />}
+            {path === "/bai-giang" && <LecturePage {...shared} />}
+            {path === "/luyen-tap" && <PracticePage {...shared} />}
+            {path === "/ket-qua" && <ResultsPage {...shared} />}
+            {path === "/hanh-trinh" && (
+              <>
+                <LearningHistory />
+                <details className="card source-details">
+                  <summary>Lịch sử khu trải nghiệm mẫu</summary>
+                  <HistoryPage {...shared} />
+                </details>
+              </>
+            )}
+            {path === "/sap-mo" && (
+              <div className="empty-state card">
+                <span className="large-emoji">
+                  <Glyph token="🌱" size={64} />
+                </span>
+                <PageTitle
+                  eyebrow="BỐN KHÔNG GIAN HỌC"
+                  title="Những cánh cửa đã mở!"
+                >
+                  Toán, Tiếng Anh, Tiếng Việt và Tự học đang chờ em khám phá.
+                </PageTitle>
+                <ButtonLink href="/#worlds">
+                  Chọn không gian học <ArrowRight size={18} />
+                </ButtonLink>
+              </div>
+            )}
+            {!supported.includes(path) &&
+              !isUpload &&
+              !documentId &&
+              !realRun &&
+              !revisionSetId &&
+              !timoGradeId && (
+                <div className="empty-state">
+                  <PageTitle
+                    eyebrow="LẠC ĐƯỜNG MỘT CHÚT THÔI"
+                    title="Cánh cửa này chưa có"
+                  >
+                    Mình quay lại thế giới học tập nhé.
+                  </PageTitle>
+                  <ButtonLink href="/">Về trang chủ</ButtonLink>
+                </div>
+              )}
           </>
         )}
-        {path === "/sap-mo" && (
-          <div className="empty-state card">
-            <span className="large-emoji">🌱</span>
-            <PageTitle
-              eyebrow="BỐN KHÔNG GIAN HỌC"
-              title="Những cánh cửa đã mở!"
-            >
-              Toán, Tiếng Anh, Tiếng Việt và Tự học đang chờ em khám phá.
-            </PageTitle>
-            <ButtonLink href="/#worlds">
-              Chọn không gian học <ArrowRight size={18} />
-            </ButtonLink>
-          </div>
-        )}
-        {!supported.includes(path) &&
-          !isUpload &&
-          !documentId &&
-          !realRun &&
-          !revisionSetId &&
-          !timoGradeId && (
-            <div className="empty-state">
-              <PageTitle
-                eyebrow="LẠC ĐƯỜNG MỘT CHÚT THÔI"
-                title="Cánh cửa này chưa có"
-              >
-                Mình quay lại thế giới học tập nhé.
-              </PageTitle>
-              <ButtonLink href="/">Về trang chủ</ButtonLink>
-            </div>
-          )}
       </main>
+      {user && <AchievementNotice />}
       <footer className="wrap site-footer">
-        <Link href="/">✦ Vui học</Link>
+        <Link href="/">
+          <BrandLogo size={24} /> Vui học
+        </Link>
         <span>
           Lớn lên cùng những điều kỳ diệu. Mỗi ngày một chút. Mỗi bước một niềm
           vui.
         </span>
         <span>
-          {isTimoBank ? "Mầm non – Lớp 5 · Luyện đề TIMO" : "Lớp 2 · Demo MVP"}
+          {isTimoBank
+            ? "Mầm non – Lớp 5 · Luyện đề TIMO"
+            : user
+              ? `Khối ${user.grade} · Góc học của ${user.nickname}`
+              : "Cùng em tiến bộ mỗi ngày"}
         </span>
       </footer>
-      {modal === "profile" && (
-        <ProfileModal
-          state={state}
-          setState={setState}
-          onClose={() => setModal(null)}
-        />
+      {modal === "profile" && user && (
+        <AccountModal onClose={() => setModal(null)} />
       )}
     </div>
-  );
-}
-
-function ProfileModal({
-  state,
-  setState,
-  onClose,
-}: Pick<Shared, "state" | "setState"> & { onClose: () => void }) {
-  const [name, setName] = useState(state.profile.name);
-  const [character, setCharacter] = useState(state.profile.character);
-  const [goal, setGoal] = useState(state.profile.dailyGoal);
-  const [reset, setReset] = useState(false);
-  return (
-    <Modal title="Góc nhỏ của em" onClose={onClose}>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          setState((s) => ({
-            ...s,
-            profile: {
-              name: name.trim() || "Nhà thám hiểm nhỏ",
-              character,
-              dailyGoal: goal,
-            },
-          }));
-          onClose();
-        }}
-      >
-        <p>Chọn một cái tên và người bạn cùng khám phá nhé.</p>
-        <label className="field">
-          Tên gọi của em
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            maxLength={32}
-            required
-          />
-        </label>
-        <p className="field-label">Người bạn đồng hành</p>
-        <div className="avatar-grid">
-          {characters.map((name, i) => (
-            <button
-              type="button"
-              key={name}
-              className={character === i ? "chosen" : ""}
-              aria-pressed={character === i}
-              onClick={() => setCharacter(i)}
-            >
-              <Character index={i} />
-              <span>{name}</span>
-            </button>
-          ))}
-        </div>
-        <label className="field">
-          Mục tiêu mỗi ngày
-          <select
-            value={goal}
-            onChange={(e) => setGoal(Number(e.target.value))}
-          >
-            <option value={1}>1 buổi học</option>
-            <option value={2}>2 buổi học</option>
-            <option value={3}>3 buổi học</option>
-          </select>
-        </label>
-        <p className="micro">
-          Hồ sơ và tiến độ của bản demo được lưu trên trình duyệt này.
-        </p>
-        <button className="button full" type="submit">
-          Lưu góc của em <Check size={18} />
-        </button>
-        <details className="demo-controls">
-          <summary>Dữ liệu bản demo</summary>
-          <p>
-            Khôi phục hồ sơ ban đầu và xóa tiến độ mẫu trên trình duyệt này.
-          </p>
-          {reset ? (
-            <div className="actions">
-              <button
-                className="button secondary small"
-                type="button"
-                onClick={() => setReset(false)}
-              >
-                Giữ lại
-              </button>
-              <button
-                className="button small"
-                type="button"
-                onClick={() => {
-                  setState(initialState);
-                  onClose();
-                }}
-              >
-                Khôi phục demo
-              </button>
-            </div>
-          ) : (
-            <button
-              className="text-button"
-              type="button"
-              onClick={() => setReset(true)}
-            >
-              Khôi phục dữ liệu mẫu
-            </button>
-          )}
-        </details>
-      </form>
-    </Modal>
   );
 }
 
@@ -891,7 +899,10 @@ function HistoryPage({ state, startRun }: Shared) {
           <small>Câu đã luyện</small>
         </div>
         <div>
-          <b>{state.history.filter((h) => h.score >= 8).length} ⭐</b>
+          <b>
+            {state.history.filter((h) => h.score >= 8).length}{" "}
+            <Star size={20} />
+          </b>
           <small>Bài đạt từ 8 điểm</small>
         </div>
       </div>
@@ -910,7 +921,9 @@ function HistoryPage({ state, startRun }: Shared) {
         <h2>Nhật ký khám phá</h2>
         {state.history.length === 0 ? (
           <div className="card empty-state">
-            <span className="large-emoji">🌱</span>
+            <span className="large-emoji">
+              <Glyph token="🌱" size={64} />
+            </span>
             <h3>Trang đầu tiên đang chờ em</h3>
             <p>Hoàn thành một nhiệm vụ để lưu bước tiến đầu tiên ở đây.</p>
             <button className="button" onClick={() => startRun("similar")}>

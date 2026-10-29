@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, BookOpen, Trophy } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, Trophy } from "./icons";
 import { PageTitle } from "./ui";
 
 const grades = [
