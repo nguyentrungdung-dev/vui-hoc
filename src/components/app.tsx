@@ -11,7 +11,6 @@ import {
   ChevronRight,
   Clock3,
   FileText,
-  Flame,
   Gift,
   Home,
   Lightbulb,
@@ -192,6 +191,10 @@ export default function VuiHocApp({ path }: { path: string }) {
     "/luyen-tap/timo",
   );
   const totalQuestions = learningHistory?.reduce((n, h) => n + h.solved, 0);
+  const completedLessons = learningHistory?.filter((h) => h.finished).length;
+  const unfinishedLesson = learningHistory
+    ?.filter((h) => !h.finished && h.total > 0 && h.solved < h.total)
+    .sort((a, b) => b.date.localeCompare(a.date))[0];
 
   if (!ready)
     return (
@@ -268,38 +271,56 @@ export default function VuiHocApp({ path }: { path: string }) {
       )}
       <main id="main" className="wrap main-content">
         {isHome && (
-          <>
+          <div className="home-dashboard">
             <section className="home-hero">
               <div className="hero-copy">
-                <p className="greeting">
-                  Xin chào, {state.profile.name}! Một ngày mới thật vui nhé.
-                </p>
-                <span className="eyebrow">
-                  MỘT THẾ GIỚI NHỎ · NGÀN ĐIỀU KHÁM PHÁ
-                </span>
+                <p className="greeting">Chào {state.profile.name}!</p>
                 <h1>
-                  Học tập chưa bao giờ
+                  Hôm nay mình
                   <br />
-                  <span>đơn giản và thú vị</span>
-                  <br />
-                  như vậy
+                  <span>học gì nào?</span>
                 </h1>
-                <p>
-                  Chọn điều em yêu thích. Rủ người bạn đồng hành.
-                  <br />
-                  Cùng khám phá một điều mới mỗi ngày!
-                </p>
-                <div className="actions">
-                  <ButtonLink href="/#worlds">
-                    Cùng học thôi <Rocket size={20} />
+                <p>Chọn môn em thích, cùng khám phá nhé.</p>
+                {unfinishedLesson && (
+                  <div className="home-resume">
+                    <span className="eyebrow">BÀI ĐANG HỌC</span>
+                    <h2 title={unfinishedLesson.title}>
+                      {unfinishedLesson.title}
+                    </h2>
+                    <div className="home-resume-bottom">
+                      <span>
+                        {unfinishedLesson.solved}/{unfinishedLesson.total} câu
+                        đã hoàn thành
+                      </span>
+                      <ButtonLink
+                        href={`/luyen-tap/${unfinishedLesson.documentId}/${unfinishedLesson.id}`}
+                        className="small"
+                      >
+                        Học tiếp <ArrowRight size={17} />
+                      </ButtonLink>
+                    </div>
+                    <progress
+                      aria-label="Tiến độ bài đang học"
+                      value={unfinishedLesson.solved}
+                      max={unfinishedLesson.total}
+                    />
+                  </div>
+                )}
+                <div className="home-start-row">
+                  <ButtonLink href="/#worlds" secondary={!!unfinishedLesson}>
+                    Chọn môn học <Rocket size={18} />
                   </ButtonLink>
-                  <ButtonLink href="/phan-thuong" secondary>
-                    🎨 Góc của con
-                  </ButtonLink>
+                  <button
+                    className="text-button"
+                    onClick={() => setModal("profile")}
+                    aria-haspopup="dialog"
+                  >
+                    Đổi bạn đồng hành
+                  </button>
                 </div>
-                <p className="micro">
-                  <span className="status-dot" /> 4 không gian học · Tài liệu
-                  riêng cho từng môn
+                <p className="home-daily-goal">
+                  <Star size={14} aria-hidden="true" /> Mục tiêu hôm nay:{" "}
+                  {state.profile.dailyGoal} buổi học
                 </p>
               </div>
               <HeroCompanions
@@ -312,91 +333,18 @@ export default function VuiHocApp({ path }: { path: string }) {
                 }
               />
             </section>
-            <section className="stats-strip" aria-label="Thống kê học tập">
-              <div>
-                <strong>Hành trình của em</strong>
-                <small>Mỗi ngày một chút, tiến bộ thật nhiều</small>
-              </div>
-              <div>
-                <b>
-                  {learningHistory?.filter((h) => h.finished).length ?? "—"}
-                  <span>☀</span>
-                </b>
-                <small>Buổi đã hoàn thành</small>
-              </div>
-              <div>
-                <b>
-                  {totalQuestions ?? "—"}
-                  <span>✎</span>
-                </b>
-                <small>Câu hỏi đã luyện</small>
-              </div>
-              <div>
-                <b>
-                  {learningHistory?.filter(
-                    (h) => h.finished && h.score !== null && h.score >= 8,
-                  ).length ?? "—"}
-                  <span>✦</span>
-                </b>
-                <small>Bài đạt từ 8 điểm</small>
-              </div>
-            </section>
             <WorldsSection />
-            <section className="bottom-grid">
-              <div className="card companion-card">
-                <span className="eyebrow">CÓ BẠN, HỌC VUI HƠN</span>
-                <h2>Một người bạn. Ngàn cảm hứng.</h2>
-                <p>Chọn người bạn đồng hành của riêng em.</p>
-                <div className="character-row">
-                  {[0, 1, 3, 4, 7].map((i) => (
-                    <button
-                      key={i}
-                      aria-label={`Chọn ${characters[i]}`}
-                      onClick={() =>
-                        setState((s) => ({
-                          ...s,
-                          profile: { ...s.profile, character: i },
-                        }))
-                      }
-                      className={
-                        state.profile.character === i ? "selected" : ""
-                      }
-                    >
-                      <Character index={i} />
-                    </button>
-                  ))}
-                </div>
-                <button
-                  className="text-button"
-                  onClick={() => setModal("profile")}
-                >
-                  Khám phá 16 người bạn <ArrowRight size={17} />
-                </button>
-              </div>
-              <div className="card goal-card">
-                <div className="goal-icon">
-                  <Flame size={28} />
-                </div>
-                <h2>Một bước nhỏ hôm nay</h2>
-                <p>
-                  Mục tiêu: {state.profile.dailyGoal} buổi học mỗi ngày.
-                  <br />
-                  Bắt đầu thật nhẹ nhàng, tiến bộ theo cách của em.
-                </p>
-                <ButtonLink
-                  href={
-                    state.run && !state.run.finished ? "/luyen-tap" : "/toan"
-                  }
-                  secondary
-                >
-                  {state.run && !state.run.finished
-                    ? "Tiếp tục bài đang học"
-                    : "Khám phá nhiệm vụ"}
-                  <ArrowRight size={17} />
-                </ButtonLink>
-              </div>
-            </section>
-          </>
+            <Link className="home-progress" href="/hanh-trinh">
+              <Trophy size={18} aria-hidden="true" />
+              <span>
+                {learningHistory && learningHistory.length > 0
+                  ? `${completedLessons} buổi hoàn thành · ${totalQuestions} câu đã luyện`
+                  : "Hành trình của em"}
+              </span>
+              <span className="home-progress-detail">Xem hành trình</span>
+              <ArrowRight size={16} aria-hidden="true" />
+            </Link>
+          </div>
         )}
         {subject && <SubjectPage key={subject} subject={subject} />}
         {path === "/ban-mau" && <MathPage {...shared} />}

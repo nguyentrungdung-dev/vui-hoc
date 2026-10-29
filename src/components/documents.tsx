@@ -10,6 +10,9 @@ import {
   ArrowUp,
   ArrowDown,
   FileText,
+  ChevronDown,
+  Info,
+  Search,
   Upload,
   X,
   RefreshCw,
@@ -25,7 +28,7 @@ import {
   type PublicDocument,
   type Subject,
 } from "@/lib/documents";
-import { ButtonLink, Character, PageTitle } from "./ui";
+import { ButtonLink, Character, Modal, PageTitle } from "./ui";
 
 import { LearningPanel } from "./learning";
 
@@ -700,6 +703,10 @@ export function DocumentPage({ id }: { id: string }) {
   const [document, setDocument] = useState<PublicDocument | null>(null);
   const [error, setError] = useState("");
   const [topic, setTopic] = useState("");
+  const [popup, setPopup] = useState<"topics" | "status" | "source" | null>(
+    null,
+  );
+  const [topicSearch, setTopicSearch] = useState("");
   const [busy, setBusy] = useState(false);
   const [version, setVersion] = useState(0);
   const config = useConfig();
@@ -770,178 +777,253 @@ export function DocumentPage({ id }: { id: string }) {
     (doc.status === "partial" &&
       doc.completedPages.length < doc.selectedPages.length);
   return (
-    <>
+    <div className="document-study-page">
       <Link className="back-link" href={subjects[doc.subject].path}>
         <ArrowLeft size={16} /> {subjects[doc.subject].name}
       </Link>
       <PageTitle
         eyebrow={`${subjects[doc.subject].name.toUpperCase()} · LỚP 2${doc.mode === "timo" ? " · TIMO" : ""}`}
         title={doc.title}
-      >
-        Từ tài liệu của em, học theo nhịp của em.
-      </PageTitle>
+      />
+      <p className="document-summary">
+        {doc.questions.length} câu hỏi · {topics.length} chủ đề
+        {doc.selectedPages.length > 0
+          ? ` · ${doc.selectedPages.length} trang`
+          : ""}
+      </p>
       <ConfigNotice config={config} />
-      {doc.canManage && (
-        <section className="card analysis-status" aria-live="polite">
-          <div>
+      <div className="document-tools">
+        {doc.pages.length > 0 && (
+          <button
+            className="button secondary topic-picker"
+            onClick={() => {
+              setTopicSearch("");
+              setPopup("topics");
+            }}
+            aria-haspopup="dialog"
+          >
+            <span>{topic || "Tất cả chủ đề"}</span>
+            <ChevronDown size={17} />
+          </button>
+        )}
+        <button
+          className="document-tool"
+          onClick={() => setPopup("source")}
+          aria-haspopup="dialog"
+        >
+          <FileText size={17} /> Tài liệu gốc
+        </button>
+        {doc.canManage && (
+          <button
+            className="document-tool"
+            onClick={() => setPopup("status")}
+            aria-haspopup="dialog"
+          >
             {pending ? (
-              <LoaderCircle className="spin" size={26} />
+              <LoaderCircle size={17} className="spin" />
             ) : (
-              <FileText size={26} />
+              <Info size={17} />
             )}
-            <div>
-              <span className={`badge status-${doc.status}`}>
-                {statusNames[doc.status]}
-              </span>
-              <h2>{doc.message}</h2>
-            </div>
-          </div>
-          {doc.selectedPages.length > 0 && (
-            <>
-              <progress
-                max={doc.selectedPages.length}
-                value={doc.completedPages.length}
-              />
-              <p>
-                {doc.completedPages.length}/{doc.selectedPages.length} trang đã
-                nhận diện · {doc.questions.length} câu hỏi · {topics.length} chủ
-                đề
-              </p>
-            </>
+            {pending ? "Đang xử lý" : retryable ? "Cần kiểm tra" : "Thông tin"}
+          </button>
+        )}
+      </div>
+      {(pending || retryable || doc.status === "uploading") && (
+        <div className="document-status-inline" role="status">
+          <span>{doc.message}</span>
+          {doc.canManage && (
+            <button className="text-button" onClick={() => setPopup("status")}>
+              Xem chi tiết
+            </button>
           )}
           {pending && (
-            <p className="micro">
-              Em có thể rời trang này và quay lại từ thư viện. Tài liệu vẫn được
-              xử lý khi máy chủ đang chạy.
-            </p>
+            <progress
+              max={doc.selectedPages.length || 1}
+              value={doc.completedPages.length}
+            />
           )}
-          <div className="actions">
-            {doc.canManage && retryable && (
-              <button
-                className="button"
-                disabled={busy}
-                onClick={() => retry()}
-              >
-                <RefreshCw size={18} />{" "}
-                {doc.status === "waiting_config"
-                  ? "Thử lại sau khi cấu hình"
-                  : "Thử lại phần chưa xong"}
-              </button>
+        </div>
+      )}
+      {popup === "status" && doc.canManage && (
+        <Modal title="Tình trạng tài liệu" onClose={() => setPopup(null)}>
+          <section className="card analysis-status" aria-live="polite">
+            <div>
+              {pending ? (
+                <LoaderCircle className="spin" size={26} />
+              ) : (
+                <FileText size={26} />
+              )}
+              <div>
+                <span className={`badge status-${doc.status}`}>
+                  {statusNames[doc.status]}
+                </span>
+                <h2>{doc.message}</h2>
+              </div>
+            </div>
+            {doc.selectedPages.length > 0 && (
+              <>
+                <progress
+                  max={doc.selectedPages.length}
+                  value={doc.completedPages.length}
+                />
+                <p>
+                  {doc.completedPages.length}/{doc.selectedPages.length} trang
+                  đã nhận diện · {doc.questions.length} câu hỏi ·{" "}
+                  {topics.length} chủ đề
+                </p>
+              </>
             )}
-            {doc.canManage &&
-              doc.status === "uploading" &&
-              (doc.files.every((f) => f.uploaded) ? (
+            {pending && (
+              <p className="micro">
+                Em có thể rời trang này và quay lại từ thư viện. Tài liệu vẫn
+                được xử lý khi máy chủ đang chạy.
+              </p>
+            )}
+            <div className="actions">
+              {doc.canManage && retryable && (
                 <button
                   className="button"
                   disabled={busy}
-                  onClick={() => retry("start")}
+                  onClick={() => retry()}
                 >
-                  Bắt đầu nhận diện
+                  <RefreshCw size={18} />{" "}
+                  {doc.status === "waiting_config"
+                    ? "Thử lại sau khi cấu hình"
+                    : "Thử lại phần chưa xong"}
                 </button>
-              ) : (
-                <ButtonLink href={`/tai-len/${doc.subject}`}>
-                  Chọn lại tài liệu để tải đủ
-                </ButtonLink>
+              )}
+              {doc.canManage &&
+                doc.status === "uploading" &&
+                (doc.files.every((f) => f.uploaded) ? (
+                  <button
+                    className="button"
+                    disabled={busy}
+                    onClick={() => retry("start")}
+                  >
+                    Bắt đầu nhận diện
+                  </button>
+                ) : (
+                  <ButtonLink href={`/tai-len/${doc.subject}`}>
+                    Chọn lại tài liệu để tải đủ
+                  </ButtonLink>
+                ))}
+              <button
+                className="text-button"
+                onClick={() => setVersion((v) => v + 1)}
+              >
+                Cập nhật trạng thái
+              </button>
+            </div>
+          </section>
+          {!!doc.failures.length && (
+            <div className="notice">
+              <strong>Phần chưa đọc được</strong>
+              {doc.failures.map((f) => (
+                <p key={f.pages.join(",")}>
+                  Trang {f.pages.join(", ")}: {f.message}
+                </p>
               ))}
-            <button
-              className="text-button"
-              onClick={() => setVersion((v) => v + 1)}
-            >
-              Cập nhật trạng thái
-            </button>
-          </div>
-        </section>
+            </div>
+          )}
+        </Modal>
       )}
       {error && (
         <p className="notice error" role="alert">
           {error}
         </p>
       )}
-      {!!doc.failures.length && (
-        <div className="notice">
-          <strong>Phần chưa đọc được</strong>
-          {doc.failures.map((f) => (
-            <p key={f.pages.join(",")}>
-              Trang {f.pages.join(", ")}: {f.message}
-            </p>
-          ))}
-        </div>
-      )}
-      <details className="card source-details">
-        <summary>
-          <FileText size={19} /> Tài liệu gốc ·{" "}
-          {doc.files.length === 1
-            ? doc.files[0].name
-            : `${doc.files.length} ảnh`}
-        </summary>
-        <div className="source-links">
-          {doc.files.map(
-            (f, i) =>
-              f.uploaded && (
-                <a
-                  key={i}
-                  href={`/api/documents/${id}/files/${i}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {i + 1}. {f.name} ↗
-                </a>
-              ),
+      {popup === "source" && (
+        <Modal title="Tài liệu gốc" onClose={() => setPopup(null)}>
+          <div className="source-links">
+            {doc.files.map(
+              (f, i) =>
+                f.uploaded && (
+                  <a
+                    key={i}
+                    href={`/api/documents/${id}/files/${i}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {i + 1}. {f.name} ↗
+                  </a>
+                ),
+            )}
+          </div>
+          {doc.selectedPages.length > 0 && (
+            <p>Trang đã chọn: {doc.selectedPages.join(", ")}</p>
           )}
-        </div>
-        {doc.selectedPages.length > 0 && (
-          <p>Trang đã chọn: {doc.selectedPages.join(", ")}</p>
-        )}
-      </details>
+        </Modal>
+      )}
 
       {doc.pages.length > 0 && (
         <>
-          <section className="section">
-            <div className="section-heading">
-              <div>
-                <span className="eyebrow">EM MUỐN HỌC GÌ HÔM NAY?</span>
-                <h2>Chọn một chủ đề nhỏ</h2>
-                <p>
-                  Chọn chủ đề để làm các câu trong tài liệu. Đáp án và gợi ý
-                  được chuẩn bị cùng tài liệu.
-                </p>
-              </div>
-            </div>
-            <div className="topic-filters">
-              <button
-                className={`topic-filter ${!topic ? "selected" : ""}`}
-                aria-pressed={!topic}
-                onClick={() => setTopic("")}
-              >
-                Tất cả · {doc.questions.length}
-              </button>
-              {topics.map((t) => (
+          {popup === "topics" && (
+            <Modal title="Chọn chủ đề" onClose={() => setPopup(null)}>
+              <label className="topic-search">
+                <Search size={18} />
+                <input
+                  autoFocus
+                  type="search"
+                  placeholder="Tìm chủ đề…"
+                  aria-label="Tìm chủ đề"
+                  value={topicSearch}
+                  onChange={(e) => setTopicSearch(e.target.value)}
+                />
+              </label>
+              <div className="topic-filters">
                 <button
-                  key={t}
-                  className={`topic-filter ${topic === t ? "selected" : ""}`}
-                  aria-pressed={topic === t}
-                  onClick={() => setTopic(t)}
+                  className={`topic-filter ${!topic ? "selected" : ""}`}
+                  aria-pressed={!topic}
+                  onClick={() => {
+                    setTopic("");
+                    setPopup(null);
+                  }}
                 >
-                  {t}{" "}
-                  <small>
-                    {doc.questions.filter((q) => q.topic === t).length ||
-                      "Bài học"}
-                  </small>
+                  Tất cả · {doc.questions.length}
                 </button>
-              ))}
-            </div>
-          </section>
+                {topics
+                  .filter((t) =>
+                    t
+                      .toLocaleLowerCase("vi")
+                      .includes(topicSearch.toLocaleLowerCase("vi")),
+                  )
+                  .map((t) => (
+                    <button
+                      key={t}
+                      className={`topic-filter ${topic === t ? "selected" : ""}`}
+                      aria-pressed={topic === t}
+                      onClick={() => {
+                        setTopic(t);
+                        setPopup(null);
+                      }}
+                    >
+                      {t}{" "}
+                      <small>
+                        {doc.questions.filter((q) => q.topic === t).length ||
+                          "Bài học"}
+                      </small>
+                    </button>
+                  ))}
+              </div>
+              {topics.every(
+                (t) =>
+                  !t
+                    .toLocaleLowerCase("vi")
+                    .includes(topicSearch.toLocaleLowerCase("vi")),
+              ) && <p role="status">Chưa tìm thấy chủ đề phù hợp.</p>}
+            </Modal>
+          )}
           <LearningPanel key={doc.id} document={doc} topic={topic} />
         </>
       )}
-      <div className="actions">
-        <ButtonLink href={`/tai-len/${doc.subject}`} secondary>
-          Gửi tài liệu khác <Upload size={18} />
-        </ButtonLink>
-        <ButtonLink href="/thu-vien" secondary>
-          Về thư viện <BookOpen size={18} />
-        </ButtonLink>
+      <div className="document-bottom-links">
+        <Link href="/thu-vien">
+          <BookOpen size={16} /> Thư viện
+        </Link>
+        <Link href={`/tai-len/${doc.subject}`}>
+          <Upload size={16} /> Gửi tài liệu khác
+        </Link>
       </div>
-    </>
+    </div>
   );
 }

@@ -59,19 +59,11 @@ export function LearningPanel({
 }) {
   const router = useRouter();
   const [view, setView] = useState<LearningView | null>(null);
-  const [countInput, setCountInput] = useState(String(doc.practiceCount || 25));
-  const count = Number(countInput);
-  const [topics, setTopics] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [revision, setRevision] = useState(0);
-  const hydrated = useRef(false);
-  const available = [
-    ...new Set([
-      ...doc.questions.map((q) => q.topic),
-      ...doc.pages.flatMap((p) => p.topics),
-    ]),
-  ];
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
@@ -80,13 +72,6 @@ export function LearningPanel({
         const next = await request<LearningView>(`/${doc.id}/learning`);
         if (!active) return;
         setView(next);
-        if (!hydrated.current) {
-          hydrated.current = true;
-          if (next.pack) {
-            setCountInput(String(next.pack.count || doc.practiceCount || 25));
-            setTopics(next.pack.topics);
-          }
-        }
         if (next.pack && ["queued", "generating"].includes(next.pack.status))
           timer = setTimeout(refresh, 3000);
       } catch (e) {
@@ -112,15 +97,9 @@ export function LearningPanel({
       }
       setView(
         await request<LearningView>(`/${doc.id}/generate`, {
-          count: retry ? pack!.count : original ? 0 : count,
-          scope: retry
-            ? pack!.count === 0
-              ? "original"
-              : "practice"
-            : original
-              ? "original"
-              : "practice",
-          topics: retry ? pack!.topics : original ? [] : topics,
+          count: pack?.count || 0,
+          scope: pack?.count ? "practice" : "original",
+          topics: pack?.topics || [],
           retry,
         }),
       );
@@ -146,232 +125,183 @@ export function LearningPanel({
       setBusy(false);
     }
   }
+  const questionCount = topic
+    ? doc.questions.filter((q) => q.topic === topic).length
+    : pack?.originalCount || 0;
+  const canStart =
+    !!pack &&
+    pack.originalCount > 0 &&
+    questionCount > 0 &&
+    !working &&
+    !["queued", "preparing", "analyzing"].includes(doc.status);
   return (
-    <section className="card learning-panel">
-      <span className="eyebrow">TỪ TÀI LIỆU → CÙNG EM LUYỆN TẬP</span>
-      <h2>Làm bài trong tài liệu</h2>
-      <p>
-        Đáp án, gợi ý và lời giải được kiểm tra trước khi làm bài. Câu chưa đủ
-        căn cứ chấm vẫn được giữ lại. Video chỉ được tạo khi em yêu cầu.
-      </p>
-      {doc.status === "partial" && (
-        <p className="notice">
-          Tài liệu mới được đọc một phần. Bài học chỉ dùng những trang đã nhận
-          diện; các trang lỗi chưa được đưa vào.
-        </p>
+    <section className="card learning-panel lesson-launcher">
+      <div className="lesson-launcher-heading">
+        <span className="lesson-launcher-icon">
+          <Rocket size={28} aria-hidden="true" />
+        </span>
+        <div>
+          <span className="eyebrow">BÀI TẬP CỦA EM</span>
+          <h2>{topic || "Sẵn sàng thử sức?"}</h2>
+          <p>
+            {questionCount > 0
+              ? `${questionCount} câu hỏi · Làm theo nhịp của em`
+              : "Bài tập từ tài liệu của em"}
+          </p>
+        </div>
+      </div>
+      {!view && !error && <p role="status">Đang mở bài tập…</p>}
+      {working && (
+        <div className="lesson-preparing" role="status">
+          <span>
+            <LoaderCircle size={16} className="spin" /> {pack.message}
+          </span>
+          <progress value={pack.completedParts} max={pack.totalParts || 1} />
+        </div>
       )}
-      {doc.canManage &&
-        view &&
-        !pack &&
-        ["complete", "partial"].includes(doc.status) && (
+      {pack && !working && pack.status !== "ready" && (
+        <p role="status">{pack.message}</p>
+      )}
+      {pack?.status === "ready" && questionCount === 0 && (
+        <p>Chủ đề này chưa có câu hỏi để làm. Em thử chọn chủ đề khác nhé.</p>
+      )}
+      <div className="actions lesson-launch-actions">
+        {canStart && (
           <button
             className="button"
             disabled={busy}
-            onClick={() => generate(false, true)}
+            onClick={() => start("original")}
           >
-            Chuẩn bị bài gốc và gợi ý
+            {busy ? "Đang mở…" : "Bắt đầu làm bài"} <ArrowRight size={18} />
           </button>
         )}
-      {doc.canManage && pack && pack.contentVersion !== 2 && (
-        <button
-          className="button secondary"
-          disabled={busy || working}
-          onClick={() => generate(false, true)}
-        >
-          Cập nhật bài gốc, hình và tiêu chí chấm
-        </button>
-      )}
-      {doc.canManage && pack ? (
-        <details>
-          <summary>Luyện thêm với câu hỏi mới (tùy chọn)</summary>
-          <fieldset
-            className="generation-options"
-            disabled={busy || working || !view}
+        {!!pack?.practiceCount && (
+          <button
+            className="button secondary"
+            disabled={busy}
+            onClick={() => start("practice")}
           >
-            <label htmlFor={`practice-count-${doc.id}`}>Số câu luyện mới</label>
-            <input
-              id={`practice-count-${doc.id}`}
-              className="question-count-input"
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              value={countInput}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (/^\d*$/.test(value)) {
-                  setCountInput(value.replace(/^0+(?=\d)/, ""));
-                }
-              }}
-            />
-            <details>
-              <summary>
-                Chọn chủ đề ·{" "}
-                {topics.length
-                  ? `${topics.length}/${available.length}`
-                  : "Tất cả"}
-              </summary>
-              <p className="micro">
-                Để trống lựa chọn nghĩa là học tất cả chủ đề đã nhận diện.
-              </p>
-              <div className="topic-checklist">
-                {available.map((t) => (
-                  <label key={t}>
-                    <input
-                      type="checkbox"
-                      checked={topics.includes(t)}
-                      onChange={(e) =>
-                        setTopics((ts) =>
-                          e.target.checked
-                            ? [...ts, t]
-                            : ts.filter((x) => x !== t),
-                        )
-                      }
-                    />
-                    {t}
-                  </label>
-                ))}
-              </div>
-              <button
-                type="button"
-                className="text-button"
-                onClick={() => setTopics([])}
-              >
-                Chọn tất cả chủ đề
-              </button>
-            </details>
+            Bộ luyện thêm · {pack.practiceCount} câu
+          </button>
+        )}
+        {doc.canManage &&
+          view &&
+          !pack &&
+          ["complete", "partial"].includes(doc.status) && (
             <button
               className="button"
-              disabled={!Number.isInteger(count) || count < 5 || count > 50}
-              onClick={() => generate()}
+              disabled={busy}
+              onClick={() => generate(false, true)}
             >
-              <Rocket size={18} />
-              Tạo bài luyện thêm
+              Chuẩn bị bài tập
             </button>
-          </fieldset>
-        </details>
-      ) : !doc.canManage ? (
-        <p className="notice">
-          {pack
-            ? "Em có thể tiếp tục các bài bên dưới. Bài làm, điểm và lịch sử dùng chung trên mọi trình duyệt, thiết bị."
-            : "Bài gốc và gợi ý đang được chuẩn bị. Em có thể mở tài liệu gốc trong lúc chờ."}
-        </p>
-      ) : null}
-      {pack?.status === "ready" && pack.originalCount === 0 && (
-        <p className="notice">
-          Chưa có câu gốc đủ dữ kiện để làm bài. Em có thể mở tài liệu gốc
-          {pack.skipped.length
-            ? " và xem các câu cần kiểm tra bên dưới"
-            : " hoặc chọn luyện thêm theo chủ đề"}
-          .
-        </p>
-      )}
-      {pack && (
-        <div className="generation-status">
-          <span className="badge">
-            {working && <LoaderCircle className="spin" size={16} />}{" "}
-            {titles[pack.status]}
-          </span>
-          <p role="status">{pack.message}</p>
-          <progress value={pack.completedParts} max={pack.totalParts || 1} />
-          <p>
-            {pack.originalCount} câu gốc · {pack.verifiedOriginalCount} câu có
-            đáp án và gợi ý đã kiểm tra
-            {pack.count > 0
-              ? ` · ${pack.practiceCount}/${pack.count} câu luyện thêm`
-              : ""}
-          </p>
-          <div className="actions">
-            {pack.originalCount > 0 &&
-              !working &&
-              !["queued", "preparing", "analyzing"].includes(doc.status) && (
-                <button
-                  className="button secondary"
-                  disabled={busy}
-                  onClick={() => start("original")}
-                >
-                  {topic ? "Làm bài gốc" : `Làm ${pack.originalCount} câu gốc`}
-                </button>
-              )}
-            {pack.practiceCount > 0 && (
-              <button
-                className="button"
-                disabled={busy}
-                onClick={() => start("practice")}
-              >
-                Luyện {pack.practiceCount} câu <ArrowRight size={18} />
-              </button>
-            )}
-            {doc.canManage &&
-              ["partial", "failed", "waiting_config"].includes(pack.status) && (
-                <button
-                  className="button secondary"
-                  disabled={busy}
-                  onClick={() => generate(true)}
-                >
-                  <RefreshCw size={17} /> Thử lại phần chưa xong
-                </button>
-              )}
-          </div>
-          {working && (
-            <p className="micro">
-              Em có thể về thư viện rồi quay lại. Các phần đã xong được lưu; bộ
-              tạo bài được tiếp tục và lưu lại theo từng phần.
-            </p>
           )}
-          {pack.errors.length > 0 && (
-            <details className="learning-issues">
-              <summary>Phần chưa đạt kiểm tra ({pack.errors.length})</summary>
-              {pack.errors.map((s, i) => (
-                <p key={i}>{s}</p>
-              ))}
-            </details>
+        {doc.canManage &&
+          pack &&
+          ["partial", "failed", "waiting_config"].includes(pack.status) && (
+            <button
+              className="button secondary"
+              disabled={busy || working}
+              onClick={() => generate(true)}
+            >
+              <RefreshCw size={17} /> Thử lại
+            </button>
           )}
-          {pack.skipped.length > 0 && (
-            <details className="learning-issues">
-              <summary>
-                {pack.skipped.length} câu chưa đủ điều kiện tạo lời giải
-              </summary>
-              {pack.skipped.map((s) => (
-                <p key={s.sourceId}>
-                  <strong>
-                    {view?.sources.find((q) => q.id === s.sourceId)?.label ||
-                      s.sourceId}
-                    :
-                  </strong>{" "}
-                  {s.reason}
-                </p>
-              ))}
-            </details>
-          )}
-        </div>
-      )}
+        {doc.canManage && pack && pack.contentVersion !== 2 && (
+          <button
+            className="button secondary"
+            disabled={busy || working}
+            onClick={() => generate(false, true)}
+          >
+            Cập nhật bài tập
+          </button>
+        )}
+      </div>
       {error && (
         <p className="notice error" role="alert">
           {error}
         </p>
       )}
-      {!!view?.runs.length && (
-        <div className="saved-runs">
-          <h3>Bài đang làm và kết quả</h3>
-          {view.runs.slice(0, 8).map((r) => (
-            <Link key={r.id} href={`/luyen-tap/${doc.id}/${r.id}`}>
-              {r.kind === "original"
-                ? "Đề gốc"
-                : r.kind === "similar"
-                  ? "Bài tương tự"
-                  : "Bộ luyện"}{" "}
-              · {r.solved}/{r.total} câu ·{" "}
-              {r.finished
-                ? `Kết quả ${r.score === null ? "tự đối chiếu" : `${r.score}/10`}`
-                : "Tiếp tục học"}{" "}
-              <ArrowRight size={16} />
-            </Link>
-          ))}
+      {pack && (
+        <div className="lesson-launcher-footer">
+          {!!view?.runs.length && (
+            <button
+              className="text-button"
+              onClick={() => setHistoryOpen(true)}
+            >
+              Bài đang làm & kết quả <ArrowRight size={15} />
+            </button>
+          )}
+          <button className="text-button" onClick={() => setDetailsOpen(true)}>
+            Chi tiết bài học
+            {pack.errors.length + pack.skipped.length > 0
+              ? ` · ${pack.errors.length + pack.skipped.length} lưu ý`
+              : ""}
+          </button>
         </div>
+      )}
+      {detailsOpen && pack && (
+        <Modal title="Chi tiết bài học" onClose={() => setDetailsOpen(false)}>
+          <span className="badge">{titles[pack.status]}</span>
+          <p>{pack.message}</p>
+          <p>
+            {pack.originalCount} câu gốc · {pack.verifiedOriginalCount} câu đã
+            kiểm tra đáp án và gợi ý
+          </p>
+          {pack.errors.length > 0 && (
+            <div className="notice">
+              <strong>Phần cần kiểm tra</strong>
+              {pack.errors.map((e, i) => (
+                <p key={i}>{e}</p>
+              ))}
+            </div>
+          )}
+          {pack.skipped.length > 0 && (
+            <div className="notice">
+              <strong>Câu chưa đủ điều kiện tạo lời giải</strong>
+              {pack.skipped.map((q) => (
+                <p key={q.sourceId}>
+                  <b>
+                    {view?.sources.find((s) => s.id === q.sourceId)?.label ||
+                      q.sourceId}
+                    :
+                  </b>{" "}
+                  {q.reason}
+                </p>
+              ))}
+            </div>
+          )}
+        </Modal>
+      )}
+      {historyOpen && (
+        <Modal
+          title="Bài đang làm & kết quả"
+          onClose={() => setHistoryOpen(false)}
+        >
+          <div className="saved-runs">
+            {view?.runs.slice(0, 8).map((r) => (
+              <Link key={r.id} href={`/luyen-tap/${doc.id}/${r.id}`}>
+                <span>
+                  {r.kind === "original"
+                    ? "Đề gốc"
+                    : r.kind === "similar"
+                      ? "Bài tương tự"
+                      : "Bộ luyện"}{" "}
+                  · {r.solved}/{r.total} câu ·{" "}
+                  {r.finished
+                    ? `Kết quả ${r.score === null ? "tự đối chiếu" : `${r.score}/10`}`
+                    : "Tiếp tục học"}
+                </span>
+                <ArrowRight size={16} />
+              </Link>
+            ))}
+          </div>
+        </Modal>
       )}
     </section>
   );
 }
+
 export function RealPracticePage({
   documentId,
   runId,
