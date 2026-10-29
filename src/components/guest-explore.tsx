@@ -180,19 +180,21 @@ export function GuestExplore({ path }: { path: string }) {
                 className="guest-map-cover"
                 style={{ backgroundImage: `url(${rewardBackground(map.id)})` }}
               />
-              <h2>{map.name}</h2>
-              <p>{map.subtitle}</p>
-              <button
-                className="button secondary"
-                onClick={() =>
-                  requestAccess(
-                    "lưu và trang trí bản đồ của em",
-                    "/phan-thuong",
-                  )
-                }
-              >
-                Trang trí không gian <ArrowRight size={16} />
-              </button>
+              <div className="guest-map-content">
+                <h2>{map.name}</h2>
+                <p>{map.subtitle}</p>
+                <button
+                  className="button secondary"
+                  onClick={() =>
+                    requestAccess(
+                      "lưu và trang trí bản đồ của em",
+                      "/phan-thuong",
+                    )
+                  }
+                >
+                  Trang trí không gian <ArrowRight size={16} />
+                </button>
+              </div>
             </article>
           ))}
         </div>

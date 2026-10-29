@@ -8067,29 +8067,39 @@ progress::-webkit-progress-value {
   gap: 22px;
 }
 .guest-map-card {
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  padding: 0 0 25px !important;
+  padding: 0 !important;
 }
 .guest-map-cover {
+  flex-shrink: 0;
   aspect-ratio: 16/9;
   background-size: cover;
   background-position: center;
 }
-.guest-map-card > h2,
-.guest-map-card > p {
-  margin-left: 25px;
-  margin-right: 25px;
+.guest-map-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 24px;
 }
-.guest-map-card h2 {
+.guest-map-content > h2 {
+  margin: 0;
   font-size: 21px;
+  line-height: 1.4;
   color: #7c678c;
 }
-.guest-map-card > p {
+.guest-map-content > p {
+  margin: 0 0 8px;
   font-size: 13px;
+  line-height: 1.7;
   color: #9c8ba7;
 }
-.guest-map-card > .button {
-  margin: 8px 25px 0;
+.guest-map-content > .button {
+  margin: auto 0 0;
   font-size: 12px;
 }
 .guest-private-preview {
