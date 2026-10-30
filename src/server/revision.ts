@@ -1,3 +1,4 @@
+import { repairSourceLabels } from "../lib/source-repairs";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
@@ -54,6 +55,63 @@ export function revisionPages(job: DocumentJob): AnalysisPage[] {
     });
 }
 
+// Marked answers are source annotations, not missing question data. This path
+// uses readable extracted questions without waiting for their original solutions.
+const sourceAnnotation =
+  /^(?:Đáp án gốc có đánh dấu đỏ; không xác nhận[.]?|Các phép tính đặt dọc có kết quả đã điền trong đáp án gốc; không xác nhận[.]?|Các dòng giải mẫu có sẵn trong đáp án gốc; không xác nhận[.]?|Bài giải đã điền sẵn trong đáp án gốc; không xác nhận[.]?|Dòng bài giải trang 1 và đáp số trang 2 được nối theo đúng thứ tự[.]?)$/iu;
+export function quickPracticePages(job: DocumentJob): AnalysisPage[] {
+  if (job.revision || job.status !== "complete") return [];
+  const doc = publicDocument(job);
+  const clearQuestions = doc.questions
+    .map(repairSourceLabels)
+    .filter(
+      (q) =>
+        !q.hasFigure &&
+        !q.figureIssue &&
+        !(q.needsReview && !q.issues.length) &&
+        q.issues.every((issue) => sourceAnnotation.test(issue.trim())) &&
+        !/\[không đọc rõ\]/iu.test(
+          JSON.stringify([q.prompt, q.passage, q.options, q.answerFields]),
+        ),
+    );
+  return doc.pages.flatMap((p) => {
+    const questions = clearQuestions.filter((q) =>
+      q.sourcePages.includes(p.page),
+    );
+    if (questions.length)
+      return [
+        {
+          page: p.page,
+          text: questions
+            .map((q) =>
+              [
+                q.label,
+                q.prompt,
+                q.passage,
+                ...q.options.map((o) => `${o.label}. ${o.text}`),
+                ...(q.answerFields || []).map((f) => f.label),
+              ]
+                .filter(Boolean)
+                .join("\n"),
+            )
+            .join("\n\n"),
+          topics: [...new Set(questions.map((q) => q.topic))],
+          issues: [],
+        },
+      ];
+    // Clear lesson-only pages remain usable; unclear pages never become clear by omission.
+    if (
+      !doc.questions.some((q) => q.sourcePages.includes(p.page)) &&
+      !p.issues.length &&
+      p.text.trim() &&
+      p.topics.length &&
+      !/\[không đọc rõ\]/iu.test(p.text)
+    )
+      return [p];
+    return [];
+  });
+}
+
 export async function revisionCatalog(
   viewer: string,
 ): Promise<RevisionCatalog> {
@@ -92,7 +150,13 @@ export async function revisionCatalog(
   };
 }
 
-export async function createRevision(viewer: string, input: unknown) {
+export async function createRevision(
+  viewer: string,
+  input: unknown,
+  pending?: DocumentJob,
+) {
+  if (pending && (pending.owner !== viewer || !pending.quickPractice))
+    throw new AppError("Yêu cầu tạo đề không hợp lệ.", 403);
   const parsed = revisionRequest.safeParse(input);
   if (!parsed.success)
     throw new AppError("Chọn một môn, nguồn ôn tập và số câu từ 5 đến 50.");
@@ -142,7 +206,9 @@ export async function createRevision(viewer: string, input: unknown) {
   const sources: RevisionSource[] = [];
   const usedJobs: DocumentJob[] = [];
   for (const job of jobs) {
-    const eligible = revisionPages(job).filter(
+    const eligible = (
+      pending?.quickPractice ? quickPracticePages(job) : revisionPages(job)
+    ).filter(
       (p) =>
         config.kind === "documents" || p.topics.some((t) => topics.includes(t)),
     );
@@ -181,9 +247,14 @@ export async function createRevision(viewer: string, input: unknown) {
       "Đề tài đã chọn chưa có nội dung nguồn đủ rõ trong môn này.",
     );
   const now = new Date().toISOString();
-  const title = `${config.kind === "documents" ? "Ôn bài" : "Ôn tổng hợp"} · ${subjects[config.subject].name}`;
+  const title = pending
+    ? `Đề luyện · ${usedJobs[0].title}`
+    : `${config.kind === "documents" ? "Ôn bài" : "Ôn tổng hợp"} · ${subjects[config.subject].name}`;
   const job: DocumentJob = {
-    id: randomUUID(),
+    id: pending?.id || randomUUID(),
+    quickPractice: pending?.quickPractice
+      ? { ...pending.quickPractice, waitingForSource: false }
+      : undefined,
     owner: viewer,
     title,
     subject: config.subject,
@@ -191,7 +262,7 @@ export async function createRevision(viewer: string, input: unknown) {
     practiceCount: config.count,
     pageRange: "",
     files: [],
-    createdAt: now,
+    createdAt: pending?.createdAt || now,
     updatedAt: now,
     status: "complete",
     message: "Đã chọn nội dung từ tài liệu nguồn.",
@@ -216,7 +287,7 @@ export async function createRevision(viewer: string, input: unknown) {
     count: config.count,
     topics: config.kind === "topics" ? topics : available,
   });
-  job.learningExecution = randomUUID();
+  job.learningExecution = pending?.learningExecution || randomUUID();
   await writeJob(job);
   return job;
 }

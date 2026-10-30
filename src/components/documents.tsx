@@ -32,6 +32,11 @@ import {
 import { ButtonLink, Character, Modal, PageTitle } from "./ui";
 
 import { LearningPanel } from "./learning";
+import {
+  useQuickPractice,
+  QuickPracticeDialog,
+  QuickPracticeProgress,
+} from "./quick-practice";
 import { LibraryStatusFilter } from "./library-status-filter";
 
 type Config = {
@@ -838,12 +843,13 @@ export function UploadPage({
 }
 
 export function DocumentPage({ id }: { id: string }) {
+  const quickPractice = useQuickPractice(id);
   const [document, setDocument] = useState<PublicDocument | null>(null);
   const [error, setError] = useState("");
   const [topic, setTopic] = useState("");
-  const [popup, setPopup] = useState<"topics" | "status" | "source" | null>(
-    null,
-  );
+  const [popup, setPopup] = useState<
+    "topics" | "status" | "source" | "quick-practice" | null
+  >(null);
   const [topicSearch, setTopicSearch] = useState("");
   const [busy, setBusy] = useState(false);
   const [version, setVersion] = useState(0);
@@ -981,6 +987,26 @@ export function DocumentPage({ id }: { id: string }) {
             />
           )}
         </div>
+      )}
+      <QuickPracticeProgress
+        sets={quickPractice.sets}
+        busy={quickPractice.busy}
+        retry={(retryId) => {
+          void quickPractice.send({ retryId });
+        }}
+      />
+      {quickPractice.error && popup !== "quick-practice" && (
+        <p className="notice error" role="alert">
+          {quickPractice.error}
+        </p>
+      )}
+      {popup === "quick-practice" && (
+        <QuickPracticeDialog
+          busy={quickPractice.busy}
+          error={quickPractice.error}
+          onClose={() => setPopup(null)}
+          onCreate={quickPractice.send}
+        />
       )}
       {popup === "status" && doc.canManage && (
         <Modal title="Tình trạng tài liệu" onClose={() => setPopup(null)}>
@@ -1155,6 +1181,16 @@ export function DocumentPage({ id }: { id: string }) {
         </>
       )}
       <div className="document-bottom-links">
+        {!doc.revision && (
+          <button
+            type="button"
+            className="quick-practice-trigger"
+            aria-haspopup="dialog"
+            onClick={() => setPopup("quick-practice")}
+          >
+            <Glyph token="practice" size={16} /> Tạo đề luyện
+          </button>
+        )}
         <Link href="/thu-vien">
           <BookOpen size={16} /> Thư viện
         </Link>

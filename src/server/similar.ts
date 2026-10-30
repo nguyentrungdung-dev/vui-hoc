@@ -1,3 +1,12 @@
+import {
+  takeBankQuestion,
+  publishBankQuestion,
+  acquireBankFills,
+  quarantineBankQuestion,
+} from "./question-bank";
+import { similarBankProfile, bankContentKey } from "./question-bank-profile";
+import { readLibraryJob } from "./library";
+import { QUESTION_CONTEXT_RULES } from "../lib/question-context";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { similarDifficulties, type SimilarDifficulty } from "../lib/similar";
@@ -10,7 +19,7 @@ import { readRun, readWorkflowRun, saveRun } from "./learning-runs";
 import { lock } from "./store";
 import { AppError } from "./validation";
 import { modelName } from "./analysis";
-import { teachingAI } from "./teaching-ai";
+import { teachingAI, TeachingServiceError } from "./teaching-ai";
 import { validateCalculationBand } from "./similar-calculations";
 import {
   learningQuestionSchema,
@@ -73,8 +82,6 @@ export async function requestSimilar(
   const parsed = requestSchema.safeParse(input);
   if (!parsed.success)
     throw new AppError("Chọn câu nguồn và mức độ khó hợp lệ.");
-  if (!process.env.OPENROUTER_API_KEY?.trim())
-    throw new AppError("Chưa cấu hình AI để tạo câu luyện tập.", 503);
   const config = parsed.data;
   const next = await lock(`run:${docId}:${sourceRunId}`, async () => {
     const parent = await readRun(docId, sourceRunId, viewer);
@@ -199,21 +206,30 @@ export async function buildSimilarQuestion(
   index: number,
   prior: LearningQuestion[],
   model: string,
+  requestSignal?: AbortSignal,
 ) {
   const contract = similarContract(source, difficulty, index);
-  const signal = AbortSignal.timeout(240000);
+  const {
+    bank: _sourceBank,
+    generationApproval: _sourceApproval,
+    ...teachingSource
+  } = source;
+  const signal = requestSignal
+    ? AbortSignal.any([requestSignal, AbortSignal.timeout(240000)])
+    : AbortSignal.timeout(240000);
   let error = "";
+  let previousDraft: z.infer<typeof draftSchema> | undefined;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const draft = await teachingAI(
         draftSchema,
         "similar_question",
-        similarDraftPrompt,
+        `${similarDraftPrompt}\n${QUESTION_CONTEXT_RULES}`,
         [
           {
             type: "text",
             text: JSON.stringify({
-              source,
+              source: teachingSource,
               contract,
               index,
               total: 5,
@@ -223,12 +239,14 @@ export async function buildSimilarQuestion(
                 answerFields: q.answerFields,
               })),
               correction: error,
+              previousDraft,
             }),
           },
         ],
         signal,
         model,
       );
+      previousDraft = draft;
       const q: LearningQuestion = {
         ...draft.question,
         id: `similar-${index + 1}`,
@@ -264,7 +282,7 @@ export async function buildSimilarQuestion(
           {
             type: "text",
             text: JSON.stringify({
-              source,
+              source: teachingSource,
               contract,
               difficulty,
               index,
@@ -293,7 +311,11 @@ export async function buildSimilarQuestion(
     } catch (e) {
       signal.throwIfAborted();
       // Credentials/credit problems cannot be repaired by generating another draft.
-      if (e instanceof AppError && e.status === 503) throw e;
+      if (
+        e instanceof TeachingServiceError ||
+        (e instanceof AppError && e.status === 503)
+      )
+        throw e;
       error = e instanceof Error ? e.message : "Chưa tạo được câu mới.";
     }
   }
@@ -318,13 +340,85 @@ export async function generateSimilarQuestion(
   if (snapshot.questions.length !== index || index < 0 || index >= 5)
     return false;
   try {
-    const q = await buildSimilarQuestion(
+    const doc = await readLibraryJob(docId, snapshot.owner!);
+    const profile = similarBankProfile(
+      doc.subject,
+      snapshot.mode,
       g.source,
       g.difficulty,
       index,
       snapshot.questions,
-      g.model,
+      docId,
     );
+    const slot = `similar:${docId}:${id}:${index}`;
+    const exclude = [g.source, ...snapshot.questions].map((q) =>
+      bankContentKey(doc.subject, snapshot.mode, q),
+    );
+    async function cached() {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const found = await takeBankQuestion(
+          profile,
+          snapshot.owner!,
+          slot,
+          exclude,
+        );
+        if (!found) return null;
+        const q = {
+          ...found,
+          id: `similar-${index + 1}`,
+          label: `Câu ${index + 1}`,
+          topic: g!.source.topic,
+          sourceIds: [...g!.source.sourceIds],
+          sourcePages: [...g!.source.sourcePages],
+        };
+        try {
+          validateSimilarStructure(g!.source, q);
+          validateTeaching(
+            q,
+            g!.source.sourcePages,
+            g!.source.sourceIds,
+            false,
+          );
+          validateCalculationBand(g!.source, q, g!.difficulty, index);
+          // The indexed profile records a successful approval under this exact
+          // source/contract/policy. Re-run deterministic checks, not another AI call.
+          return q;
+        } catch (error) {
+          await quarantineBankQuestion(
+            found.bank!.contentKey,
+            error instanceof Error ? error.message : "Cache validation failed",
+          );
+        }
+      }
+      return null;
+    }
+    const bankSignal = AbortSignal.timeout(240000);
+    let q = await cached();
+    if (!q) {
+      const release = await acquireBankFills([profile], bankSignal);
+      try {
+        q = await cached();
+        if (!q) {
+          const fresh = await buildSimilarQuestion(
+            g.source,
+            g.difficulty,
+            index,
+            snapshot.questions,
+            g.model,
+            bankSignal,
+          );
+          q = await publishBankQuestion(profile, fresh, snapshot.owner!, slot, {
+            pipeline: "similar",
+            model: g.model,
+            at: new Date().toISOString(),
+            independentlySolved: true,
+            consistent: true,
+          });
+        }
+      } finally {
+        await release();
+      }
+    }
     return await lock(`run:${docId}:${id}`, async () => {
       const current = await readWorkflowRun(docId, id);
       if (

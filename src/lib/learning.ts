@@ -37,6 +37,12 @@ export type AnswerAssessment = {
   }[];
 };
 export type LearningQuestion = {
+  bank?: {
+    contentKey: string;
+    profileKey: string;
+    policy: string;
+    reused?: boolean;
+  };
   generationApproval?: {
     policy: string;
     model: string;
@@ -98,6 +104,7 @@ export type LearningPart = {
   error?: string;
 };
 export type LearningPack = {
+  contextPolicy?: string;
   id: string;
   status:
     "queued" | "generating" | "ready" | "partial" | "failed" | "waiting_config";
@@ -175,6 +182,7 @@ export type QuestionView = Omit<
   | "checks"
   | "rubric"
   | "generationApproval"
+  | "bank"
 > & {
   hint?: string;
   solution?: Pick<
@@ -425,6 +433,7 @@ export function runView(run: LearningRun): RunView {
         englishSteps,
         checks: _checks,
         generationApproval: _approval,
+        bank: _bank,
         rubric: _rubric,
         ...safe
       } = q;

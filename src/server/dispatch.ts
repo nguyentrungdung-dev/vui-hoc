@@ -3,8 +3,18 @@ import { AppError } from "./validation";
 
 // A small injectable boundary keeps route tests independent of the Workflow runtime.
 export const dispatcher = {
-  async start(kind: "analysis" | "learning", id: string, execution: string) {
+  async start(
+    kind: "analysis" | "learning" | "quick-practice",
+    id: string,
+    execution: string,
+  ) {
     const { start } = await import("workflow/api");
+    if (kind === "quick-practice") {
+      const { quickPracticeWorkflow } =
+        await import("../workflows/quick-practice");
+      await start(quickPracticeWorkflow, [id, execution]);
+      return;
+    }
     const { analyzeDocumentWorkflow, generateLessonWorkflow } =
       await import("../workflows/documents");
     await start(
@@ -14,7 +24,7 @@ export const dispatcher = {
   },
 };
 export async function enqueue(
-  kind: "analysis" | "learning",
+  kind: "analysis" | "learning" | "quick-practice",
   id: string,
   execution: string,
 ) {
@@ -34,7 +44,16 @@ export async function enqueue(
         delete j.analysisExecution;
       }
       if (
-        kind === "learning" &&
+        kind === "quick-practice" &&
+        j.learningExecution === execution &&
+        j.quickPractice?.waitingForSource
+      ) {
+        j.status = "failed";
+        j.message = message;
+        delete j.learningExecution;
+      }
+      if (
+        ["learning", "quick-practice"].includes(kind) &&
         j.learningExecution === execution &&
         j.learning?.status === "queued"
       ) {

@@ -1,3 +1,9 @@
+import { reportGeneratedQuestion } from "@/server/question-bank";
+import {
+  listQuickPractice,
+  requestQuickPractice,
+  retryQuickPractice,
+} from "@/server/quick-practice";
 import { requireStudent } from "@/server/accounts";
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
@@ -149,6 +155,36 @@ async function handler(request: NextRequest, context: Context) {
       });
     } else if (
       parts.length === 2 &&
+      parts[1] === "quick-practice" &&
+      method === "GET"
+    ) {
+      response = NextResponse.json({
+        sets: await listQuickPractice(parts[0], session.owner),
+      });
+    } else if (
+      parts.length === 2 &&
+      parts[1] === "quick-practice" &&
+      method === "POST"
+    ) {
+      response = NextResponse.json(
+        await requestQuickPractice(
+          parts[0],
+          session.owner,
+          await jsonBody(request),
+        ),
+        { status: 201 },
+      );
+    } else if (
+      parts.length === 4 &&
+      parts[1] === "quick-practice" &&
+      parts[3] === "retry" &&
+      method === "POST"
+    ) {
+      response = NextResponse.json(
+        await retryQuickPractice(parts[0], parts[2], session.owner),
+      );
+    } else if (
+      parts.length === 2 &&
       parts[1] === "learning" &&
       method === "GET"
     ) {
@@ -206,6 +242,20 @@ async function handler(request: NextRequest, context: Context) {
         );
       }
       response = NextResponse.json(result);
+    } else if (
+      parts.length === 4 &&
+      parts[1] === "runs" &&
+      parts[3] === "report" &&
+      method === "POST"
+    ) {
+      response = NextResponse.json(
+        await reportGeneratedQuestion(
+          parts[0],
+          parts[2],
+          session.owner,
+          await jsonBody(request),
+        ),
+      );
     } else if (
       parts.length === 4 &&
       parts[1] === "runs" &&

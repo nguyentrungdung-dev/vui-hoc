@@ -1,3 +1,5 @@
+import type { QuickPractice } from "./quick-practice";
+import { reconcileQuestionContext } from "./question-context";
 import type { LearningPack } from "./learning";
 import type { Revision } from "./revision";
 export const subjects = {
@@ -82,6 +84,7 @@ export type DocumentStatus =
   | "complete"
   | "failed";
 export type DocumentJob = {
+  quickPractice?: QuickPractice;
   id: string;
   title: string;
   subject: Subject;
@@ -168,11 +171,14 @@ export function publicDocument(
       b.result?.summary ? [b.result.summary] : [],
     ),
     pages: batches.flatMap((b) => b.result?.pages ?? []),
-    questions: batches.flatMap((b) =>
-      (b.result?.questions ?? []).map((q, i) => ({
-        ...q,
-        id: `${b.key}-${i}`,
-      })),
+    questions: reconcileQuestionContext(
+      batches.flatMap((b) =>
+        (b.result?.questions ?? []).map((q, i) => ({
+          ...q,
+          id: `${b.key}-${i}`,
+        })),
+      ),
+      batches.flatMap((b) => b.result?.pages ?? []),
     ),
     failures: batches
       .filter((b) => b.error)

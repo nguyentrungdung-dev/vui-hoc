@@ -21,6 +21,10 @@ import {
   type LearningResult,
 } from "@/lib/learning";
 import { ButtonLink, Character, Modal, PageTitle } from "./ui";
+import {
+  questionPresentation,
+  QUESTION_CONTEXT_POLICY,
+} from "@/lib/question-context";
 import { QuestionSourceImages } from "./question-source-images";
 import { RewardCelebration } from "./rewards";
 import { HintHelpActions } from "./hint-help-actions";
@@ -209,15 +213,18 @@ export function LearningPanel({
               <RefreshCw size={17} /> Thử lại
             </button>
           )}
-        {doc.canManage && pack && pack.contentVersion !== 2 && (
-          <button
-            className="button secondary"
-            disabled={busy || working}
-            onClick={() => generate(false, true)}
-          >
-            Cập nhật bài tập
-          </button>
-        )}
+        {doc.canManage &&
+          pack &&
+          (pack.contentVersion !== 2 ||
+            pack.contextPolicy !== QUESTION_CONTEXT_POLICY) && (
+            <button
+              className="button secondary"
+              disabled={busy || working}
+              onClick={() => generate(false, true)}
+            >
+              Cập nhật bài tập
+            </button>
+          )}
       </div>
       {error && (
         <p className="notice error" role="alert">
@@ -316,6 +323,10 @@ export function RealPracticePage({
   const router = useRouter();
   const [run, setRun] = useState<RunView | null>(null);
   const [similarOpen, setSimilarOpen] = useState(false);
+  const [reportId, setReportId] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState("");
+  const [reportBusy, setReportBusy] = useState(false);
+  const [reportMessage, setReportMessage] = useState("");
   const [difficulty, setDifficulty] =
     useState<SimilarDifficulty>("progressive");
   const [similarError, setSimilarError] = useState("");
@@ -555,6 +566,32 @@ export function RealPracticePage({
       </div>
     );
   const q = run.questions[run.index];
+  const presentation = q ? questionPresentation(q, doc?.pages || []) : null;
+  const correctedSource =
+    run.kind === "original" &&
+    doc?.questions.some((source) => {
+      const old = run.questions.find((question) => question.id === source.id);
+      return (
+        old &&
+        JSON.stringify(old.answerFields?.map((f) => f.id) || []) !==
+          JSON.stringify(source.answerFields?.map((f) => f.id) || [])
+      );
+    });
+  async function openCorrectedSource() {
+    setBusy(true);
+    setError("");
+    try {
+      const next = await request<RunView>(`/${documentId}/runs`, {
+        kind: "original",
+      });
+      router.push(`/luyen-tap/${documentId}/${next.id}`);
+    } catch (error) {
+      setError((error as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!q)
     return (
       <section className="card empty-state" aria-live="polite">
@@ -819,6 +856,21 @@ export function RealPracticePage({
           </Link>
         </div>
       )}
+      {correctedSource && (
+        <div className="notice" role="status">
+          <p>
+            Đề này đã được sửa phần tiếp trang. Mở bản mới để làm đầy đủ các ý;
+            bài làm và điểm của lượt cũ vẫn được giữ riêng.
+          </p>
+          <button
+            className="button secondary"
+            disabled={busy}
+            onClick={() => void openCorrectedSource()}
+          >
+            {busy ? "Đang mở…" : "Mở đề đã sửa"}
+          </button>
+        </div>
+      )}
       <div className="practice-progress">
         <div>
           <strong>
@@ -843,13 +895,22 @@ export function RealPracticePage({
               {q.advanced ? "Thử thách nâng cao" : "Củng cố kiến thức"}
             </span>
           </div>
+          {presentation?.instruction && (
+            <p className="question-instruction">{presentation.instruction}</p>
+          )}
           <h1 className="question-text">
-            {q.prompt ||
+            {presentation?.prompt ||
+              q.prompt ||
               "Không đọc rõ câu hỏi. Em có thể xem trang gốc ngay bên dưới."}
           </h1>
-          {q.passage && q.passage !== q.prompt && (
-            <p className="source-passage">{q.passage}</p>
-          )}
+          {presentation?.inline
+            ? presentation.context && (
+                <p className="source-passage">{presentation.context}</p>
+              )
+            : q.passage &&
+              q.passage !== q.prompt && (
+                <p className="source-passage">{q.passage}</p>
+              )}
           {!!q.translation && (
             <>
               <button
@@ -873,9 +934,8 @@ export function RealPracticePage({
           )}
           {q.grading === "ungraded" && (
             <p className="notice" role="status">
-              {q.ungradableReason ||
-                "Chưa có căn cứ chắc chắn để chấm đúng/sai."}{" "}
-              Em vẫn có thể nhập và lưu bài làm. Câu này không tính vào điểm.
+              Chưa hoàn tất kiểm tra câu này. Em vẫn có thể nhập và lưu bài làm.
+              Câu này không tính vào điểm.
             </p>
           )}
           {q.hasFigure ? (
@@ -906,12 +966,12 @@ export function RealPracticePage({
             {q.grading === "choice" ||
             (q.grading === "ungraded" && q.inputKind === "multiple_choice") ? (
               <div className="answer-grid">
-                {q.options.map((o) => (
+                {q.options.map((o, optionIndex) => (
                   <button
                     type="button"
                     className={`answer answer-option ${entry === o.label ? "selected" : ""} ${a.solved && a.last === o.label ? "correct" : ""}`}
                     aria-pressed={entry === o.label}
-                    key={o.label}
+                    key={`${q.id}:option:${optionIndex}`}
                     disabled={busy || a.solved || a.guided}
                     onClick={() => setEntry(o.label)}
                   >
@@ -925,7 +985,11 @@ export function RealPracticePage({
                 className="written-answer-fields"
                 disabled={busy || a.solved || a.guided}
               >
-                <legend>Bài làm của em</legend>
+                <legend
+                  className={presentation?.inline ? "sr-only" : undefined}
+                >
+                  Bài làm của em
+                </legend>
                 {q.answerFields.map((field) => {
                   let values: Record<string, string> = {};
                   try {
@@ -938,27 +1002,46 @@ export function RealPracticePage({
                       values = parsed;
                   } catch {}
                   return (
-                    <label className="field" key={field.id}>
-                      {field.label}
-                      <textarea
-                        rows={2}
-                        maxLength={Math.floor(11000 / q.answerFields!.length)}
-                        value={
-                          typeof values[field.id] === "string"
-                            ? values[field.id]
-                            : ""
-                        }
-                        onChange={(e) =>
-                          setEntry(
-                            JSON.stringify({
-                              ...values,
-                              [field.id]: e.target.value,
-                            }),
-                          )
-                        }
-                        placeholder="Nhập đáp án hoặc cách làm cho ý này"
-                      />
-                    </label>
+                    <div className="written-answer-item" key={field.id}>
+                      {presentation?.inline && (
+                        <p className="written-source-sentence">
+                          {
+                            presentation.rows.find((row) => row.id === field.id)
+                              ?.sourceText
+                          }
+                        </p>
+                      )}
+                      <label className="field">
+                        {presentation?.inline ? "Bài làm của em:" : field.label}
+                        <textarea
+                          rows={2}
+                          maxLength={Math.floor(11000 / q.answerFields!.length)}
+                          value={
+                            typeof values[field.id] === "string"
+                              ? values[field.id]
+                              : ""
+                          }
+                          onChange={(e) =>
+                            setEntry(
+                              JSON.stringify({
+                                ...values,
+                                [field.id]: e.target.value,
+                              }),
+                            )
+                          }
+                          aria-label={
+                            presentation?.inline
+                              ? `Bài làm của em — ${presentation.rows.find((row) => row.id === field.id)?.sourceText}`
+                              : field.label
+                          }
+                          placeholder={
+                            presentation?.inline
+                              ? "Nhập câu trả lời của em…"
+                              : "Nhập đáp án hoặc cách làm cho ý này"
+                          }
+                        />
+                      </label>
+                    </div>
                   );
                 })}
               </fieldset>
@@ -1109,6 +1192,64 @@ export function RealPracticePage({
               )}
             </div>
           </form>
+          {run.kind !== "original" && (
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => {
+                setReportId(q.id);
+                setReportReason("");
+                setReportMessage("");
+              }}
+            >
+              Báo lỗi câu hỏi
+            </button>
+          )}
+          {reportId && (
+            <Modal title="Báo lỗi câu hỏi" onClose={() => setReportId(null)}>
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (reportBusy || !reportReason.trim()) return;
+                  setReportBusy(true);
+                  setReportMessage("");
+                  try {
+                    await request(`${endpoint}/report`, {
+                      questionId: reportId,
+                      reason: reportReason,
+                    });
+                    setReportMessage("Đã lưu phản hồi về câu hỏi.");
+                    setReportReason("");
+                  } catch (e) {
+                    setReportMessage((e as Error).message);
+                  } finally {
+                    setReportBusy(false);
+                  }
+                }}
+              >
+                <label>
+                  Điểm nào trong câu hỏi cần kiểm tra?
+                  <textarea
+                    value={reportReason}
+                    onChange={(e) => setReportReason(e.target.value)}
+                    maxLength={1500}
+                    required
+                    disabled={reportBusy}
+                  />
+                </label>
+                {reportMessage && <p role="status">{reportMessage}</p>}
+                <div className="actions">
+                  <button
+                    className="button"
+                    type="submit"
+                    disabled={reportBusy || !reportReason.trim()}
+                  >
+                    {reportBusy ? "Đang gửi…" : "Gửi phản hồi"}
+                  </button>
+                </div>
+              </form>
+            </Modal>
+          )}
           <div className="question-bottom">
             <button
               className="text-button"

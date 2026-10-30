@@ -63,6 +63,7 @@ import { WorldsSection } from "./worlds";
 import { TimoPage } from "./timo";
 import { RewardsPage } from "./rewards";
 import { HeroCompanions } from "./hero-companions";
+import { HomeVideos } from "./home-videos";
 
 export type Shared = {
   state: State;
@@ -439,6 +440,7 @@ function VuiHocContent({ path }: { path: string }) {
                     }}
                   />
                 </section>
+                <HomeVideos />
                 <WorldsSection />
                 <Link className="home-progress" href="/hanh-trinh">
                   <Glyph token="journey" size={18} />

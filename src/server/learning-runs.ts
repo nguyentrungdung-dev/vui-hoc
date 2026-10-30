@@ -1,3 +1,7 @@
+import {
+  markBankQuestionsSeen,
+  assertBankQuestionsActive,
+} from "./question-bank";
 import type { Student } from "../lib/account";
 import { readRecord } from "./account-store";
 import { recordAchievements } from "./achievements";
@@ -174,6 +178,7 @@ export async function learningView(
           updatedAt: p.updatedAt,
           model: p.model,
           contentVersion: p.contentVersion,
+          contextPolicy: p.contextPolicy,
           message: p.message,
           originalCount:
             !job.revision && publicDocument(job).questions.length
@@ -240,14 +245,21 @@ export async function startLearningRun(
         );
       const sources = publicDocument(job).questions;
       if (sources.length)
-        qs = sources.map(
-          (src) =>
-            qs.find((q) => q.id === src.id) ||
-            sourceQuestion(
-              src,
-              "Đáp án/gợi ý chưa được xác minh. Em vẫn có thể làm bài; câu này chưa tính đúng/sai.",
-            ),
-        );
+        qs = sources.map((src) => {
+          const prepared = qs.find((q) => q.id === src.id);
+          const sameFields =
+            prepared &&
+            JSON.stringify((prepared.answerFields || []).map((f) => f.id)) ===
+              JSON.stringify((src.answerFields || []).map((f) => f.id));
+          return prepared && sameFields
+            ? prepared
+            : sourceQuestion(
+                src,
+                prepared
+                  ? "Đề đã được khôi phục phần tiếp trang. Cần cập nhật bài tập và kiểm định lại đáp án trước khi chấm; bài làm cũ vẫn được giữ."
+                  : "Đáp án/gợi ý chưa được xác minh. Em vẫn có thể làm bài; câu này chưa tính đúng/sai.",
+              );
+        });
     }
     if (request.topic) qs = qs.filter((q) => q.topic === request.topic);
     if (request.kind === "similar") {
@@ -297,6 +309,8 @@ export async function startLearningRun(
       eventIds: [],
     };
     const safeRun = protectLegacyRun(run);
+    await assertBankQuestionsActive(safeRun.questions);
+    await markBankQuestionsSeen(owner, safeRun.questions);
     await saveRun(safeRun);
     return runView(safeRun);
   });

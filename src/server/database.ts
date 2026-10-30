@@ -72,6 +72,29 @@ export async function ensureDatabase() {
           updated_at timestamptz NOT NULL DEFAULT now()
         );
         CREATE INDEX IF NOT EXISTS vuihoc_guidance_document ON vuihoc_guidance(document_id);
+        CREATE TABLE IF NOT EXISTS vuihoc_question_bank (
+          content_key text PRIMARY KEY, policy text NOT NULL,
+          status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','quarantined')),
+          data jsonb NOT NULL, audit jsonb NOT NULL,
+          created_at timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS vuihoc_question_bank_profiles (
+          profile_key text NOT NULL, content_key text NOT NULL REFERENCES vuihoc_question_bank(content_key),
+          PRIMARY KEY(profile_key,content_key)
+        );
+        CREATE TABLE IF NOT EXISTS vuihoc_question_bank_seen (
+          owner text NOT NULL, content_key text NOT NULL,
+          assigned_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(owner,content_key)
+        );
+        CREATE TABLE IF NOT EXISTS vuihoc_question_bank_allocations (
+          owner text NOT NULL, slot_key text NOT NULL, profile_key text NOT NULL,
+          content_key text NOT NULL REFERENCES vuihoc_question_bank(content_key),
+          PRIMARY KEY(owner,slot_key)
+        );
+        CREATE TABLE IF NOT EXISTS vuihoc_question_bank_fills (
+          profile_key text PRIMARY KEY, holder text NOT NULL, expires_at timestamptz NOT NULL
+        );
+
       `);
         await client.query("COMMIT");
       } catch (error) {

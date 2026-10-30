@@ -5,7 +5,28 @@ import { arithmetic } from "./learning-validation";
 import { calculationDirections } from "./similar-calculations";
 import { AppError } from "./validation";
 
-export const SIMILAR_POLICY_VERSION = "2026-10-29.1";
+export const SIMILAR_POLICY_VERSION = "2026-10-30.1";
+
+// Require both the evidenced task and an actual English question. Do not apply
+// grammar difficulty to reading comprehension or to arbitrary English prose.
+function shortAnswerTask(source: LearningQuestion) {
+  return (
+    /(?:trả lời ngắn|short answers?)/iu.test(source.prompt) &&
+    /\b(?:do|does)\s+[^?\n]+\?/iu.test(
+      (source.answerFields || []).map((f) => f.label).join("\n") ||
+        source.prompt,
+    )
+  );
+}
+const shortAnswerLevels = {
+  same: "Câu trả lời ngắn hiện tại đơn: giữ mức hỗ trợ và độ phức tạp chủ ngữ của nguồn; thay hoạt động/từ vựng quen thuộc. Không thêm chủ ngữ ghép nếu nguồn chỉ có you/I đơn giản.",
+  slightly_harder:
+    "Câu trả lời ngắn hiện tại đơn: tăng nhẹ bằng MỘT yếu tố ngữ pháp so với nguồn: đổi cụm danh từ quen thuộc sang he/she/it/they, hoặc chủ ngữ ghép sang we/they. Giữ gợi ý Yes/No và một câu hỏi. Hai vị trí tăng nhẹ có thể cùng bậc với hai yếu tố khác nhau; không bắt buộc thêm bước suy luận giữa chúng.",
+  harder:
+    "Câu trả lời ngắn hiện tại đơn: phối hợp xác định đại từ của chủ ngữ ghép với lựa chọn do/does và dạng khẳng định/phủ định theo Yes/No. Dùng từ vựng quen thuộc và giữ một ý; không yêu cầu ba bước toán học hoặc đổi thì để tăng khó.",
+  advanced:
+    "Câu trả lời ngắn hiện tại đơn: thêm một ngữ cảnh ngắn xác định rõ ai hỏi, ai trả lời và người được nhắc tới; học sinh xác định góc nhìn I/we/you/they, kết hợp do/does và Yes/No. Ngữ cảnh phải cho duy nhất một đại từ đúng, vẫn chỉ một câu hỏi và một ô như nguồn. Không thêm thì, câu hỏi đuôi hay kiến thức ngoài nguồn.",
+} as const;
 function neighborTask(source: LearningQuestion) {
   return /^số liền (trước|sau) của\s+\d+\s+là\s*[:?.]?$/iu
     .exec(source.prompt.trim())?.[1]
@@ -45,6 +66,7 @@ export function similarContract(
 ) {
   const inputFieldCount = source.answerFields?.length || 0;
   const level = similarLevel(difficulty, index)!;
+  const shortAnswer = shortAnswerTask(source);
   return {
     version: SIMILAR_POLICY_VERSION,
     grade: 2,
@@ -56,9 +78,12 @@ export function similarContract(
       ? `Đích cuối cùng phải vẫn hỏi SỐ LIỀN ${neighborTask(source)!.toUpperCase()}. Có thể thêm dữ kiện hoặc suy luận để tìm số đầu vào, nhưng không đổi câu hỏi cuối sang số liền ${neighborTask(source) === "trước" ? "sau" : "trước"}.`
       : "Giữ yêu cầu/kỹ năng đích, không đổi sang kỹ năng đối nghịch khi tăng độ khó.",
     level,
-    difficultyRule: levels[level as keyof typeof levels],
-    progressionRule:
-      difficulty === "progressive" && index > 0
+    difficultyRule: shortAnswer
+      ? shortAnswerLevels[level as keyof typeof shortAnswerLevels]
+      : levels[level as keyof typeof levels],
+    progressionRule: shortAnswer
+      ? "Ưu tiên tiêu chí ngữ pháp trong difficultyRule thay cho số bước suy luận tổng quát. Đối chiếu với nguồn và prior; vị trí 2 và 3 cùng bậc tăng nhẹ, dùng biến đổi ngữ pháp khác nhau, không buộc vị trí 3 thêm bước. Câu đã lưu thuộc phiên bản cũ có thể khó hơn bậc của nó; không lấy câu đó làm chuẩn để nâng bậc hiện tại. Không coi chỉ đổi tên/hoạt động là tăng khó."
+      : difficulty === "progressive" && index > 0
         ? "Đối chiếu câu trước trong prior: không giảm thử thách; vị trí 3 vẫn tăng nhẹ nhưng phải có dữ kiện/thao tác phức tạp hơn vị trí 2. Không chỉ đổi số hoặc thêm câu chữ. Quy tắc calculationRule nếu có là ngưỡng cụ thể ưu tiên."
         : "",
     calculationRule: calculationDirections(source, difficulty, index),
@@ -72,7 +97,7 @@ CHẤT LƯỢNG: Đáp án, acceptedAnswers, rubric, checks, gợi ý và lời 
 MỨC ĐỘ: Mức được xét tương đối với nguồn theo contract; số ý không được tăng. Tăng dần có năm vị trí: ngang, tăng nhẹ, tăng nhẹ tiếp theo, khó hơn, nâng cao. Khi có calculationRule, tuân thủ chính xác các ngưỡng đã định; còn lại phải nêu được thao tác/điều kiện làm bài khó hơn. Không tự hạ mức để dễ được duyệt.`;
 
 export const similarDraftPrompt = `${similarDefinitions}
-VAI TRÒ SOẠN: Tạo đúng MỘT câu lớn theo contract trong JSON được yêu cầu. answerFields có đúng inputFieldCount phần tử; nếu bằng 0 thì [] (trắc nghiệm chọn phương án, exact/tự luận dùng ô trả lời chung của ứng dụng). Giữ sourceIds/sourcePages. Kiểm tra nội bộ bằng cách tự giải trước khi trả. Nếu có correction, sửa đúng từng lỗi cụ thể, không sửa bằng cách hạ mức, bớt ý hoặc lặp đề. Không sinh video. Chỉ trả nội dung ngắn gọn đủ dùng.`;
+VAI TRÒ SOẠN: Tạo đúng MỘT câu lớn theo contract trong JSON được yêu cầu. answerFields có đúng inputFieldCount phần tử; nếu bằng 0 thì [] (trắc nghiệm chọn phương án, exact/tự luận dùng ô trả lời chung của ứng dụng). Giữ sourceIds/sourcePages. Số câu mới là index+1; không chép nhãn Bài/Câu cũ từ nguồn vào đề mới. Giữ nguyên yêu cầu chung và ví dụ có bằng chứng của nguồn. Nếu có previousDraft, đó là bản nháp bị bác: sửa trực tiếp theo correction thay vì đoán lại bản nháp. Kiểm tra nội bộ bằng cách tự giải trước khi trả. Nếu có correction, sửa đúng từng lỗi cụ thể, không sửa bằng cách hạ mức, bớt ý hoặc lặp đề. Không sinh video. Chỉ trả nội dung ngắn gọn đủ dùng.`;
 
 export const similarReviewPrompt = `${similarDefinitions}
 VAI TRÒ KIỂM ĐỊNH: Không mặc nhiên tin đáp án soạn sẵn. Tự giải từ prompt/passage và từng answerFields.label trước; ghi kết quả vào answer và phép suy luận ngắn vào answerEvidence; sau đó đối chiếu answer/rubric/checks/hints/steps. Với trắc nghiệm answer phải là NHÃN đúng và kiểm tra tất cả phương án, chỉ một đúng. answerMatches chỉ true khi kết quả tự giải tương đương đáp án soạn sẵn cho TẤT CẢ các ý. Với tự luận cho phép cách trình bày tương đương, nhưng không chấp nhận chỉ đúng một phần.

@@ -54,6 +54,72 @@ const review = () => ({
   uniqueAnswer: true,
 });
 
+test("English Yes/No progression uses grammar criteria without imposing arithmetic steps", () => {
+  const english = {
+    ...source,
+    grading: "self_review" as const,
+    prompt:
+      "Viết câu trả lời ngắn theo gợi ý. Do you go to school by bus? (No)",
+    answerFields: [{ id: "a", label: "Do you go to school by bus? (No)" }],
+  };
+  const contracts = Array.from({ length: 5 }, (_, i) =>
+    similarContract(english, "progressive", i),
+  );
+  assert.match(contracts[0].difficultyRule, /Không thêm chủ ngữ ghép/);
+  assert.match(contracts[1].difficultyRule, /MỘT yếu tố ngữ pháp/);
+  assert.equal(contracts[1].difficultyRule, contracts[2].difficultyRule);
+  assert.match(contracts[2].progressionRule, /không buộc vị trí 3 thêm bước/);
+  assert.match(contracts[3].difficultyRule, /do\/does/);
+  assert.match(contracts[4].difficultyRule, /ai hỏi, ai trả lời/);
+  for (const c of contracts) {
+    assert.equal(c.inputFieldCount, 1);
+    assert.equal(c.responseCount, 1);
+    assert.match(c.progressionRule, /Câu đã lưu thuộc phiên bản cũ/);
+  }
+  assert.match(
+    similarContract(source, "harder", 3).difficultyRule,
+    /HAI thao tác/,
+  );
+  assert.doesNotMatch(
+    similarContract(
+      { ...english, prompt: "Read and answer the questions." },
+      "harder",
+      3,
+    ).difficultyRule,
+    /do\/does/,
+  );
+  assert.throws(
+    () =>
+      approveSimilarReview(contracts[2], english, {
+        ...review(),
+        difficultyAppropriate: false,
+      }),
+    /DIFFICULTY/,
+  );
+});
+
+test("A lost AI connection stops without spending two more draft calls", async () => {
+  const originalFetch = globalThis.fetch,
+    oldKey = process.env.OPENROUTER_API_KEY;
+  process.env.OPENROUTER_API_KEY = "test-only";
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls++;
+    throw new Error("connection lost");
+  };
+  try {
+    await assert.rejects(
+      () => buildSimilarQuestion(source, "same", 0, [], "test"),
+      /Kết nối AI/,
+    );
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (oldKey === undefined) delete process.env.OPENROUTER_API_KEY;
+    else process.env.OPENROUTER_API_KEY = oldKey;
+  }
+});
+
 test("Response units are distinct from declared fields for choice, exact and written questions", () => {
   for (const grading of ["choice", "exact", "self_review"] as const) {
     const contract = similarContract({ ...source, grading }, "same", 0);
@@ -228,8 +294,13 @@ test("Real build path accepts choice with zero fields at all five settings, and 
       draftCalls++;
       assert.equal(payload.contract.inputFieldCount, 0);
       assert.equal(payload.contract.responseCount, 1);
-      if (repair && reviewCalls === 1)
+      if (repair && reviewCalls === 1) {
         assert.match(payload.correction, /CONSISTENCY/);
+        assert.equal(
+          payload.previousDraft.question.prompt,
+          "Số liền trước của 47 là:",
+        );
+      }
       const { answerFields, contentVersion: _v, ...question } = source;
       result = {
         question: {

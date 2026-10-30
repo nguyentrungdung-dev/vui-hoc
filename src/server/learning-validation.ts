@@ -175,6 +175,16 @@ export function validateTeaching(
   sourceIds: string[],
   timo: boolean,
 ) {
+  if (
+    q.grading === "self_review" &&
+    q.answerFields?.length &&
+    (q.rubric || []).filter((item) => item.kind !== "method").length <
+      q.answerFields.length
+  )
+    throw new AppError(
+      "Thiếu tiêu chí chấm cho từng ô trả lời; phải giải đủ mọi ý của bài, kể cả phần tiếp trang.",
+      502,
+    );
   validateTwoDigitExercise(q);
   if (
     q.grading === "self_review" &&

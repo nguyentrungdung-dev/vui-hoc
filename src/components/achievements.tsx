@@ -11,6 +11,7 @@ import type {
 import { subjects, type Subject } from "@/lib/documents";
 import { useAccount } from "./account";
 import { Character, Modal, PageTitle } from "./ui";
+import { SubjectSelect } from "./subject-select";
 export async function achievementRequest<T>(
   query = "",
   body?: unknown,
@@ -442,6 +443,8 @@ export function RankingPage() {
       active = false;
     };
   }, [subject, period, retry, user?.id, user?.nickname, user?.character]);
+  const leaders =
+    view?.rows.filter((r) => r.rank <= 3 && r.points > 0).slice(0, 3) || [];
   function row(r: RankingRow) {
     return (
       <tr key={r.id} className={r.mine ? "my-ranking" : ""}>
@@ -473,34 +476,36 @@ export function RankingPage() {
         </td>
         <td>{r.points.toLocaleString("vi-VN")}</td>
         <td>
-          {r.medals} <Award size={16} />
+          <span className="ranking-medal-count">
+            {r.medals} <Award size={16} />
+          </span>
         </td>
       </tr>
     );
   }
   return (
     <div className="achievements-page">
-      <PageTitle
-        eyebrow={`CÙNG NHAU TIẾN BỘ · KHỐI ${user?.grade}`}
-        title="Bảng xếp hạng"
-      >
-        Cùng các bạn cố gắng. Mỗi bước tiến của em đều đáng tự hào.
-      </PageTitle>
+      <div className="learning-page-heading">
+        <PageTitle
+          eyebrow={`CÙNG NHAU TIẾN BỘ · KHỐI ${user?.grade}`}
+          title="Bảng xếp hạng"
+        >
+          Cùng các bạn cố gắng. Mỗi bước tiến của em đều đáng tự hào.
+        </PageTitle>
+        <span className="learning-page-emblem">
+          <Glyph token="ranking" size={62} />
+        </span>
+      </div>
       <div className="ranking-controls card">
-        <label className="field">
-          Môn thi đua
-          <select
+        <div className="field ranking-subject-field">
+          <span>Môn thi đua</span>
+          <SubjectSelect
+            label="Môn thi đua"
             value={subject}
-            onChange={(e) => setSubject(e.target.value as Subject | "all")}
-          >
-            <option value="all">Tất cả môn học</option>
-            {Object.entries(subjects).map(([id, s]) => (
-              <option value={id} key={id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </label>
+            includeAll
+            onChange={setSubject}
+          />
+        </div>
         <div className="medal-filters">
           <button
             aria-pressed={period === "week"}
@@ -543,36 +548,37 @@ export function RankingPage() {
             </span>
           </div>
           {view.rows.some((r) => r.points > 0) ? (
-            <div className="ranking-podium">
-              {view.rows
-                .filter((r) => r.rank <= 3 && r.points > 0)
-                .slice(0, 3)
-                .map((r) => (
-                  <div className={`podium-place place-${r.rank}`} key={r.id}>
-                    <span>
-                      {
-                        <MedalArtwork
-                          id={
-                            r.rank === 1
-                              ? "first-star"
-                              : r.rank === 2
-                                ? "first-journey"
-                                : "little-brave"
-                          }
-                          size={30}
-                        />
-                      }
-                      <small className="podium-rank">Hạng {r.rank}</small>
-                    </span>
-                    <Character index={r.character} />
-                    <strong>{r.nickname}</strong>
-                    <p>{r.points} điểm</p>
-                  </div>
-                ))}
+            <div
+              className="ranking-podium"
+              data-count={leaders.length}
+              aria-label="Những bạn dẫn đầu"
+            >
+              {leaders.map((r) => (
+                <div className={`podium-place place-${r.rank}`} key={r.id}>
+                  <span className="podium-heading">
+                    {
+                      <MedalArtwork
+                        id={
+                          r.rank === 1
+                            ? "first-star"
+                            : r.rank === 2
+                              ? "first-journey"
+                              : "little-brave"
+                        }
+                        size={30}
+                      />
+                    }
+                    <small className="podium-rank">Hạng {r.rank}</small>
+                  </span>
+                  <Character index={r.character} />
+                  <strong>{r.nickname}</strong>
+                  <p>{r.points} điểm</p>
+                </div>
+              ))}
             </div>
           ) : (
             <div className="card ranking-empty">
-              <Glyph token="🌱" size={48} />
+              <Glyph token="ranking" size={48} />
               <h2>Chặng đua mới đang chờ!</h2>
               <p>
                 Hoàn thành câu hỏi để thắp sáng bảng thi đua. Em tiến bộ hơn hôm

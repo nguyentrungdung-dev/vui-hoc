@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { AppError } from "./validation";
 import { modelName } from "./analysis";
+// Retrying the draft cannot repair exhausted HTTP retries or a lost connection.
+export class TeachingServiceError extends AppError {}
 export type AIContent =
   | { type: "text"; text: string }
   | { type: "file"; file: { filename: string; file_data: string } }
@@ -76,7 +78,7 @@ export async function teachingAI<T extends z.ZodType>(
       });
     } catch {
       signal?.throwIfAborted();
-      throw new AppError(
+      throw new TeachingServiceError(
         "Kết nối AI bị gián đoạn hoặc quá thời gian. Các phần đã xong vẫn được lưu.",
         502,
       );
@@ -93,7 +95,7 @@ export async function teachingAI<T extends z.ZodType>(
   if (!response!.ok) {
     const status = response!.status;
     await response!.body?.cancel();
-    throw new AppError(
+    throw new TeachingServiceError(
       [401, 403].includes(status)
         ? "Khóa OpenRouter chưa hợp lệ hoặc chưa có quyền."
         : status === 402

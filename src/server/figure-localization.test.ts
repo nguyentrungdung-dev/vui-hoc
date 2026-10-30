@@ -122,7 +122,15 @@ test("A dedicated locator returns a reviewed figure crop and never substitutes a
         ],
       });
     };
-    const result = await locateQuestionFigures(source(), new Map([[1, image]]));
+    const batch = source();
+    batch.questions[0].needsReview = true;
+    batch.questions[0].issues = [
+      "Vùng hình được ước lượng từ ảnh trang gốc 1, cần kiểm tra lại khi định vị hình",
+      "Chữ trong yêu cầu bị mờ",
+    ];
+    const result = await locateQuestionFigures(batch, new Map([[1, image]]));
+    assert.deepEqual(result.questions[0].issues, ["Chữ trong yêu cầu bị mờ"]);
+    assert.equal(result.questions[0].needsReview, true);
     assert.deepEqual(names, ["figure_location", "figure_crop_review"]);
     assert.equal(result.questions[0].figureRegions?.length, 1);
     assert.equal(result.questions[0].figureIssue, undefined);

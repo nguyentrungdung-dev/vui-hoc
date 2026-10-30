@@ -81,7 +81,7 @@ Thưởng hoàn thành được chống trùng theo tài liệu và tập câu h
 
 Khách có thể tham quan trang chủ và xem trước các khu chức năng. Bắt đầu làm bài, tạo tài liệu, lưu tiến độ hoặc xem xếp hạng sẽ mở pop-up đăng nhập/đăng ký. Biểu tượng giao diện và 20 huy chương dùng hình vẽ vector riêng của Vui học.
 
-Sao, đồ trang trí, bài làm và lịch sử gắn với tài khoản học sinh; lưu PostgreSQL ở production, file JSON trong thư mục dữ liệu khi phát triển local. Tài liệu đã tải đủ vẫn dùng chung giữa các tài khoản đăng nhập. Bài làm cũ không có chủ tài khoản không được tự nhận về một bé; dữ liệu vẫn được giữ trong kho. Không cộng thành tích hồi tố từ lịch sử demo chung. Xem [tài khoản, 20 huy chương và xếp hạng](ACHIEVEMENTS.md).
+Sao, đồ trang trí, bài làm và lịch sử gắn với tài khoản học sinh; lưu PostgreSQL ở production, file JSON trong thư mục dữ liệu khi phát triển local. Tài liệu đã tải đủ vẫn dùng chung giữa các tài khoản đăng nhập. Bài làm cũ không có chủ tài khoản không được tự nhận về một bé; dữ liệu vẫn được giữ trong kho. Không cộng thành tích hồi tố từ lịch sử demo chung. Xem [tài khoản, 20 huy chương và xếp hạng](docs/ACHIEVEMENTS.md).
 
 ### Tự sắp xếp vật phẩm
 
@@ -111,6 +111,22 @@ Chạy app development với `VUIHOC_DATA_DIR=.test-data/video-review-20261029 D
 
 Trang Phần thưởng dùng 5 nền và 40 sticker minh họa riêng theo phong cách truyện thiếu nhi, thay cho emoji và nền SVG cũ. Mỗi bản đồ là một chương có người dẫn chuyện, thư mời, truyện tùy chọn đọc, lời dẫn theo bộ sưu tập và lời ghi nhận khi đặt đồ. Câu chuyện không khóa bản đồ, không thêm loại tiền hay thay đổi mức thưởng. Ảnh tối ưu WebP nằm trong `public/assets/rewards/storybook-v1/`; nội dung truyện trong `src/lib/reward-stories.ts`.
 
+## Tài liệu dự án
+
+Xem [mục lục tài liệu](docs/README.md) để tìm đặc tả, quy chuẩn nội dung, thương hiệu, kiểm định và hướng dẫn vận hành. Các đường dẫn mã nguồn và lệnh trong tài liệu được hiểu tính từ gốc dự án, trừ khi ghi rõ khác.
+
 ## Nhận diện thương hiệu
 
-Logo và quy ước icon được chốt tại [BRAND.md](BRAND.md). Tệp chuẩn: `public/brand/vui-hoc-logo.svg`. Sinh lại favicon từ logo chuẩn bằng `node scripts/generate-brand-icons.mjs`.
+Logo và quy ước icon được chốt tại [BRAND.md](docs/BRAND.md). Tệp chuẩn: `public/brand/vui-hoc-logo.svg`. Sinh lại favicon từ logo chuẩn bằng `node scripts/generate-brand-icons.mjs`.
+
+## Ràng buộc nội dung câu hỏi
+
+Quy chuẩn nhận diện, nối phần tiếp trang, yêu cầu đề và bố cục câu–ô trả lời nằm tại [QUESTION_CONTENT_POLICY.md](docs/QUESTION_CONTENT_POLICY.md). Đây là yêu cầu dùng chung cho bài gốc và bài được tạo, bổ sung chính sách riêng của Tạo thêm 5 câu.
+
+### Tạo đề luyện tại tài liệu
+
+Nút **Tạo đề luyện** cạnh **Thư viện** và **Gửi tài liệu khác** cho chọn 5–50 câu (mặc định 25). Có thể gửi yêu cầu khi nhận diện đang chạy; bộ luyện tự bắt đầu khi nhận diện đủ nguồn, không chờ giải xong đề gốc. Tiến trình riêng hiển thị dưới tiến trình đề gốc, có mở bài và thử lại phần chưa xong. Chi tiết: [Tạo đề luyện](docs/QUICK_PRACTICE.md).
+
+### Kho câu hỏi đã kiểm định
+
+Bài luyện, đề ôn tập, Tạo đề luyện và Tạo thêm 5 câu ưu tiên lấy câu phù hợp chưa giao cho học sinh trong kho, chỉ gọi AI tạo phần thiếu. Kho có hồ sơ/phiên bản kiểm định, chỉ mục PostgreSQL, lịch sử giao riêng và cơ chế cách ly khi báo lỗi. Chi tiết: [Kho câu hỏi](docs/QUESTION_BANK.md).

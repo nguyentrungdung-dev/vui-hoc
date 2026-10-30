@@ -20,5 +20,11 @@ src/app/.well-known/workflow/
 /.swc
 
 # Internal project documentation (keep local)
-/docs/
+/docs/*
+!/docs/README.md
+!/docs/BRAND.md
+!/docs/ACHIEVEMENTS.md
+!/docs/QUESTION_CONTENT_POLICY.md
+!/docs/QUICK_PRACTICE.md
+!/docs/QUESTION_BANK.md
 /MVP_SPEC.md

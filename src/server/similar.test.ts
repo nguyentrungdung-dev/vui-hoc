@@ -23,6 +23,7 @@ import {
 import { generateSimilarWorkflow } from "../workflows/similar";
 import { POST } from "../app/api/documents/[[...parts]]/route";
 
+let visitor = "visitor";
 const root = mkdtempSync(join(tmpdir(), "vuihoc-similar-"));
 process.env.VUIHOC_DATA_DIR = root;
 after(() => fs.rm(root, { recursive: true, force: true }));
@@ -74,7 +75,7 @@ const question = (index = 0): LearningQuestion => {
   };
 };
 async function fixture(q = question()) {
-  await testStudent("a".repeat(64), "visitor");
+  await testStudent("a".repeat(64), visitor);
   const now = new Date().toISOString();
   const j: DocumentJob = {
     id: randomUUID(),
@@ -120,7 +121,7 @@ async function fixture(q = question()) {
     },
   };
   await writeJob(j);
-  const run = await startLearningRun(j.id, "visitor", { kind: "original" });
+  const run = await startLearningRun(j.id, visitor, { kind: "original" });
   return { j, run };
 }
 async function mockAI(
@@ -130,6 +131,9 @@ async function mockAI(
     dispatches: number;
   }) => Promise<void>,
 ) {
+  // Each test exercises a new learner; repeated content from earlier test runs
+  // must not count as this learner's already-assigned questions.
+  visitor = `visitor-${randomUUID()}`;
   const fetch = globalThis.fetch,
     key = process.env.OPENROUTER_API_KEY,
     start = similarDispatcher.start;
@@ -190,26 +194,26 @@ test("Five big questions retain four subparts, publish first early, preserve wor
       requestId: randomUUID(),
       difficulty: "same",
     };
-    const next = await requestSimilar(j.id, run.id, "visitor", request);
+    const next = await requestSimilar(j.id, run.id, visitor, request);
     assert.equal(next.questions.length, 0);
     assert.equal(next.similar?.difficulty, "same");
     assert.equal("source" in next.similar!, false);
     assert.equal(
-      "similarRequests" in runView(await readRun(j.id, run.id, "visitor")),
+      "similarRequests" in runView(await readRun(j.id, run.id, visitor)),
       false,
     );
     assert.equal(
-      (await requestSimilar(j.id, run.id, "visitor", request)).id,
+      (await requestSimilar(j.id, run.id, visitor, request)).id,
       next.id,
     );
     assert.equal(control.dispatches, 1);
-    let saved = await readRun(j.id, next.id, "visitor");
+    let saved = await readRun(j.id, next.id, visitor);
     const execution = saved.similar!.execution;
     assert.equal(
       await generateSimilarQuestion(j.id, next.id, 0, execution),
       true,
     );
-    saved = await readRun(j.id, next.id, "visitor");
+    saved = await readRun(j.id, next.id, visitor);
     assert.equal(saved.questions.length, 1);
     assert.equal(saved.similar?.status, "generating");
     assert.equal(runView(saved).questions[0].solution, undefined);
@@ -218,7 +222,7 @@ test("Five big questions retain four subparts, publish first early, preserve wor
     assert.equal("generationApproval" in runView(saved).questions[0], false);
     assert.equal(saved.questions[0].answerFields?.length, 4);
     assert.equal(control.calls, 2);
-    const hint = await changeRun(j.id, next.id, "visitor", {
+    const hint = await changeRun(j.id, next.id, visitor, {
       action: "hint",
       questionId: saved.questions[0].id,
       eventId: randomUUID(),
@@ -226,7 +230,7 @@ test("Five big questions retain four subparts, publish first early, preserve wor
     assert.equal(hint.questions[0].hint, saved.questions[0].hints[0]);
     await assert.rejects(
       () =>
-        changeRun(j.id, next.id, "visitor", {
+        changeRun(j.id, next.id, visitor, {
           action: "finish",
           eventId: randomUUID(),
         }),
@@ -237,13 +241,13 @@ test("Five big questions retain four subparts, publish first early, preserve wor
       await generateSimilarQuestion(j.id, next.id, 1, execution),
       false,
     );
-    saved = await readRun(j.id, next.id, "visitor");
+    saved = await readRun(j.id, next.id, visitor);
     assert.equal(saved.similar?.status, "failed");
     assert.match(saved.similar?.lastError || "", /Hint/);
     assert.equal("lastError" in runView(saved).similar!, false);
     control.reject = false;
-    await retrySimilar(j.id, next.id, "visitor");
-    saved = await readRun(j.id, next.id, "visitor");
+    await retrySimilar(j.id, next.id, visitor);
+    saved = await readRun(j.id, next.id, visitor);
     const nextExecution = saved.similar!.execution;
     assert.notEqual(nextExecution, execution);
     const calls = control.calls;
@@ -253,12 +257,12 @@ test("Five big questions retain four subparts, publish first early, preserve wor
     );
     assert.equal(control.calls, calls);
     await generateSimilarWorkflow(j.id, next.id, nextExecution);
-    saved = await readRun(j.id, next.id, "visitor");
+    saved = await readRun(j.id, next.id, visitor);
     assert.equal(saved.questions.length, 5);
     assert.equal(saved.similar?.status, "ready");
     const dispatches = control.dispatches;
     assert.equal(
-      (await retrySimilar(j.id, next.id, "visitor")).similar?.status,
+      (await retrySimilar(j.id, next.id, visitor)).similar?.status,
       "ready",
     );
     assert.equal(control.dispatches, dispatches);
@@ -267,8 +271,8 @@ test("Five big questions retain four subparts, publish first early, preserve wor
       [4, 4, 4, 4, 4],
     );
     assert.equal(saved.attempts[saved.questions[0].id].hintOpens, 1);
-    assert.equal((await readRun(j.id, run.id, "visitor")).questions.length, 1);
-    const finished = await changeRun(j.id, next.id, "visitor", {
+    assert.equal((await readRun(j.id, run.id, visitor)).questions.length, 1);
+    const finished = await changeRun(j.id, next.id, visitor, {
       action: "finish",
       eventId: randomUUID(),
     });
@@ -344,7 +348,7 @@ test("Similarity API validates origin, source access and difficulty, and stores 
       (await send([j.id, "runs", run.id, "similar"], body)).status,
       201,
     );
-    const saved = await readRun(j.id, next.id, "visitor");
+    const saved = await readRun(j.id, next.id, visitor);
     assert.notEqual(saved.similar?.execution, undefined);
   }));
 
@@ -436,15 +440,15 @@ test("Difficulty options retain the requested labels and progressive defaults to
 test("Background publication and written grading do not block or overwrite each other", async () =>
   mockAI(async () => {
     const { j, run } = await fixture();
-    const next = await requestSimilar(j.id, run.id, "visitor", {
+    const next = await requestSimilar(j.id, run.id, visitor, {
       questionId: "q0",
       requestId: randomUUID(),
       difficulty: "same",
     });
-    const execution = (await readRun(j.id, next.id, "visitor")).similar!
+    const execution = (await readRun(j.id, next.id, visitor)).similar!
       .execution;
     await generateSimilarQuestion(j.id, next.id, 0, execution);
-    const first = (await readRun(j.id, next.id, "visitor")).questions[0];
+    const first = (await readRun(j.id, next.id, visitor)).questions[0];
     const fetch = globalThis.fetch;
     let release!: () => void, started!: () => void;
     const gate = new Promise<void>((r) => (release = r)),
@@ -478,7 +482,7 @@ test("Background publication and written grading do not block or overwrite each 
       }
       return fetch(url, options);
     };
-    const submission = changeRun(j.id, next.id, "visitor", {
+    const submission = changeRun(j.id, next.id, visitor, {
       action: "answer",
       eventId: randomUUID(),
       questionId: first.id,
@@ -492,7 +496,7 @@ test("Background publication and written grading do not block or overwrite each 
       );
       release();
       await submission;
-      const saved = await readRun(j.id, next.id, "visitor");
+      const saved = await readRun(j.id, next.id, visitor);
       assert.equal(saved.questions.length, 2);
       assert.equal(saved.attempts[first.id].solved, true);
       assert.equal(saved.attempts[first.id].assessmentHistory?.length, 1);

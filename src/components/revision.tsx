@@ -6,10 +6,9 @@ import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
-  BookOpen,
   Check,
   FileText,
-  Layers3,
+  Glyph,
   LoaderCircle,
   Search,
   X,
@@ -18,6 +17,7 @@ import { subjects, type Subject, type PublicDocument } from "@/lib/documents";
 import type { RevisionCatalog, RevisionKind } from "@/lib/revision";
 import type { LearningView, RunView } from "@/lib/learning";
 import { ButtonLink, PageTitle } from "./ui";
+import { SubjectSelect } from "./subject-select";
 
 async function request<T>(path: string, body?: unknown): Promise<T> {
   const response = await fetch(`/api/documents${path}`, {
@@ -107,7 +107,18 @@ export function RevisionPage({ kind }: { kind: RevisionKind }) {
       setError("");
     }
   }
+  const createHint = busy
+    ? "Bộ luyện tập đang được chuẩn bị…"
+    : !selected.length
+      ? `Chọn ít nhất 1 ${byTopics ? "đề tài" : "tài liệu"} để bắt đầu.`
+      : !validCount
+        ? "Nhập số câu hỏi từ 5 đến 50 (số nguyên)."
+        : selected.length > count
+          ? `Cần ít nhất ${selected.length} câu để ôn đủ nội dung đã chọn.`
+          : `Đã sẵn sàng tạo bộ ${count} câu hỏi cho em.`;
   async function create() {
+    if (busy || !selected.length || !validCount || selected.length > count)
+      return;
     setBusy(true);
     setError("");
     try {
@@ -126,26 +137,31 @@ export function RevisionPage({ kind }: { kind: RevisionKind }) {
   }
   return (
     <>
-      <PageTitle
-        eyebrow="LUYỆN TẬP · TỪ TÀI LIỆU CỦA EM"
-        title={byTopics ? "Ôn tổng hợp" : "Ôn bài"}
-      >
-        {byTopics
-          ? "Chọn đề tài em muốn ôn. Mỗi câu hỏi đều dựa trên tài liệu đã nhận diện trong thư viện."
-          : "Gom những tài liệu đã học, tạo một bộ câu hỏi mới để ôn lại cùng nhau."}
-      </PageTitle>
+      <div className="learning-page-heading">
+        <PageTitle
+          eyebrow="LUYỆN TẬP · TỪ TÀI LIỆU CỦA EM"
+          title={byTopics ? "Ôn tổng hợp" : "Ôn bài"}
+        >
+          {byTopics
+            ? "Chọn đề tài em muốn ôn. Mỗi câu hỏi đều dựa trên tài liệu đã nhận diện trong thư viện."
+            : "Gom những tài liệu đã học, tạo một bộ câu hỏi mới để ôn lại cùng nhau."}
+        </PageTitle>
+        <span className="learning-page-emblem">
+          <Glyph token={byTopics ? "review-set" : "review"} size={62} />
+        </span>
+      </div>
       <div className="revision-tabs" aria-label="Cách ôn tập">
         <Link
           href="/luyen-tap/on-bai"
           aria-current={!byTopics ? "page" : undefined}
         >
-          <BookOpen size={18} /> Ôn bài
+          <Glyph token="review" size={18} /> Ôn bài
         </Link>
         <Link
           href="/luyen-tap/on-tong-hop"
           aria-current={byTopics ? "page" : undefined}
         >
-          <Layers3 size={18} /> Ôn tổng hợp
+          <Glyph token="review-set" size={18} /> Ôn tổng hợp
         </Link>
       </div>
       {error && (
@@ -172,25 +188,19 @@ export function RevisionPage({ kind }: { kind: RevisionKind }) {
           }}
         >
           <section className="card revision-picker">
-            <label className="field">
-              Môn học
-              <select
+            <div className="field revision-subject-field">
+              <span>Môn học</span>
+              <SubjectSelect
                 value={subject}
                 disabled={busy}
-                onChange={(e) => {
-                  setSubject(e.target.value as Subject);
+                onChange={(value) => {
+                  setSubject(value as Subject);
                   setSelected([]);
                   setSearch("");
                   setError("");
                 }}
-              >
-                {Object.entries(subjects).map(([key, info]) => (
-                  <option key={key} value={key}>
-                    {info.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+              />
+            </div>
             <p className="micro">
               Mỗi bộ luyện tập dành cho một môn. Đổi môn sẽ bỏ lựa chọn hiện
               tại.
@@ -227,7 +237,9 @@ export function RevisionPage({ kind }: { kind: RevisionKind }) {
                     aria-label={`Bỏ chọn ${options.find((o) => o.id === id)?.title || id}`}
                   >
                     {options.find((o) => o.id === id)?.title || id}
-                    <X size={14} />
+                    <span className="revision-chip-remove" aria-hidden="true">
+                      <X size={14} />
+                    </span>
                   </button>
                 ))}
               </div>
@@ -284,7 +296,10 @@ export function RevisionPage({ kind }: { kind: RevisionKind }) {
           </section>
           <aside className="card revision-summary">
             <span className="eyebrow">BỘ LUYỆN CỦA EM</span>
-            <h2>{subjects[subject].name}</h2>
+            <h2>
+              <Glyph token={subjects[subject].icon} size={30} />
+              {subjects[subject].name}
+            </h2>
             <p>
               {selected.length} {byTopics ? "đề tài" : "tài liệu"} đã chọn
             </p>
@@ -298,10 +313,14 @@ export function RevisionPage({ kind }: { kind: RevisionKind }) {
                 required
                 value={countInput}
                 disabled={busy}
+                aria-invalid={!validCount}
+                aria-describedby="revision-count-help"
                 onChange={(e) => setCountInput(e.target.value)}
               />
             </label>
-            <p className="micro">Mặc định 25 câu · Tùy chọn 5–50 câu.</p>
+            <p className="micro" id="revision-count-help">
+              Mặc định 25 câu · Tùy chọn 5–50 câu.
+            </p>
             {selected.length > count && (
               <p className="notice">
                 Chọn số câu ít nhất bằng số {byTopics ? "đề tài" : "tài liệu"}{" "}
@@ -309,12 +328,29 @@ export function RevisionPage({ kind }: { kind: RevisionKind }) {
               </p>
             )}
             <div className="revision-benefits">
-              <p>✓ Câu hỏi mới bám tài liệu nguồn</p>
-              <p>✓ Có gợi ý, đáp án và giải thích</p>
-              <p>✓ Tiến độ và kết quả lưu vào Hành trình</p>
+              <p>
+                <Check size={16} />
+                Câu hỏi mới bám tài liệu nguồn
+              </p>
+              <p>
+                <Check size={16} />
+                Có gợi ý, đáp án và giải thích
+              </p>
+              <p>
+                <Check size={16} />
+                Tiến độ và kết quả lưu vào Hành trình
+              </p>
             </div>
+            <p
+              className="revision-create-hint"
+              id="revision-create-hint"
+              role="status"
+            >
+              {createHint}
+            </p>
             <button
               type="submit"
+              aria-describedby="revision-create-hint"
               className="button full"
               disabled={
                 busy ||

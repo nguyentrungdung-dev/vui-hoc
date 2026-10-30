@@ -1,3 +1,4 @@
+import { resolveFigureEstimate } from "../lib/source-repairs";
 import sharp from "sharp";
 import { z } from "zod";
 import type { AnalysisBatch, FigureRegion } from "../lib/documents";
@@ -231,6 +232,18 @@ export async function locateQuestionFigures(
             "Chưa hoàn tất định vị/kiểm tra hình. Tìm lại hộp hình trên trang gốc, không trả cả trang.";
         }
       }
+    }
+  }
+  for (const q of result.questions) {
+    if (
+      q.hasFigure &&
+      !q.figureIssue &&
+      q.sourcePages.every(
+        (page) =>
+          images.has(page) && q.figureRegions?.some((r) => r.page === page),
+      )
+    ) {
+      resolveFigureEstimate(q);
     }
   }
   return result;

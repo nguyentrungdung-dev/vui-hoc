@@ -26,6 +26,7 @@ Giữ phong cách vector pastel tự thiết kế hiện tại. Icon phải kh�
 | Thư viện     | Kệ sách nhiều gáy sách                                   |
 | Luyện tập    | Tờ bài tập                                               |
 | Ôn bài       | Vòng mũi tên ôn lại                                      |
+| Ôn tổng hợp  | Sách mở, thống nhất giữa menu, tab và tiêu đề |
 | Tạo tài liệu | Tải tài liệu lên                                         |
 | Hành trình   | Đồng hồ và dấu lịch sử                                   |
 | Huy chương   | Huy chương có ruy băng                                   |

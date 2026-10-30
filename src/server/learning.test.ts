@@ -353,7 +353,8 @@ test("Generation integrates schema + independent review, repairs rejected answer
     });
     generationCalls = 0;
     await processLearning(j.id);
-    assert.equal(generationCalls, 1);
+    // The reviewed questions survive in the bank even if the part was interrupted.
+    assert.equal(generationCalls, 0);
     assert.equal((await readJob(j.id)).learning?.status, "ready");
   } finally {
     globalThis.fetch = previousFetch;
@@ -774,4 +775,110 @@ test("Choice binding ignores JSONB object-key order but detects actual content c
     false,
   );
   assert.equal(sameSourceOptions(stored, [parsed[1], parsed[0]]), false);
+});
+
+test("a restored ten-part source cannot pass with a rubric covering only three answers", () => {
+  const q: LearningQuestion = {
+    ...question(),
+    grading: "self_review",
+    options: [],
+    answerFields: Array.from({ length: 10 }, (_, i) => ({
+      id: String(i + 1),
+      label: String(i + 1),
+    })),
+    rubric: Array.from({ length: 3 }, (_, i) => ({
+      id: String(i + 1),
+      label: String(i + 1),
+      criteria: "Câu viết lại đúng yêu cầu",
+      maxPoints: 1,
+      kind: "result",
+    })),
+    checks: [],
+  };
+  assert.throws(
+    () => validateTeaching(q, [1], ["source1"], false),
+    /từng ô trả lời/,
+  );
+  q.rubric = Array.from({ length: 10 }, (_, i) => ({
+    id: String(i + 1),
+    label: String(i + 1),
+    criteria: "Câu viết lại đúng yêu cầu",
+    maxPoints: 1,
+    kind: "result",
+  }));
+  assert.doesNotThrow(() => validateTeaching(q, [1], ["source1"], false));
+});
+
+test("a new run must not reuse a stale three-field answer after the source has been joined to five fields", async () => {
+  const j = job();
+  const base = j.batches[0].result!.questions[0];
+  const instruction = "Chuyển các câu sau sang câu nghi vấn.";
+  const head = {
+    ...base,
+    label: "Bài 4",
+    prompt: instruction,
+    passage:
+      "Bài 4. " +
+      instruction +
+      " 1. She is here. 2. They are here. 3. He likes music.",
+    kind: "other" as const,
+    sourcePages: [2],
+    options: [],
+    answerFields: [1, 2, 3].map((n) => ({ id: String(n), label: String(n) })),
+    needsReview: false,
+    issues: [],
+  };
+  const tail = {
+    ...head,
+    label: "Bài 4 (câu 4–5)",
+    prompt: "Bài 4 thiếu đầu đề",
+    passage: "4. We play football. 5. It is cold.",
+    sourcePages: [3],
+    answerFields: [4, 5].map((n) => ({ id: String(n), label: String(n) })),
+  };
+  j.batches = [
+    {
+      key: "head",
+      pages: [2],
+      result: {
+        summary: "",
+        pages: [
+          { page: 2, text: head.passage, topics: [base.topic], issues: [] },
+        ],
+        questions: [head],
+      },
+    },
+    {
+      key: "tail",
+      pages: [3],
+      result: {
+        summary: "",
+        pages: [
+          { page: 3, text: tail.passage, topics: [base.topic], issues: [] },
+        ],
+        questions: [tail],
+      },
+    },
+  ];
+  j.learning = preparePack(j, { count: 0, topics: [], scope: "original" });
+  j.learning.status = "ready";
+  j.learning.parts[0].done = true;
+  j.learning.parts[0].questions = [
+    {
+      ...question("head-0"),
+      prompt: instruction,
+      passage: head.passage,
+      answerFields: head.answerFields,
+    },
+  ];
+  await writeJob(j);
+  const run = await startLearningRun(j.id, j.owner, { kind: "original" });
+  assert.equal(run.questions.length, 1);
+  assert.equal(run.questions[0].answerFields?.length, 5);
+  assert.equal(run.questions[0].grading, "ungraded");
+  assert.match(run.questions[0].ungradableReason || "", /kiểm định lại/);
+  assert.equal(
+    (await readJob(j.id)).learning!.parts[0].questions[0].answerFields?.length,
+    3,
+  );
 });
