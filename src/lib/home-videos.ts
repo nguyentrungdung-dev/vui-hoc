@@ -1,7 +1,6 @@
 export type HomeVideo = {
   youtubeId: string | null;
   title: string;
-  allowEmbed?: boolean;
   embedUrl?: string;
 };
 
@@ -9,27 +8,23 @@ export type HomeVideo = {
 // Embed URLs supplied by the user, including YouTube's sharing parameters.
 export const homeVideos: readonly HomeVideo[] = [
   {
-    youtubeId: "STzVMU2bhjE",
+    youtubeId: "qTQwaWPfZlw",
     title: "Video 01",
-    allowEmbed: true,
-    embedUrl: "https://www.youtube.com/embed/STzVMU2bhjE?si=H9v52V35hce0l64r",
+    embedUrl: "https://www.youtube.com/embed/qTQwaWPfZlw?si=rc1VdLVKQuRWxD1k",
   },
   {
-    youtubeId: "f0o5NQ9MUjs",
+    youtubeId: "3acYaHSFdVA",
     title: "Video 02",
-    allowEmbed: true,
-    embedUrl: "https://www.youtube.com/embed/f0o5NQ9MUjs?si=WCNTVBKQGjY1hg1G",
+    embedUrl: "https://www.youtube.com/embed/3acYaHSFdVA?si=aR4Aly1_L6-O9vCE",
   },
   {
-    youtubeId: "0P1pqrQnWt8",
+    youtubeId: "2YwWn2M3wts",
     title: "Video 03",
-    allowEmbed: true,
-    embedUrl: "https://www.youtube.com/embed/0P1pqrQnWt8?si=w_Ecc8QEkDIcRaIf",
+    embedUrl: "https://www.youtube.com/embed/2YwWn2M3wts?si=PW5m9sGWbsvFykY4",
   },
   {
-    youtubeId: "ctRTaBaGh5Y",
+    youtubeId: "nyFvkfRPrDw",
     title: "Video 04",
-    allowEmbed: true,
-    embedUrl: "https://www.youtube.com/embed/ctRTaBaGh5Y?si=JUX5dPNlRtFwIfbw",
+    embedUrl: "https://www.youtube.com/embed/nyFvkfRPrDw?si=OtMW1vCU8Bi-jQCi",
   },
 ];

@@ -11,17 +11,7 @@ export function HomeVideos() {
           const content = (
             <>
               <div className="home-video-preview">
-                {video.youtubeId && video.allowEmbed ? (
-                  <iframe
-                    src={`${video.embedUrl || `https://www.youtube.com/embed/${video.youtubeId}`}${video.embedUrl ? "&" : "?"}autoplay=1&mute=1&playsinline=1&controls=0&disablekb=1&loop=1&playlist=${video.youtubeId}&rel=0`}
-                    title={video.title}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowFullScreen
-                    referrerPolicy="strict-origin-when-cross-origin"
-                    tabIndex={-1}
-                    aria-hidden="true"
-                  />
-                ) : video.youtubeId ? (
+                {video.youtubeId ? (
                   <>
                     {/* Native image: YouTube serves the selected video's cover. */}
                     <img
